@@ -1,7 +1,7 @@
-# IST Auth Service
+# IST Africa Auth
 
 ## 🧩 Overview
-The **IST Auth Service** is a centralized authentication and authorization system used across all internal applications.  
+The **IST Africa Auth** is a centralized authentication and authorization system used across all internal applications.  
 It provides a consistent user management interface, token-based authentication, and integration with multiple clients via REST APIs and OAuth2.
 
 ## 🎯 Goals
