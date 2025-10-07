@@ -470,34 +470,9 @@ Token.init({
 
 ---
 
-## 10. Example Implementation Snippet (NestJS)
+## 🔐 Authorization Code Flow (IST Africa Auth)
 
-```js
-import jwt from 'jsonwebtoken';
-import { readFileSync } from 'fs';
-
-const privateKey = readFileSync('keys/private.pem');
-
-export function issueAccessToken(user, audience) {
-  return jwt.sign(
-    {
-      sub: user.id,
-      email: user.email,
-      user_type: user.user_type
-    },
-    privateKey,
-    {
-      algorithm: 'RS256',
-      expiresIn: '1h',
-      issuer: 'https://auth.istafrica.com',
-      audience
-    }
-  );
-}
-```
-
----
-
+```text
 User (browser)
    |
    | 1) Click "Login with IST Africa"
@@ -548,8 +523,7 @@ Client Backend --> IAA /auth/logout { refresh_token }
    IAA revokes refresh_token (invalidates sessions)
 
 -- JWKS & Key Rotation --
-IAA publishes /auth/jwks (n, e, kid). Clients cache JWKS (e.g., refresh every 12h).
+IAA publishes /auth/jwks (n, e, kid).
+Clients cache JWKS (e.g., refresh every 12h).
 IAA rotates signing keys periodically (e.g., every 6 months) and exposes new `kid`.
-
-
 
