@@ -498,8 +498,6 @@ export function issueAccessToken(user, audience) {
 
 ---
 
-## Architectural Diagram 
-
 User (browser)
    |
    | 1) Click "Login with IST Africa"
@@ -552,5 +550,6 @@ Client Backend --> IAA /auth/logout { refresh_token }
 -- JWKS & Key Rotation --
 IAA publishes /auth/jwks (n, e, kid). Clients cache JWKS (e.g., refresh every 12h).
 IAA rotates signing keys periodically (e.g., every 6 months) and exposes new `kid`.
+
 
 
