@@ -498,6 +498,59 @@ export function issueAccessToken(user, audience) {
 
 ---
 
-Would you like me to include an **architecture diagram** for the Authorization Code Flow (User → Client → IAA → Tokens → API) as ASCII or SVG format next? It helps tie all sections together for visual learners.
+## Architectural Diagram 
+
+User (browser)
+   |
+   | 1) Click "Login with IST Africa"
+   v
+Client App (Frontend) -------------------------
+   |                                          |
+   | 2) Redirect (GET) to IAA /login          |
+   |    (client_id + redirect_uri + state)    |
+   v                                          |
+IAA (Auth Server)                              |
+   |                                          |
+   | 3) User authenticates (email/password / federated)
+   |                                          |
+   | 4) IAA issues short-lived AUTHORIZATION CODE
+   |    and redirects browser to redirect_uri:
+   |    https://app/callback?code=AUTH_CODE
+   v                                          |
+Client App (Frontend) -------------------------
+   |
+   | 5) Forward code to Client Backend (server)
+   v
+Client Backend ------------------------------> IAA /auth/token
+   | 6) POST { code, client_id, client_secret }
+   |                                          |
+   | 7) IAA validates code, client, redirect_uri
+   |    then issues:
+   |    - access_token (JWT, RS256)
+   |    - refresh_token (opaque UUID)
+   v                                          |
+Client Backend <------------------------------
+   |
+   | 8) Client stores refresh token securely (server-side)
+   |    Uses access_token to call Resource API:
+   v
+Resource Server / API
+   | 9) API verifies JWT signature & claims:
+   |    - retrieve matching JWKS key by `kid` (cached)
+   |    - check `iss`, `aud`, `exp`, `sub`
+   v
+Protected Resource returned to Client
+
+-- Refresh flow (when access_token expires) --
+Client Backend --> IAA /auth/refresh { refresh_token }
+   IAA validates and returns new access_token (and optionally refresh_token)
+
+-- Logout / Revoke --
+Client Backend --> IAA /auth/logout { refresh_token }
+   IAA revokes refresh_token (invalidates sessions)
+
+-- JWKS & Key Rotation --
+IAA publishes /auth/jwks (n, e, kid). Clients cache JWKS (e.g., refresh every 12h).
+IAA rotates signing keys periodically (e.g., every 6 months) and exposes new `kid`.
 
 
