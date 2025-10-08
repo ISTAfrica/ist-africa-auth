@@ -19,8 +19,7 @@ It provides a consistent user management interface, token-based authentication, 
 
 ## ⚙️ Technical Documentation
 
-Perfect. Below is the **final, fully rewritten, README-style Developer Guide** for
-🧾 **IST Africa Auth (IAA)** — incorporating your updates, fixes, and full domain context for junior developers.
+🧾 **IST Africa Auth (IAA)**
 
 It’s designed to be copy-pasted directly into a repository (`README.md`) or shared internally.
 Everything is explained progressively — from concept to implementation.
