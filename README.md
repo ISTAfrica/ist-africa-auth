@@ -109,32 +109,51 @@ IAA issues two main types of tokens:
 
 ### JWT & JWKS
 
+IAA uses **RSA256 (RS256)** JWT tokens with **asymmetric encryption** (private/public key pairs).
+
+#### JWT Structure
 A **JWT (JSON Web Token)** is a signed token that encodes identity claims.
 It has 3 parts: Header, Payload, and Signature.
 
-The **JWKS (JSON Web Key Set)** endpoint exposes public keys used by client apps to verify JWT signatures.
+#### Encryption Method: RSA256
+- **Algorithm:** RS256 (RSA Signature with SHA-256)
+- **Key Type:** Asymmetric (private/public key pair)
+- **Signing:** IAA uses **private key** to sign tokens
+- **Verification:** Client apps use **public key** to verify signatures
 
-Example JWKS:
+#### JWKS (JSON Web Key Set)
+The **JWKS endpoint** (`/auth/jwks`) exposes public keys that client apps use to verify JWT signatures.
+
+**Example JWKS Response:**
 
 ```json
 {
   "keys": [
     {
-      "kty": "RSA",
-      "use": "sig",
-      "kid": "key-2025-01",
-      "alg": "RS256",
-      "n": "AKLweUqJ2hJ3u43oB2...", 
-      "e": "AQAB"
+      "kty": "RSA",           // Key Type: RSA
+      "use": "sig",           // Use: Signature
+      "kid": "key-2025-01",   // Key ID (for rotation)
+      "alg": "RS256",         // Algorithm: RSA256
+      "n": "AKLweUqJ2hJ3u43oB2...",  // RSA Modulus (public key)
+      "e": "AQAB"             // RSA Exponent (public key)
     }
   ]
 }
 ```
 
-* `n`: the RSA **modulus**
-* `e`: the RSA **exponent**
+**Key Components:**
+- `kty`: Key Type (RSA)
+- `use`: Key Use (signature)
+- `kid`: Key ID (for key rotation)
+- `alg`: Algorithm (RS256)
+- `n`: RSA **modulus** (public key component)
+- `e`: RSA **exponent** (public key component)
 
-These two values uniquely represent the public key.
+#### Security Benefits of RSA256
+- **Asymmetric encryption:** Private key stays secure on IAA server
+- **Public key distribution:** Client apps can verify tokens without secret keys
+- **Key rotation:** IAA can rotate keys while maintaining backward compatibility
+- **Industry standard:** Widely supported and secure
 
 ---
 
@@ -396,6 +415,146 @@ https://auth.ist.africa/api
   "sub": "user:73bde923",
   "email": "alice@ist.africa",
   "user_type": "ist_member"
+}
+```
+
+---
+
+## Client Management APIs
+
+### `/api/clients` (POST)
+
+**Initiated by:** System administrators
+**When:** Registering a new client application
+**Why:** To allow a new application to integrate with IAA.
+
+**Request**
+
+```json
+{
+  "name": "IST Academy",
+  "description": "Learning management system for IST Africa",
+  "redirect_uri": "https://academy.ist.africa/callback",
+  "allowed_origins": ["https://academy.ist.africa"]
+}
+```
+
+**Response**
+
+```json
+{
+  "id": "client:abc123",
+  "client_id": "academy-app",
+  "client_secret": "secret_xyz789",
+  "name": "IST Academy",
+  "description": "Learning management system for IST Africa",
+  "redirect_uri": "https://academy.ist.africa/callback",
+  "allowed_origins": ["https://academy.ist.africa"],
+  "created_at": "2024-01-15T10:30:00Z",
+  "status": "active"
+}
+```
+
+**Error Responses**
+
+```json
+{ "error": "invalid_redirect_uri", "message": "Redirect URI must be HTTPS" }
+{ "error": "duplicate_client", "message": "Client with this name already exists" }
+```
+
+### `/api/clients` (GET)
+
+**Initiated by:** System administrators
+**When:** Viewing all registered clients
+**Why:** To manage and monitor client applications.
+
+**Response**
+
+```json
+{
+  "clients": [
+    {
+      "id": "client:abc123",
+      "client_id": "academy-app",
+      "name": "IST Academy",
+      "status": "active",
+      "created_at": "2024-01-15T10:30:00Z"
+    },
+    {
+      "id": "client:def456",
+      "client_id": "hr-system",
+      "name": "HR Management",
+      "status": "active",
+      "created_at": "2024-01-10T14:20:00Z"
+    }
+  ],
+  "total": 2
+}
+```
+
+### `/api/clients/:id` (PUT)
+
+**Initiated by:** System administrators
+**When:** Updating client configuration
+**Why:** To modify client settings or regenerate secrets.
+
+**Request**
+
+```json
+{
+  "name": "IST Academy Updated",
+  "description": "Updated learning management system",
+  "redirect_uri": "https://academy.ist.africa/callback",
+  "allowed_origins": ["https://academy.ist.africa", "https://app.academy.ist.africa"],
+  "status": "active"
+}
+```
+
+**Response**
+
+```json
+{
+  "id": "client:abc123",
+  "client_id": "academy-app",
+  "client_secret": "secret_xyz789",
+  "name": "IST Academy Updated",
+  "description": "Updated learning management system",
+  "redirect_uri": "https://academy.ist.africa/callback",
+  "allowed_origins": ["https://academy.ist.africa", "https://app.academy.ist.africa"],
+  "status": "active",
+  "updated_at": "2024-01-20T09:15:00Z"
+}
+```
+
+### `/api/clients/:id/regenerate-secret` (POST)
+
+**Initiated by:** System administrators
+**When:** Client secret is compromised
+**Why:** To generate a new client secret for security.
+
+**Response**
+
+```json
+{
+  "id": "client:abc123",
+  "client_id": "academy-app",
+  "client_secret": "new_secret_abc123",
+  "secret_generated_at": "2024-01-20T09:15:00Z"
+}
+```
+
+### `/api/clients/:id` (DELETE)
+
+**Initiated by:** System administrators
+**When:** Deactivating a client application
+**Why:** To revoke access for a client application.
+
+**Response**
+
+```json
+{
+  "message": "Client application deactivated successfully",
+  "deactivated_at": "2024-01-20T09:15:00Z"
 }
 ```
 
