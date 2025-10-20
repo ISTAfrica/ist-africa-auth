@@ -1,0 +1,9 @@
+# Nestjs specific
+/dist
+/node_modules
+/build
+/tmp
+# compiled output
+/dist
+/node_modules
+/build
