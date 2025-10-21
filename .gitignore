@@ -7,3 +7,8 @@
 /dist
 /node_modules
 /build
+# dotenv environment variable files
+.env
+.env.development
+.env.test
+.env.production
