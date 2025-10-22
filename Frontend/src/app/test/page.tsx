@@ -36,6 +36,7 @@ export default async function TestPage() {
           <p className="text-2xl text-yellow-200 font-semibold" style={{fontSize: '1.5rem', color: '#fef08a', fontWeight: '600'}}>
             IST Africa Auth - Test Page
           </p>
+          <h1 className="text-red-500">IST</h1>
         </div>
 
         {/* Colorful Cards Grid */}
