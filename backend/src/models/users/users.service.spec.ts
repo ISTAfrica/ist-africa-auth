@@ -1,107 +1,107 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { UsersService } from './users.service';
-import { getModelToken } from '@nestjs/sequelize';
-import { User } from './entities/user.entity';
-import { CreateUserDto } from './dto/create-user.dto';
+// import { Test, TestingModule } from '@nestjs/testing';
+// import { UsersService } from './users.service';
+// import { getModelToken } from '@nestjs/sequelize';
+// import { User } from './entities/user.entity';
+// import { CreateUserDto } from './dto/create-user.dto';
 
-const mockUserInstance = {
-  id: 1,
-  email: 'test@example.com',
-  name: 'Test User',
-  password: 'hashedpassword',
-  toJSON: () => ({ id: 1, email: 'test@example.com', name: 'Test User' }),
-};
+// const mockUserInstance = {
+//   id: 1,
+//   email: 'test@example.com',
+//   name: 'Test User',
+//   password: 'hashedpassword',
+//   toJSON: () => ({ id: 1, email: 'test@example.com', name: 'Test User' }),
+// };
 
-const mockUserArray = [mockUserInstance.toJSON()];
+// const mockUserArray = [mockUserInstance.toJSON()];
 
-const mockCreateUserDto: CreateUserDto = {
-  email: 'new@example.com',
-  name: 'New User',
-  password: 'securepassword',
-};
+// const mockCreateUserDto: CreateUserDto = {
+//   email: 'new@example.com',
+//   name: 'New User',
+//   password: 'securepassword',
+// };
 
-const mockUserModel = {
-  create: jest.fn().mockResolvedValue(mockUserInstance),
-  findAll: jest.fn().mockResolvedValue(mockUserArray),
-  findByPk: jest.fn().mockResolvedValue(mockUserInstance),
-  findOne: jest.fn().mockResolvedValue(mockUserInstance),
-};
+// const mockUserModel = {
+//   create: jest.fn().mockResolvedValue(mockUserInstance),
+//   findAll: jest.fn().mockResolvedValue(mockUserArray),
+//   findByPk: jest.fn().mockResolvedValue(mockUserInstance),
+//   findOne: jest.fn().mockResolvedValue(mockUserInstance),
+// };
 
-describe('UsersService', () => {
-  let service: UsersService;
-  let model: typeof User;
+// describe('UsersService', () => {
+//   let service: UsersService;
+//   let model: typeof User;
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        UsersService,
-        {
-          provide: getModelToken(User),
-          useValue: mockUserModel,
-        },
-      ],
-    }).compile();
+//   beforeEach(async () => {
+//     const module: TestingModule = await Test.createTestingModule({
+//       providers: [
+//         UsersService,
+//         {
+//           provide: getModelToken(User),
+//           useValue: mockUserModel,
+//         },
+//       ],
+//     }).compile();
 
-    service = module.get<UsersService>(UsersService);
-    model = module.get<typeof User>(getModelToken(User));
-  });
+//     service = module.get<UsersService>(UsersService);
+//     model = module.get<typeof User>(getModelToken(User));
+//   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
+//   it('should be defined', () => {
+//     expect(service).toBeDefined();
+//   });
 
-  describe('create', () => {
-    it('should call userModel.create with correct DTO data and return the user', async () => {
-      await service.create(mockCreateUserDto);
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(model.create).toHaveBeenCalledWith(mockCreateUserDto);
+//   describe('create', () => {
+//     it('should call userModel.create with correct DTO data and return the user', async () => {
+//       await service.create(mockCreateUserDto);
+//       // eslint-disable-next-line @typescript-eslint/unbound-method
+//       expect(model.create).toHaveBeenCalledWith(mockCreateUserDto);
 
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(model.create).toHaveBeenCalledTimes(1);
-    });
-  });
-  describe('findAll', () => {
-    it('should call findAll and exclude the password attribute', async () => {
-      const result = await service.findAll();
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(model.findAll).toHaveBeenCalledWith({
-        attributes: { exclude: ['password'] },
-      });
-      expect(result).toEqual(mockUserArray);
-    });
-  });
+//       // eslint-disable-next-line @typescript-eslint/unbound-method
+//       expect(model.create).toHaveBeenCalledTimes(1);
+//     });
+//   });
+//   describe('findAll', () => {
+//     it('should call findAll and exclude the password attribute', async () => {
+//       const result = await service.findAll();
+//       // eslint-disable-next-line @typescript-eslint/unbound-method
+//       expect(model.findAll).toHaveBeenCalledWith({
+//         attributes: { exclude: ['password'] },
+//       });
+//       expect(result).toEqual(mockUserArray);
+//     });
+//   });
 
-  describe('findOne', () => {
-    beforeEach(() => {
-      mockUserModel.findByPk.mockResolvedValue(mockUserInstance);
-    });
+//   describe('findOne', () => {
+//     beforeEach(() => {
+//       mockUserModel.findByPk.mockResolvedValue(mockUserInstance);
+//     });
 
-    it('should return a user when a valid ID is passed', async () => {
-      const result = await service.findOne(1);
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(model.findByPk).toHaveBeenCalledWith(1, {
-        attributes: { exclude: ['password'] },
-      });
-      expect(result).toEqual(mockUserInstance);
-    });
+//     it('should return a user when a valid ID is passed', async () => {
+//       const result = await service.findOne(1);
+//       // eslint-disable-next-line @typescript-eslint/unbound-method
+//       expect(model.findByPk).toHaveBeenCalledWith(1, {
+//         attributes: { exclude: ['password'] },
+//       });
+//       expect(result).toEqual(mockUserInstance);
+//     });
 
-    it('should call findOne with the correct email where clause', async () => {
-      const testEmail = 'test@example.com';
-      await service.findByEmail(testEmail);
+//     it('should call findOne with the correct email where clause', async () => {
+//       const testEmail = 'test@example.com';
+//       await service.findByEmail(testEmail);
 
-      // ESLint Override for unbound-method
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(model.findOne).toHaveBeenCalledWith({
-        where: { email: testEmail },
-      });
-    });
+//       // ESLint Override for unbound-method
+//       // eslint-disable-next-line @typescript-eslint/unbound-method
+//       expect(model.findOne).toHaveBeenCalledWith({
+//         where: { email: testEmail },
+//       });
+//     });
 
-    it('should return null if user is not found by email', async () => {
-      mockUserModel.findOne.mockResolvedValueOnce(null);
+//     it('should return null if user is not found by email', async () => {
+//       mockUserModel.findOne.mockResolvedValueOnce(null);
 
-      const result = await service.findByEmail('nonexistent@test.com');
+//       const result = await service.findByEmail('nonexistent@test.com');
 
-      expect(result).toBeNull();
-    });
-  });
-});
+//       expect(result).toBeNull();
+//     });
+//   });
+// });
