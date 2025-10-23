@@ -1,39 +1,38 @@
 name: CI / Unit Tests
-
 on:
-  # Triggers the workflow on push or pull request events to the 'main' branch
+  # Triggers the workflow on push to any branch or pull request events to the 'main' branch
   push:
-    branches: [ main ]
+    branches: 
+      - main
+      - 'ft/Setup-Test-Environment'  # All feature branches starting with ft/
   pull_request:
-    branches: [ main ]
+    branches: [ develop ]
 
 jobs:
   test:
     name: Run Jest Tests
     # Run on the latest stable version of Ubuntu
     runs-on: ubuntu-latest
-
     strategy:
       # Test against multiple Node.js versions
       matrix:
         node-version: [18.x, 20.x]
-
     steps:
       - name: Checkout Repository
         # Action to check out your repository code
         uses: actions/checkout@v4
-
+      
       - name: Set up Node.js ${{ matrix.node-version }}
         # Action to set up the specific Node version
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm' # Use npm caching for faster installs
-
+      
       - name: Install Dependencies
         # Install project dependencies
         run: npm install
-
+      
       - name: Run Unit Tests
         # Execute the test script defined in package.json (npm run test)
         run: npm run test -- --passWithNoTests # Use --passWithNoTests in case you have no tests initially
