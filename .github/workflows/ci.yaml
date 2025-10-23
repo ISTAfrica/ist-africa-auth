@@ -11,6 +11,9 @@ jobs:
   test:
     name: Run Jest Tests
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
     strategy:
       matrix:
         node-version: [18.x, 20.x]
@@ -22,15 +25,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
 
       - name: Install Dependencies
-        working-directory: ./backend
-        run: npm ci
+        run: npm install
 
       - name: Run Unit Tests
-        working-directory: ./backend
         run: npm run test -- --passWithNoTests
         env:
           NODE_ENV: test
