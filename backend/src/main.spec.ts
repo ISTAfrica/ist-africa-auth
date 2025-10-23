@@ -1,5 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+
+// Mock AppModule BEFORE importing it
+jest.mock('./app/app.module', () => ({
+  AppModule: class MockAppModule {},
+}));
+
 import { AppModule } from './app/app.module';
 
 // Mock NestFactory
