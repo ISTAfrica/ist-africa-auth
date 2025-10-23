@@ -22,11 +22,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
 
       - name: Install Dependencies
-        run: npm install
+        working-directory: ./backend
+        run: npm ci
 
       - name: Run Unit Tests
+        working-directory: ./backend
         run: npm run test -- --passWithNoTests
         env:
           NODE_ENV: test
