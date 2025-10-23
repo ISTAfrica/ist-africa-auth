@@ -1,12 +1,12 @@
 name: CI / Unit Tests
 on:
-  # Triggers the workflow on push to any branch or pull request events to the 'main' branch
+  # Triggers the workflow on push to any branch or pull request events to the 'develop' branch
   push:
-    branches: 
+    branches:
       - main
-      - 'ft/Setup-Test-Environment'  # All feature branches starting with ft/
+      - "ft/Setup-Test-Environment"
   pull_request:
-    branches: [ develop ]
+    branches: [develop]
 
 jobs:
   test:
@@ -21,25 +21,25 @@ jobs:
       - name: Checkout Repository
         # Action to check out your repository code
         uses: actions/checkout@v4
-      
+
       - name: Set up Node.js ${{ matrix.node-version }}
         # Action to set up the specific Node version
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm' # Use npm caching for faster installs
-      
+          # Removed cache to avoid lock file error
+
       - name: Install Dependencies
         # Install project dependencies
         run: npm install
-      
+
       - name: Run Unit Tests
         # Execute the test script defined in package.json (npm run test)
         run: npm run test -- --passWithNoTests # Use --passWithNoTests in case you have no tests initially
         env:
-          # Note: Unit tests should ideally not need real DB credentials. 
+          # Note: Unit tests should ideally not need real DB credentials.
           # However, if integration tests are included, you would need to set up mock DB services or use this:
-          NODE_ENV: test 
-          # DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }} 
-          # Note: If your tests need a live DB (integration tests), you'd need to set up a service container 
+          NODE_ENV: test
+          # DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+          # Note: If your tests need a live DB (integration tests), you'd need to set up a service container
           # for Postgres in the workflow and use GitHub secrets for credentials.
