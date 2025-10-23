@@ -7,7 +7,7 @@ import { UsersModule } from '../models/users/users.module';
 describe('AppModule', () => {
   let appModule: TestingModule;
 
-  beforeEach(async () => {
+  beforeEach(async function (this: void) {
     const moduleBuilder = await Test.createTestingModule({
       imports: [AppModule],
     })
@@ -24,21 +24,26 @@ describe('AppModule', () => {
         SequelizeModule.forRoot({
           dialect: 'sqlite',
           storage: ':memory:',
+          logging: false,
         }),
       )
-
       .compile();
 
     appModule = moduleBuilder;
   });
-  it('should be defined and compile successfully with mocked dependencies', () => {
+
+  it('should be defined and compile successfully with mocked dependencies', function (this: void) {
     expect(appModule).toBeDefined();
   });
-  it('should include the UsersModule', () => {
+
+  it('should include the UsersModule', function (this: void) {
     const hasUsersModule = appModule.get(UsersModule);
     expect(hasUsersModule).toBeDefined();
   });
-  afterAll(async () => {
-    await appModule.close();
+
+  afterAll(async function (this: void) {
+    if (appModule) {
+      await appModule.close();
+    }
   });
 });
