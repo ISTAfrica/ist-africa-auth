@@ -11,10 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
-    defaults:
-      run:
-        working-directory: ./backend
-
     services:
       postgres:
         image: postgres:15
@@ -43,7 +39,7 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
-          cache-dependency-path: 'backend/package-lock.json'
+          cache-dependency-path: backend/package-lock.json
 
       - name: Verify PostgreSQL is ready
         run: |
@@ -62,16 +58,19 @@ jobs:
           PGPASSWORD: testpassword
 
       - name: Install dependencies
+        working-directory: ./backend
         run: |
           echo "Installing dependencies..."
           npm ci --prefer-offline --no-audit
         timeout-minutes: 5
 
       - name: Build TypeScript
+        working-directory: ./backend
         run: npm run build
         timeout-minutes: 3
 
       - name: Create .env file for testing
+        working-directory: ./backend
         run: |
           echo "DB_HOST=localhost" >> .env.test
           echo "DB_PORT=5432" >> .env.test
@@ -81,6 +80,7 @@ jobs:
           echo "NODE_ENV=test" >> .env.test
 
       - name: Run tests
+        working-directory: ./backend
         run: npm test
         timeout-minutes: 5
         env:
@@ -92,6 +92,7 @@ jobs:
           NODE_ENV: test
 
       - name: Run test coverage
+        working-directory: ./backend
         run: npm run test:cov
         timeout-minutes: 5
         env:
