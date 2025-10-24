@@ -1,10 +1,10 @@
-// src/app/page.tsx
 import Logo from '@/components/auth/Logo';
 import { Header } from '../components/welcome/Header';
 import { Hero } from '../components/welcome/Hero';
 import { Features } from '../components/welcome/Features';
 import { Benefits } from '../components/welcome/Benefits';
 import { CTA } from '../components/welcome/CTA';
+import {FloatingAuthWidget} from '../components/welcome/FloatingAuthWidget'
 
 export default function LandingPage() {
   return (
@@ -15,6 +15,7 @@ export default function LandingPage() {
         <Features />
         <Benefits />
         <CTA />
+        <FloatingAuthWidget/>
       </main>
       <footer className="border-t border-border py-8">
         <div className="container mx-auto px-6">
