@@ -43,7 +43,7 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
-          cache-dependency-path: ./backend/package-lock.json
+          cache-dependency-path: 'backend/package-lock.json'
 
       - name: Verify PostgreSQL is ready
         run: |
@@ -107,4 +107,4 @@ jobs:
         with:
           file: ./backend/coverage/lcov.info
           flags: unittests
-          fail_ci_if_error: false:
+          fail_ci_if_error: false
