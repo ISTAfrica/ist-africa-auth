@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertCircle, Loader2, Linkedin } from 'lucide-react';
+import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -166,6 +167,13 @@ export default function LoginForm({ forgotPasswordInitial }: LoginFormProps) {
             <Linkedin className="mr-2 h-4 w-4" />
             Continue with LinkedIn
           </Button>
+
+          <p className="text-center text-sm text-muted-foreground pt-4">
+          Don’t have an account?{' '}
+          <Link href="/auth/signup" className="font-medium text-primary hover:underline">
+            Sign up
+          </Link>
+        </p>
 
           <p className="text-center text-xs text-muted-foreground pt-4">
             Secured by IST Africa Auth

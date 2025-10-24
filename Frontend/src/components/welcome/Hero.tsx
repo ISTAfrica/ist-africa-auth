@@ -21,10 +21,10 @@ export const Hero = () => {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button asChild size="lg" className="shadow-lg shadow-primary/20">
-              <Link href="/login">Get Started</Link>
+              <Link href="auth/signup">Get Started</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
-              <Link href="/dashboard">View Dashboard</Link>
+              <Link href="/auth/login">View Dashboard</Link>
             </Button>
           </div>
         </div>
