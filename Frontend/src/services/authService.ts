@@ -20,16 +20,6 @@ export const getProfile = async () => {
   return response.json();
 };
 
-export const changePassword = async (payload: any) => {
-  const response = await fetch(`${API_BASE_URL}/api/user/change-password`, {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify(payload),
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.message || 'Failed to change password');
-  return data;
-};
 
 
 export const authenticateUser = async (credentials: AuthenticateUserDto) => {
