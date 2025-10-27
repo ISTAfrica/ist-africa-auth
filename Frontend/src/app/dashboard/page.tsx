@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { format } from 'date-fns';
 import Logo from '@/components/auth/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,37 +13,50 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { 
   User, Lock, Shield, LogOut, CheckCircle,
-  AlertCircle, Monitor, Smartphone, Globe
+  AlertCircle, Monitor, Smartphone, Globe, Loader2
 } from 'lucide-react';
+import { getProfile, changePassword } from '@/services/authService';
 
-const mockUser = {
-  name: 'John Doe',
-  email: 'john.doe@example.com',
-  id: 'usr_123456789',
-  createdAt: 'January 15, 2025',
-  lastLogin: 'Today at 2:30 PM',
+type UserProfile = {
+  id: number;
+  name: string | null;
+  email: string;
+  createdAt: string;
 };
 
+// We will continue to mock sessions for now
 const mockSessions = [
   { id: '1', device: 'Chrome on Windows', location: 'Nairobi, Kenya', ip: '102.68.xxx.xxx', lastActive: 'Active now', current: true, icon: Monitor },
   { id: '2', device: 'Safari on iPhone', location: 'Lagos, Nigeria', ip: '105.112.xxx.xxx', lastActive: '2 hours ago', current: false, icon: Smartphone },
-  { id: '3', device: 'Firefox on macOS', location: 'Accra, Ghana', ip: '154.160.xxx.xxx', lastActive: '1 day ago', current: false, icon: Globe },
 ];
 
-
 export default function DashboardPage() {
-  const router = useRouter(); 
+  const router = useRouter();
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
-  
-  
-  const user = mockUser;
-  const sessions = mockSessions;
 
-  const handlePasswordChange = (e: React.FormEvent) => {
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        const profileData = await getProfile();
+        setUser(profileData);
+      } catch (error) {
+        console.error('Failed to fetch profile, redirecting...', error);
+        router.push('/login'); // Redirect if token is invalid or expired
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchProfileData();
+  }, [router]);
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError('');
     setPasswordSuccess(false);
@@ -54,31 +68,42 @@ export default function DashboardPage() {
       return setPasswordError('Password must be at least 8 characters long');
     }
 
-   
-    console.log('Changing password...');
-    setTimeout(() => {
+    try {
+      await changePassword({ currentPassword, newPassword });
       setPasswordSuccess(true);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    }, 500);
+    } catch (err: unknown) {
+      if (err instanceof Error) setPasswordError(err.message);
+      else setPasswordError('An unknown error occurred.');
+    }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('iaa_authenticated');
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
-    
-   
     window.dispatchEvent(new Event('iaa-auth-change'));
-    
-   
-    router.push('/auth/login');
+    router.push('/login');
   };
 
   const handleTerminateSession = (sessionId: string) => {
+    // TODO: Implement API call to terminate the session on the backend
     console.log('Terminating session:', sessionId);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    // This can be a more elaborate error message if needed
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -104,7 +129,7 @@ export default function DashboardPage() {
         <div className="max-w-5xl mx-auto space-y-8">
           <div>
             <h1 className="text-3xl font-bold text-foreground mb-2">
-              Welcome back, {user.name.split(' ')[0]}!
+              Welcome back, {user.name?.split(' ')[0] || 'User'}!
             </h1>
             <p className="text-muted-foreground">
               Manage your account settings and security preferences
@@ -120,7 +145,7 @@ export default function DashboardPage() {
               <CardContent className="space-y-4 text-sm">
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Full Name</span>
-                  <span className="font-medium">{user.name}</span>
+                  <span className="font-medium">{user.name || 'N/A'}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between items-center">
@@ -135,7 +160,7 @@ export default function DashboardPage() {
                 <Separator />
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Member Since</span>
-                  <span className="font-medium">{user.createdAt}</span>
+                  <span className="font-medium">{format(new Date(user.createdAt), 'MMMM d, yyyy')}</span>
                 </div>
               </CardContent>
             </Card>
@@ -183,7 +208,7 @@ export default function DashboardPage() {
               <CardDescription>Manage devices where you are currently logged in</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {sessions.map((session) => {
+              {mockSessions.map((session) => {
                 const Icon = session.icon;
                 return (
                   <div key={session.id} className="flex items-center justify-between p-4 rounded-lg border bg-background hover:bg-muted/50 transition-colors">
