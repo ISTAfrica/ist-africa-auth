@@ -24,9 +24,9 @@ export class AuthService {
   ) {}
 
   private async generateAndSaveOtp(userId: number, name: string, email: string) {
-    const otp = randomInt(100000, 999999).toString(); // Generate a 6-digit OTP
+    const otp = randomInt(100000, 999999).toString(); 
     const hashedOtp = await hash(otp, 10);
-    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // OTP expires in 10 minutes
+    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); 
 
     await this.prisma.user.update({
       where: { id: userId },
@@ -58,7 +58,6 @@ export class AuthService {
     };
   }
 
-  // --- NEW METHOD ---
   async verifyOtp(verifyOtpDto: VerifyOtpDto) {
     const { email, otp } = verifyOtpDto;
 
