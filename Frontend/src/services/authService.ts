@@ -2,6 +2,36 @@ import { AuthenticateUserDto, RegisterUserDto, VerifyOtpDto, ResendOtpDto } from
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('accessToken');
+  if (!token) throw new Error('No access token found.');
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`,
+  };
+};
+
+export const getProfile = async () => {
+  const response = await fetch(`${API_BASE_URL}/api/user/me`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error('Failed to fetch profile');
+  return response.json();
+};
+
+export const changePassword = async (payload: any) => {
+  const response = await fetch(`${API_BASE_URL}/api/user/change-password`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message || 'Failed to change password');
+  return data;
+};
+
+
 export const authenticateUser = async (credentials: AuthenticateUserDto) => {
   const response = await fetch(`${API_BASE_URL}/api/auth/authenticate`, {
     method: 'POST',
