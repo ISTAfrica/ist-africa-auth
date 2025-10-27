@@ -21,8 +21,10 @@ export class AuthController {
   }
 
   @Post('authenticate')
-  @HttpCode(HttpStatus.OK) 
-  authenticate(@Body(new ValidationPipe()) authenticateDto: AuthenticateUserDto) {
+  @HttpCode(HttpStatus.OK)
+  authenticate(
+    @Body(new ValidationPipe()) authenticateDto: AuthenticateUserDto,
+  ) {
     return this.authService.authenticate(authenticateDto);
   }
 
