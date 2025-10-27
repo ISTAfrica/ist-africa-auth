@@ -85,7 +85,7 @@ export default function LoginForm({ forgotPasswordInitial }: LoginFormProps) {
               </AlertDescription>
             </Alert>
             <Button
-              onClick={() => router.push('/login')}
+              onClick={() => router.push('/auth/login')}
               variant="outline"
               className="w-full"
             >
@@ -110,7 +110,7 @@ export default function LoginForm({ forgotPasswordInitial }: LoginFormProps) {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? <Loader2 className="animate-spin" /> : 'Send Reset Link'}
             </Button>
-            <Button type="button" onClick={() => router.push('/login')} variant="ghost" className="w-full">
+            <Button type="button" onClick={() => router.push('/auth/login')} variant="ghost" className="w-full">
               Back to Login
             </Button>
           </form>
@@ -137,7 +137,7 @@ export default function LoginForm({ forgotPasswordInitial }: LoginFormProps) {
           <div className="text-right">
             <button
               type="button"
-              onClick={() => router.push('/login?forgot=true')}
+              onClick={() => router.push('/auth/login?forgot=true')}
               className="text-sm font-medium text-primary hover:underline focus:outline-none"
             >
               Forgot your password?

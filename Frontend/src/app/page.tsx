@@ -1,4 +1,4 @@
-// src/app/page.tsx
+
 import Logo from '@/components/auth/Logo';
 import { Header } from '../components/welcome/Header';
 import { Hero } from '../components/welcome/Hero';
