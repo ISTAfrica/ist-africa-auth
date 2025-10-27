@@ -29,11 +29,9 @@ export default function SignUpForm() {
 
     try {
       await registerUser({ name, email, password });
-      setSuccess('Account created successfully! Redirecting to login...');
-      
-      setTimeout(() => {
-        router.push('/login');
-      }, 2000);
+      // --- THIS IS THE CRITICAL CHANGE ---
+      // Redirect to the verify-email page with the email in the query params
+      router.push(`/auth/verify-email?email=${encodeURIComponent(email)}`);
 
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -41,7 +39,7 @@ export default function SignUpForm() {
       } else {
         setError('An unknown error occurred');
       }
-      setLoading(false);
+      setLoading(false); // Only set loading false on error
     }
   };
 
