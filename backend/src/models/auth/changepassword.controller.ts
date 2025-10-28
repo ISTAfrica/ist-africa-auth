@@ -14,7 +14,6 @@ import { ChangePasswordService } from './changepassword.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
-// Define a type-safe interface for the JWT user payload
 interface AuthenticatedRequest extends Request {
   user?: {
     id: number;
