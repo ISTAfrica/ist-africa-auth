@@ -13,3 +13,15 @@
 .env.test
 .env.production
 /generated/prisma
+
+# CI/CD workflows
+.github/workflows/ci.yaml
+
+# Coverage reports
+**/coverage/
+**/.nyc_output/
+*.lcov
+coverage/
+.coverage
+htmlcov/
+.github/workflows/ci.yaml
