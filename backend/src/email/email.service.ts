@@ -22,19 +22,18 @@ export class EmailService {
     });
   }
 
-  // --- REPLACE sendVerificationEmail with sendOtpEmail ---
-  async sendOtpEmail(name: string, email: string, otp: string) {
-    const html = this.getOtpEmailTemplate(name, otp);
+  async sendVerificationEmail(name: string, email: string, verifyUrl: string) {
+    const html = this.getVerifyEmailTemplate(name, verifyUrl);
 
     await this.transporter.sendMail({
       from: `"IST Africa Auth" <${this.configService.get<string>('SMTP_USER')}>`,
       to: email,
-      subject: 'Your IAA Verification Code',
+      subject: 'Verify your email',
       html: html,
     });
   }
 
-  private getOtpEmailTemplate(name: string, otp: string): string {
+  private getVerifyEmailTemplate(name: string, verifyUrl: string): string {
     return `
       <!DOCTYPE html>
       <html lang="en">
@@ -50,6 +49,8 @@ export class EmailService {
               .content h2 { font-size: 20px; color: #212529; }
               .otp-code { background-color: #e9ecef; color: #0d6efd; font-size: 36px; font-weight: bold; letter-spacing: 8px; padding: 15px 25px; border-radius: 8px; text-align: center; margin: 30px 0; }
               .footer { text-align: center; padding: 20px; font-size: 12px; color: #6c757d; background-color: #f8f9fa; }
+              .btn { display:inline-block; background:#0d6efd; color:#fff; padding:12px 20px; border-radius:6px; text-decoration:none; }
+              .text-center { text-align:center; }
           </style>
       </head>
       <body>
@@ -59,9 +60,11 @@ export class EmailService {
               </div>
               <div class="content">
                   <h2>Hello ${name},</h2>
-                  <p>Thank you for registering. Please use the following One-Time Password (OTP) to verify your email address and complete your setup.</p>
-                  <div class="otp-code">${otp}</div>
-                  <p>This code will expire in 10 minutes. If you did not request this, please ignore this email.</p>
+                  <p>Thank you for registering. Please click the button below to verify your email address and complete your setup.</p>
+                  <p class="text-center">
+                    <a class="btn" href="${verifyUrl}">Verify my email</a>
+                  </p>
+                  <p>If you did not request this, please ignore this email.</p>
                   <p>Regards,<br>The IST Africa Team</p>
               </div>
               <div class="footer">

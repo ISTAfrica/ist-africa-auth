@@ -14,6 +14,8 @@ import { EmailModule } from '../email/email.module';
     }),
     SequelizeModule.forRoot(databaseConfig()),
     UsersModule,
+    SequelizeModule.forRoot(databaseConfig()),
+    UsersModule,
     AuthModule,
     EmailModule,
   ],

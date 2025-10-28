@@ -28,18 +28,18 @@ export class AuthService {
     private emailService: EmailService,
   ) {}
 
-  private async generateAndSaveOtp(userId: number, name: string, email: string) {
-    const otp = randomInt(100000, 999999).toString(); 
-    const hashedOtp = await hash(otp, 10);
-    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); 
+  // private async generateAndSaveOtp(userId: number, name: string, email: string) {
+  //   const otp = randomInt(100000, 999999).toString(); 
+  //   const hashedOtp = await hash(otp, 10);
+  //   const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); 
 
-    await this.userModel.update(
-      { otp: hashedOtp, otpExpiresAt },
-      { where: { id: userId } },
-    );
+  //   await this.userModel.update(
+  //     { otp: hashedOtp, otpExpiresAt },
+  //     { where: { id: userId } },
+  //   );
 
-    await this.emailService.sendOtpEmail(name, email, otp);
-  }
+  //   await this.emailService.sendOtpEmail(name, email, otp);
+  // }
 
 
   async register(registerDto: RegisterUserDto) {
@@ -52,16 +52,22 @@ export class AuthService {
 
     const hashedPassword = await hash(password, 12);
 
+    const verificationToken = randomUUID();
     const user = await this.userModel.create({
       email,
       name: name || '',
       password: hashedPassword,
+      verificationToken,
     });
 
-    await this.generateAndSaveOtp(user.id, user.name || 'User', user.email);
+    const verifyUrlBase = process.env.BACKEND_URL ?? process.env.APP_URL ?? 'http://localhost:5000';
+    const verifyUrl = `${verifyUrlBase.replace(/\/$/, '')}/api/auth/verify-email?token=${verificationToken}`;
+
+    await this.emailService.sendVerificationEmail(user.name || 'User', user.email, verifyUrl);
 
     return {
-      message: 'Registration successful. Please check your email for your 6-digit verification code.',
+      message: 'Registration successful. Please check your email to verify.',
+      redirectUrl: `${(process.env.FRONTEND_URL ?? process.env.NEXT_PUBLIC_FRONTEND_URL ?? 'http://localhost:3000').replace(/\/$/, '')}/auth/verify-email`,
     };
   }
 
@@ -150,9 +156,11 @@ export class AuthService {
       throw new ConflictException('This account is already verified.');
     }
 
-    await this.generateAndSaveOtp(user.id, user.name || 'User', user.email);
+    const verifyUrlBase = process.env.BACKEND_URL ?? process.env.APP_URL ?? 'http://localhost:5000';
+    const verifyUrl = `${verifyUrlBase.replace(/\/$/, '')}/api/auth/verify-email?token=${user.verificationToken}`;
+    await this.emailService.sendVerificationEmail(user.name || 'User', user.email, verifyUrl);
     
-    return { message: 'A new verification code has been sent to your email.' };
+    return { message: 'Verification link sent to your email.' };
   }
 
   async getJwks() {
