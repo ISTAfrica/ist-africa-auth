@@ -22,7 +22,7 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
-@Controller('api/change-password')
+@Controller('api/auth/change-password')
 export class ChangePasswordController {
   constructor(private readonly changePasswordService: ChangePasswordService) {}
 
