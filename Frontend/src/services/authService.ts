@@ -1,6 +1,14 @@
 import { AuthenticateUserDto, RegisterUserDto } from '@/types'; 
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('accessToken');
+  if (!token) throw new Error('No access token found.');
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`,
+  };
+};
 
 export const authenticateUser = async (credentials: AuthenticateUserDto) => {
   const response = await fetch(`${API_BASE_URL}/api/auth/authenticate`, {
@@ -20,6 +28,14 @@ export const authenticateUser = async (credentials: AuthenticateUserDto) => {
   return data;
 };
 
+export const getProfile = async () => {
+  const response = await fetch(`${API_BASE_URL}/api/user/me`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error('Failed to fetch profile');
+  return response.json();
+};
 export const requestPasswordReset = async (email: string) => {
   console.log(`Password reset requested for ${email}`);
   await new Promise(resolve => setTimeout(resolve, 1000));
