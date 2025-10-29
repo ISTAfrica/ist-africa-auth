@@ -29,7 +29,7 @@ export class ChangePasswordController {
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   async changePassword(
-    @Req() req: AuthenticatedRequest, // 👈 strongly typed request
+    @Req() req: AuthenticatedRequest,
     @Body(new ValidationPipe({ whitelist: true })) dto: ChangePasswordDto,
   ) {
     const userId = req.user?.id;
@@ -37,13 +37,13 @@ export class ChangePasswordController {
       throw new BadRequestException('User not found or unauthorized');
     }
 
-    const { newPassword, confirmPassword } = dto;
-    if (newPassword !== confirmPassword) {
-      throw new BadRequestException(
-        'New password and confirmation do not match',
-      );
-    }
+    const { currentPassword, newPassword, confirmPassword } = dto;
 
-    return this.changePasswordService.changePassword(userId, dto);
+    return this.changePasswordService.changePassword(
+      userId,
+      currentPassword,
+      newPassword,
+      confirmPassword,
+    );
   }
 }
