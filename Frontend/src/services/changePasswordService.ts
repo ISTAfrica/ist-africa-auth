@@ -17,7 +17,7 @@ interface ChangePasswordRequest {
       throw new Error('Not authenticated. Please log in again.');
     }
   
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/change-password`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/change-password`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
