@@ -14,7 +14,7 @@ import { randomUUID } from 'crypto';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { AuthenticateUserDto } from './dto/authenticate-user.dto';
 import { EmailService } from '../../email/email.service';
-import { randomInt } from 'crypto'; 
+import { randomInt } from 'crypto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
 
@@ -59,11 +59,17 @@ export class AuthService {
       verificationToken,
     });
 
-    const verifyUrlBase = process.env.BACKEND_URL ?? process.env.APP_URL ?? 'http://localhost:5000';
+    const verifyUrlBase =
+      process.env.BACKEND_URL ?? process.env.APP_URL ?? 'http://localhost:5000';
     const verifyUrl = `${verifyUrlBase.replace(/\/$/, '')}/api/auth/verify-email?token=${verificationToken}`;
 
     const otp = await this.generateAndSaveOtp(user.id);
-    await this.emailService.sendVerificationEmail(user.name || 'User', user.email, verifyUrl, otp);
+    await this.emailService.sendVerificationEmail(
+      user.name || 'User',
+      user.email,
+      verifyUrl,
+      otp,
+    );
 
     return {
       message: 'Registration successful. Please check your email to verify.',
@@ -81,7 +87,9 @@ export class AuthService {
     }
 
     if (new Date() > user.otpExpiresAt) {
-      throw new UnauthorizedException('OTP has expired. Please request a new one.');
+      throw new UnauthorizedException(
+        'OTP has expired. Please request a new one.',
+      );
     }
 
     const isOtpValid = await compare(otp, user.otp);
@@ -95,7 +103,11 @@ export class AuthService {
     );
 
     const { accessToken, refreshToken } = await this.issueTokens(user.id);
-    return { message: 'Email verified successfully.', accessToken, refreshToken };
+    return {
+      message: 'Email verified successfully.',
+      accessToken,
+      refreshToken,
+    };
   }
 
   async authenticate(authenticateDto: AuthenticateUserDto) {
@@ -107,7 +119,9 @@ export class AuthService {
     }
 
     if (!user.isVerified) {
-      throw new ForbiddenException('Please verify your email before logging in.');
+      throw new ForbiddenException(
+        'Please verify your email before logging in.',
+      );
     }
 
     const isPasswordValid = await compare(password, user.password);
@@ -156,11 +170,17 @@ export class AuthService {
       throw new ConflictException('This account is already verified.');
     }
 
-    const verifyUrlBase = process.env.BACKEND_URL ?? process.env.APP_URL ?? 'http://localhost:5000';
+    const verifyUrlBase =
+      process.env.BACKEND_URL ?? process.env.APP_URL ?? 'http://localhost:5000';
     const verifyUrl = `${verifyUrlBase.replace(/\/$/, '')}/api/auth/verify-email?token=${user.verificationToken}`;
     const otp = await this.generateAndSaveOtp(user.id);
-    await this.emailService.sendVerificationEmail(user.name || 'User', user.email, verifyUrl, otp);
-    
+    await this.emailService.sendVerificationEmail(
+      user.name || 'User',
+      user.email,
+      verifyUrl,
+      otp,
+    );
+
     return { message: 'Verification link sent to your email.' };
   }
 
@@ -183,7 +203,9 @@ export class AuthService {
   }
 
   async verifyEmail(token: string) {
-    const user = await this.userModel.findOne({ where: { verificationToken: token } });
+    const user = await this.userModel.findOne({
+      where: { verificationToken: token },
+    });
 
     if (!user) {
       throw new NotFoundException('Invalid verification token.');
@@ -198,7 +220,9 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
-  private async issueTokens(userId: number): Promise<{ accessToken: string; refreshToken: string }> {
+  private async issueTokens(
+    userId: number,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     try {
       const { SignJWT, importPKCS8 } = await import('jose');
       const privateKeyPem = process.env.JWT_PRIVATE_KEY!.replace(/\n/g, '\n');
@@ -215,7 +239,10 @@ export class AuthService {
         .sign(privateKey);
 
       const refreshToken = randomUUID();
-      await this.refreshTokenModel.create({ hashedToken: refreshToken, userId });
+      await this.refreshTokenModel.create({
+        hashedToken: refreshToken,
+        userId,
+      });
 
       return { accessToken, refreshToken };
     } catch (error) {

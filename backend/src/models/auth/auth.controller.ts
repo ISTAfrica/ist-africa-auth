@@ -7,7 +7,7 @@ import {
   HttpStatus,
   ValidationPipe,
   Query,
-  Redirect
+  Redirect,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterUserDto } from './dto/register-user.dto';
@@ -37,11 +37,16 @@ export class AuthController {
     return this.authService.getJwks();
   }
 
-   @Get('verify-email')
-  @Redirect() 
+  @Get('verify-email')
+  @Redirect()
   async verifyEmail(@Query('token') token: string) {
-    const { accessToken, refreshToken } = await this.authService.verifyEmail(token);
-    const frontendUrl = (process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+    const { accessToken, refreshToken } =
+      await this.authService.verifyEmail(token);
+    const frontendUrl = (
+      process.env.FRONTEND_URL ||
+      process.env.NEXT_PUBLIC_FRONTEND_URL ||
+      'http://localhost:3000'
+    ).replace(/\/$/, '');
     const url = `${frontendUrl}/auth/verification-success?accessToken=${encodeURIComponent(accessToken)}&refreshToken=${encodeURIComponent(refreshToken)}`;
     return { url };
   }

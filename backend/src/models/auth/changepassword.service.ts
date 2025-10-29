@@ -1,10 +1,11 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { InjectModel } from '@nestjs/sequelize';
+import { User } from '../users/entities/user.entity';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class ChangePasswordService {
-  constructor(private prisma: PrismaService) {}
+  constructor(@InjectModel(User) private userModel: typeof User) {}
 
   async changePassword(
     userId: number,
@@ -29,9 +30,8 @@ export class ChangePasswordService {
       }
 
       // Find user
-      const user = await this.prisma.user.findUnique({
-        where: { id: Number(userId) },
-        select: { id: true, password: true },
+      const user = await this.userModel.findByPk(Number(userId), {
+        attributes: ['id', 'password'],
       });
 
       if (!user) {
@@ -54,10 +54,7 @@ export class ChangePasswordService {
 
       // Hash and update password
       const hashedPassword = await bcrypt.hash(newPassword, 12);
-      await this.prisma.user.update({
-        where: { id: Number(userId) },
-        data: { password: hashedPassword },
-      });
+      await user.update({ password: hashedPassword });
 
       return { message: 'Password changed successfully' };
     } catch (error) {
