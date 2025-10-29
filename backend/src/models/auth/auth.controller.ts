@@ -38,10 +38,10 @@ export class AuthController {
    @Get('verify-email')
   @Redirect() 
   async verifyEmail(@Query('token') token: string) {
-    await this.authService.verifyEmail(token);
-    const frontendUrl = process.env.FRONTEND_URL;
-
-    return { url: `${frontendUrl}/auth/verification-success` };
+    const { accessToken, refreshToken } = await this.authService.verifyEmail(token);
+    const frontendUrl = (process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+    const url = `${frontendUrl}/auth/verification-success?accessToken=${encodeURIComponent(accessToken)}&refreshToken=${encodeURIComponent(refreshToken)}`;
+    return { url };
   }
 
   @Post('verify-otp')

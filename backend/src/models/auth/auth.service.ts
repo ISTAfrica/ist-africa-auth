@@ -28,19 +28,18 @@ export class AuthService {
     private emailService: EmailService,
   ) {}
 
-  // private async generateAndSaveOtp(userId: number, name: string, email: string) {
-  //   const otp = randomInt(100000, 999999).toString(); 
-  //   const hashedOtp = await hash(otp, 10);
-  //   const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); 
+  private async generateAndSaveOtp(userId: number): Promise<string> {
+    const otp = randomInt(100000, 999999).toString();
+    const hashedOtp = await hash(otp, 10);
+    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-  //   await this.userModel.update(
-  //     { otp: hashedOtp, otpExpiresAt },
-  //     { where: { id: userId } },
-  //   );
+    await this.userModel.update(
+      { otp: hashedOtp, otpExpiresAt },
+      { where: { id: userId } },
+    );
 
-  //   await this.emailService.sendOtpEmail(name, email, otp);
-  // }
-
+    return otp;
+  }
 
   async register(registerDto: RegisterUserDto) {
     const { email, password, name } = registerDto;
@@ -63,7 +62,8 @@ export class AuthService {
     const verifyUrlBase = process.env.BACKEND_URL ?? process.env.APP_URL ?? 'http://localhost:5000';
     const verifyUrl = `${verifyUrlBase.replace(/\/$/, '')}/api/auth/verify-email?token=${verificationToken}`;
 
-    await this.emailService.sendVerificationEmail(user.name || 'User', user.email, verifyUrl);
+    const otp = await this.generateAndSaveOtp(user.id);
+    await this.emailService.sendVerificationEmail(user.name || 'User', user.email, verifyUrl, otp);
 
     return {
       message: 'Registration successful. Please check your email to verify.',
@@ -94,9 +94,9 @@ export class AuthService {
       { where: { id: user.id } },
     );
 
-    return { message: 'Email verified successfully. You can now log in.' };
+    const { accessToken, refreshToken } = await this.issueTokens(user.id);
+    return { message: 'Email verified successfully.', accessToken, refreshToken };
   }
-
 
   async authenticate(authenticateDto: AuthenticateUserDto) {
     const { email, password } = authenticateDto;
@@ -106,7 +106,7 @@ export class AuthService {
       throw new NotFoundException('User not found');
     }
 
-     if (!user.isVerified) {
+    if (!user.isVerified) {
       throw new ForbiddenException('Please verify your email before logging in.');
     }
 
@@ -118,7 +118,7 @@ export class AuthService {
     try {
       const { SignJWT, importPKCS8 } = await import('jose');
 
-      const privateKeyPem = process.env.JWT_PRIVATE_KEY!.replace(/\\n/g, '\n');
+      const privateKeyPem = process.env.JWT_PRIVATE_KEY!.replace(/\n/g, '\n');
       const privateKey = await importPKCS8(privateKeyPem, 'RS256');
       const keyId = process.env.JWT_KEY_ID!;
 
@@ -158,7 +158,8 @@ export class AuthService {
 
     const verifyUrlBase = process.env.BACKEND_URL ?? process.env.APP_URL ?? 'http://localhost:5000';
     const verifyUrl = `${verifyUrlBase.replace(/\/$/, '')}/api/auth/verify-email?token=${user.verificationToken}`;
-    await this.emailService.sendVerificationEmail(user.name || 'User', user.email, verifyUrl);
+    const otp = await this.generateAndSaveOtp(user.id);
+    await this.emailService.sendVerificationEmail(user.name || 'User', user.email, verifyUrl, otp);
     
     return { message: 'Verification link sent to your email.' };
   }
@@ -167,7 +168,7 @@ export class AuthService {
     try {
       const { importSPKI, exportJWK } = await import('jose');
 
-      const publicKeyPem = process.env.JWT_PUBLIC_KEY!.replace(/\\n/g, '\n');
+      const publicKeyPem = process.env.JWT_PUBLIC_KEY!.replace(/\n/g, '\n');
       const keyId = process.env.JWT_KEY_ID!;
       const ecPublicKey = await importSPKI(publicKeyPem, 'RS256');
       const jwk = await exportJWK(ecPublicKey);
@@ -193,7 +194,33 @@ export class AuthService {
       { where: { id: user.id } },
     );
 
-    return { message: 'Email verified successfully. You can now log in.' };
+    const { accessToken, refreshToken } = await this.issueTokens(user.id);
+    return { accessToken, refreshToken };
   }
 
+  private async issueTokens(userId: number): Promise<{ accessToken: string; refreshToken: string }> {
+    try {
+      const { SignJWT, importPKCS8 } = await import('jose');
+      const privateKeyPem = process.env.JWT_PRIVATE_KEY!.replace(/\n/g, '\n');
+      const privateKey = await importPKCS8(privateKeyPem, 'RS256');
+      const keyId = process.env.JWT_KEY_ID!;
+
+      const accessToken = await new SignJWT({ user_type: 'admin_user' })
+        .setProtectedHeader({ alg: 'RS256', kid: keyId })
+        .setIssuer('https://auth.ist.africa')
+        .setAudience('iaa-admin-portal')
+        .setSubject(userId.toString())
+        .setIssuedAt()
+        .setExpirationTime('1h')
+        .sign(privateKey);
+
+      const refreshToken = randomUUID();
+      await this.refreshTokenModel.create({ hashedToken: refreshToken, userId });
+
+      return { accessToken, refreshToken };
+    } catch (error) {
+      console.error('Token Generation Error:', error);
+      throw new InternalServerErrorException('Could not generate tokens');
+    }
+  }
 }

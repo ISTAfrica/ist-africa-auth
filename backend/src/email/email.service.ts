@@ -22,8 +22,8 @@ export class EmailService {
     });
   }
 
-  async sendVerificationEmail(name: string, email: string, verifyUrl: string) {
-    const html = this.getVerifyEmailTemplate(name, verifyUrl);
+  async sendVerificationEmail(name: string, email: string, verifyUrl: string, otp?: string) {
+    const html = this.getVerifyEmailTemplate(name, verifyUrl, otp);
 
     await this.transporter.sendMail({
       from: `"IST Africa Auth" <${this.configService.get<string>('SMTP_USER')}>`,
@@ -33,7 +33,7 @@ export class EmailService {
     });
   }
 
-  private getVerifyEmailTemplate(name: string, verifyUrl: string): string {
+  private getVerifyEmailTemplate(name: string, verifyUrl: string, otp?: string): string {
     return `
       <!DOCTYPE html>
       <html lang="en">
@@ -61,6 +61,8 @@ export class EmailService {
               <div class="content">
                   <h2>Hello ${name},</h2>
                   <p>Thank you for registering. Please click the button below to verify your email address and complete your setup.</p>
+                  ${otp ? `<p>Your One-Time Password (OTP):</p>
+                  <div class="otp-code">${otp}</div>` : ''}
                   <p class="text-center">
                     <a class="btn" href="${verifyUrl}">Verify my email</a>
                   </p>
