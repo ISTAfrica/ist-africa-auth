@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './models/auth/auth.module';
-import { PrismaModule } from './prisma/prisma.module';
+import { SequelizeModule } from '@nestjs/sequelize';
+import { databaseConfig } from './config/database.config';
 
 @Module({
   imports: [
@@ -9,7 +10,7 @@ import { PrismaModule } from './prisma/prisma.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
-    PrismaModule,
+    SequelizeModule.forRoot(databaseConfig()),
     AuthModule,
   ],
 })

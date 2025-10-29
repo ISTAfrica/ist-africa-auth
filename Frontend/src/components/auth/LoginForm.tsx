@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertCircle, Loader2, Linkedin } from 'lucide-react';
+import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -84,7 +85,7 @@ export default function LoginForm({ forgotPasswordInitial }: LoginFormProps) {
               </AlertDescription>
             </Alert>
             <Button
-              onClick={() => router.push('/login')}
+              onClick={() => router.push('/auth/login')}
               variant="outline"
               className="w-full"
             >
@@ -109,7 +110,7 @@ export default function LoginForm({ forgotPasswordInitial }: LoginFormProps) {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? <Loader2 className="animate-spin" /> : 'Send Reset Link'}
             </Button>
-            <Button type="button" onClick={() => router.push('/login')} variant="ghost" className="w-full">
+            <Button type="button" onClick={() => router.push('/auth/login')} variant="ghost" className="w-full">
               Back to Login
             </Button>
           </form>
@@ -136,7 +137,7 @@ export default function LoginForm({ forgotPasswordInitial }: LoginFormProps) {
           <div className="text-right">
             <button
               type="button"
-              onClick={() => router.push('/login?forgot=true')}
+              onClick={() => router.push('/auth/login?forgot=true')}
               className="text-sm font-medium text-primary hover:underline focus:outline-none"
             >
               Forgot your password?
@@ -166,6 +167,13 @@ export default function LoginForm({ forgotPasswordInitial }: LoginFormProps) {
             <Linkedin className="mr-2 h-4 w-4" />
             Continue with LinkedIn
           </Button>
+
+          <p className="text-center text-sm text-muted-foreground pt-4">
+          Don’t have an account?{' '}
+          <Link href="/auth/signup" className="font-medium text-primary hover:underline">
+            Sign up
+          </Link>
+        </p>
 
           <p className="text-center text-xs text-muted-foreground pt-4">
             Secured by IST Africa Auth
