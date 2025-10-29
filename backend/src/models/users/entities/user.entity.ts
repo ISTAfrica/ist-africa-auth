@@ -33,6 +33,31 @@ export class User extends Model {
 
   @Column({
     type: DataType.BOOLEAN,
+    defaultValue: false,
+  })
+  declare isVerified: boolean;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+  })
+  declare otp: string | null;
+
+  @Column({
+    type: DataType.DATE,
+    allowNull: true,
+  })
+  declare otpExpiresAt: Date | null;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    unique: true,
+  })
+  declare verificationToken: string | null;
+
+  @Column({
+    type: DataType.BOOLEAN,
     defaultValue: true,
   })
   declare isActive: boolean;

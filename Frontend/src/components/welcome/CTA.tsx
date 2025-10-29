@@ -10,7 +10,7 @@ export const CTA = () => {
           <h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6">Ready to Get Started?</h2>
           <p className="text-muted-foreground mb-8 text-lg">Join thousands of users who trust IAA for their authentication needs.</p>
           <Button asChild size="lg" className="shadow-lg shadow-primary/20">
-            <Link href="/login">Sign In Now</Link>
+            <Link href="/auth/login">Sign In Now</Link>
           </Button>
         </div>
       </div>

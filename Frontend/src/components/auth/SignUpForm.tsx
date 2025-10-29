@@ -28,12 +28,11 @@ export default function SignUpForm() {
     setLoading(true);
 
     try {
-      await registerUser({ name, email, password });
-      setSuccess('Account created successfully! Redirecting to login...');
-      
-      setTimeout(() => {
-        router.push('/login');
-      }, 2000);
+      const result = await registerUser({ name, email, password });
+      setSuccess('Account created successfully! Redirecting to verify...');
+      try { localStorage.setItem('pendingEmail', email); } catch {}
+      const redirectUrl = result?.redirectUrl || '/auth/verify-email';
+      router.push(`${redirectUrl}${redirectUrl.includes('?') ? '&' : '?'}email=${encodeURIComponent(email)}`);
 
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -106,7 +105,7 @@ export default function SignUpForm() {
         
         <p className="text-center text-sm text-muted-foreground pt-4">
           Already have an account?{' '}
-          <Link href="/login" className="font-medium text-primary hover:underline">
+          <Link href="/auth/login" className="font-medium text-primary hover:underline">
             Sign In
           </Link>
         </p>
