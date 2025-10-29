@@ -5,6 +5,7 @@ import { UsersModule } from '../models/users/users.module';
 import { AuthModule } from '../models/auth/auth.module';
 import { ChangePasswordModule } from '../models/auth/changepassword.module';
 import { databaseConfig } from '../config/database.config';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -14,8 +15,11 @@ import { databaseConfig } from '../config/database.config';
     }),
     SequelizeModule.forRoot(databaseConfig()),
     UsersModule,
+    SequelizeModule.forRoot(databaseConfig()),
+    UsersModule,
     AuthModule,
     ChangePasswordModule,
+    EmailModule,
   ],
 })
 export class AppModule {}

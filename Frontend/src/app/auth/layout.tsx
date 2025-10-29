@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import Logo from '@/components/auth/Logo';
 
+
 interface AuthLayoutProps {
   children: ReactNode;
 }
@@ -14,6 +15,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
         </div>
         <div className="bg-card rounded-2xl shadow-lg p-8 border border-border">
           {children}
+
         </div>
         <p className="text-center text-sm text-muted-foreground mt-6">
           © 2025 IST Africa. All rights reserved.

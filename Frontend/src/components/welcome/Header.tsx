@@ -11,7 +11,7 @@ export const Header = () => {
         <div className="flex items-center justify-between">
           <Logo />
           <Button asChild>
-            <Link href="/login">Sign In</Link>
+            <Link href="/auth/login">Sign In</Link>
           </Button>
         </div>
       </div>
