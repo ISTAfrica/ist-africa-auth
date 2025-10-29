@@ -10,23 +10,8 @@ const getAuthHeaders = () => {
   };
 };
 
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('accessToken');
-  if (!token) throw new Error('No access token found.');
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`,
-  };
-};
 
-export const getProfile = async () => {
-  const response = await fetch(`${API_BASE_URL}/api/user/me`, {
-    method: 'GET',
-    headers: getAuthHeaders(),
-  });
-  if (!response.ok) throw new Error('Failed to fetch profile');
-  return response.json();
-};
+
 
 
 
@@ -48,14 +33,29 @@ export const authenticateUser = async (credentials: AuthenticateUserDto) => {
   return data;
 };
 
+// services/authService.ts
+
 export const getProfile = async () => {
   const response = await fetch(`${API_BASE_URL}/api/user/me`, {
     method: 'GET',
     headers: getAuthHeaders(),
   });
-  if (!response.ok) throw new Error('Failed to fetch profile');
+
+  if (!response.ok) {
+    // Try to get a more specific error message from the API response body
+    try {
+      const errorData = await response.json();
+      // Throw an error with the backend's message
+      throw new Error(errorData.message || 'Failed to fetch profile');
+    } catch (e) {
+      // If the response isn't JSON or another error occurs, throw the generic message
+      throw new Error('Failed to fetch profile');
+    }
+  }
+
   return response.json();
 };
+
 export const requestPasswordReset = async (email: string) => {
   console.log(`Password reset requested for ${email}`);
   await new Promise(resolve => setTimeout(resolve, 1000));
