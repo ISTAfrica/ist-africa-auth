@@ -28,12 +28,11 @@ export default function SignUpForm() {
     setLoading(true);
 
     try {
-      await registerUser({ name, email, password });
-      setSuccess('Account created successfully! Redirecting to login...');
-      
-      setTimeout(() => {
-        router.push('/auth/login');
-      }, 2000);
+      const result = await registerUser({ name, email, password });
+      setSuccess('Account created successfully! Redirecting to verify...');
+      try { localStorage.setItem('pendingEmail', email); } catch {}
+      const redirectUrl = result?.redirectUrl || '/auth/verify-email';
+      router.push(`${redirectUrl}${redirectUrl.includes('?') ? '&' : '?'}email=${encodeURIComponent(email)}`);
 
     } catch (err: unknown) {
       if (err instanceof Error) {

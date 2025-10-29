@@ -1,4 +1,22 @@
+"use client";
+
+import { useEffect } from 'react';
+
 export default function VerificationSuccessPage() {
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const accessToken = url.searchParams.get('accessToken');
+    const refreshToken = url.searchParams.get('refreshToken');
+    if (accessToken && refreshToken) {
+      try {
+        localStorage.setItem('accessToken', accessToken);
+        localStorage.setItem('refreshToken', refreshToken);
+      } catch {}
+      const appBase = process.env.NEXT_PUBLIC_APP_BASE_URL?.replace(/\/$/, '') || '';
+      window.location.replace(`${appBase}/dashboard` || '/dashboard');
+    }
+  }, []);
+
   return (
     <main className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-background to-muted">
       <div className="max-w-sm w-full text-center space-y-4 rounded-lg border bg-card p-6 shadow-sm">
@@ -8,15 +26,9 @@ export default function VerificationSuccessPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Email verified</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Your email has been successfully verified. You can now sign in.
+            You are being redirected...
           </p>
         </div>
-        <a
-          href={process.env.NEXT_PUBLIC_APP_BASE_URL ? `${process.env.NEXT_PUBLIC_APP_BASE_URL.replace(/\/$/, '')}/auth/login` : '/auth/login'}
-          className="inline-flex items-center justify-center rounded-md bg-primary px-3 py-2 text-primary-foreground hover:bg-primary/90 transition-colors text-sm"
-        >
-          Go to sign in
-        </a>
       </div>
     </main>
   );
