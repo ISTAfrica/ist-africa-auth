@@ -4,6 +4,7 @@ import { SequelizeModule } from '@nestjs/sequelize';
 import { UsersModule } from '../models/users/users.module';
 import { AuthModule } from '../models/auth/auth.module';
 import { ChangePasswordModule } from '../models/auth/changepassword.module';
+import { PasswordResetModule } from '../models/auth/passwordReset/passwordReset.module';
 import { databaseConfig } from '../config/database.config';
 import { EmailModule } from '../email/email.module';
 
@@ -15,10 +16,9 @@ import { EmailModule } from '../email/email.module';
     }),
     SequelizeModule.forRoot(databaseConfig()),
     UsersModule,
-    SequelizeModule.forRoot(databaseConfig()),
-    UsersModule,
     AuthModule,
     ChangePasswordModule,
+    PasswordResetModule,
     EmailModule,
   ],
 })
