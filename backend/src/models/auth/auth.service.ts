@@ -142,7 +142,6 @@ export class AuthService {
       updatedAt: now,
     };
 
-    // The test lines have been removed. This will now run correctly.
     await this.refreshTokenModel.create(refreshTokenData);
 
     return { accessToken, refreshToken };
@@ -224,7 +223,10 @@ export class AuthService {
         .sign(privateKey);
 
       const refreshToken = randomUUID();
-      await this.refreshTokenModel.create({ hashedToken: refreshToken, userId });
+      const now = new Date();
+      const expiresAt = new Date(now);
+      expiresAt.setDate(now.getDate() + 30);
+      await this.refreshTokenModel.create({ hashedToken: refreshToken, userId, expiresAt });
 
       return { accessToken, refreshToken };
     } catch (error) {
