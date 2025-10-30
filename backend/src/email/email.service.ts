@@ -1,22 +1,36 @@
 import { Injectable } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
+// No need for extra imports like TransportOptions
 
 @Injectable()
 export class EmailService {
   private transporter;
 
   constructor() {
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+
+    // We will build the options object directly inside createTransport.
+    // This lets TypeScript correctly infer that we are creating SMTP transport options.
     this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port: Number(process.env.SMTP_PORT) || 587,
-      secure: false,
+      secure: false, // For port 587, secure is false and upgrades with STARTTLS
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
+
+      // ** THE FIX IS HERE **
+      // Use a conditional spread to add the 'tls' object only in development.
+      // This is a clean way to handle the logic without TypeScript errors.
+      ...(isDevelopment && {
+        tls: {
+          rejectUnauthorized: false,
+        },
+      }),
     });
   }
-
+  
   async sendVerificationEmail(
     email: string,
     verifyUrl: string,
