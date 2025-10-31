@@ -26,9 +26,8 @@ import {
   User, Lock, Shield, LogOut, CheckCircle,
   AlertCircle, Monitor, Smartphone, Globe, Edit, Loader2
 } from 'lucide-react';
-import { getProfile, changePassword, updateProfile } from '@/services/authService';
+import { getProfile, changePassword, updateProfile,uploadAvatar } from '@/services/authService';
 
-// Define the structure of the user profile from the backend
 type UserProfile = {
   id: number;
   name: string | null;
@@ -37,7 +36,6 @@ type UserProfile = {
   avatarUrl?: string;
 };
 
-// Mock session data (can be replaced with a real API call later)
 const mockSessions = [
   { id: '1', device: 'Chrome on Windows', location: 'Nairobi, Kenya', ip: '102.68.xxx.xxx', lastActive: 'Active now', current: true, icon: Monitor },
   { id: '2', device: 'Safari on iPhone', location: 'Lagos, Nigeria', ip: '105.112.xxx.xxx', lastActive: '2 hours ago', current: false, icon: Smartphone },
@@ -49,12 +47,12 @@ export default function DashboardPage() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
-  // State for Edit Profile Dialog
+  
   const [editedName, setEditedName] = useState('');
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [editError, setEditError] = useState('');
 
-  // State for Change Password Dialog
+  
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -62,11 +60,15 @@ export default function DashboardPage() {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
 
-  // Refs to close dialogs programmatically
+  const [isUploading, setIsUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  
   const editDialogCloseRef = useRef<HTMLButtonElement>(null);
   const passwordDialogCloseRef = useRef<HTMLButtonElement>(null);
 
-  // Fetch user profile data from the backend on component mount
+  
   useEffect(() => {
     const fetchProfileData = async () => {
       try {
@@ -83,14 +85,16 @@ export default function DashboardPage() {
     fetchProfileData();
   }, [router]);
 
-  // Handler for the "Edit Profile" form
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setEditError('');
     setIsUpdatingProfile(true);
+    
     try {
       const updatedUser = await updateProfile({ name: editedName });
+      
       setUser(updatedUser);
+      
       editDialogCloseRef.current?.click();
     } catch (err: any) {
       setEditError(err.message || 'Failed to update profile.');
@@ -99,7 +103,25 @@ export default function DashboardPage() {
     }
   };
 
-  // Handler for the "Change Password" form
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setAvatarError('');
+
+    try {
+      const updatedUser = await uploadAvatar(file);
+      setUser(updatedUser); 
+    } catch (err: any) {
+      setAvatarError(err.message || 'Upload failed.');
+    } finally {
+      setIsUploading(false);
+      if(fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+  
+  
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError('');
@@ -139,7 +161,7 @@ export default function DashboardPage() {
     console.log('Terminating session:', sessionId);
   };
 
-  // --- RENDER LOGIC ---
+  
 
   if (isLoading) {
     return (
@@ -150,7 +172,7 @@ export default function DashboardPage() {
   }
 
   if (!user) {
-    return null; // Or a dedicated error/redirect component
+    return null; 
   }
 
   return (
@@ -196,7 +218,31 @@ export default function DashboardPage() {
                       {user.name?.split(' ').map(n => n[0]).join('')}
                     </AvatarFallback>
                   </Avatar>
-                  <Button variant="outline" size="sm"><Edit className="h-4 w-4 mr-2" /> Change Photo</Button>
+
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    className="hidden"
+                    accept="image/png, image/jpeg, image/gif"
+                  />
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()} 
+                    disabled={isUploading}
+                  >
+                    {isUploading ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Edit className="h-4 w-4 mr-2" />
+                    )}
+                    {isUploading ? 'Uploading...' : 'Change Photo'}
+                  </Button>
+                  
+                  {/* 3. Add a place to display any upload errors */}
+                  {avatarError && <p className="text-sm text-destructive">{avatarError}</p>}
                 </div>
                 <div className="flex-1 space-y-4">
                   <div>
