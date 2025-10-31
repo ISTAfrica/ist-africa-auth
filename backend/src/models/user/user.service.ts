@@ -3,6 +3,8 @@ import { InjectModel } from '@nestjs/sequelize';
 import { compare, hash } from 'bcryptjs';
 import { User } from '../users/entities/user.entity';
 import { UpdateUserDto } from './dto/update-user.dto'
+import { promises as fs } from 'fs';
+import * as path from 'path'; 
 
 @Injectable()
 export class UserService {
@@ -38,13 +40,27 @@ export class UserService {
   async updateAvatar(userId: number, file: Express.Multer.File): Promise<Omit<User, 'password'>> {
     const user = await this.userModel.findByPk(userId);
     if (!user) {
+      await fs.unlink(file.path);
       throw new NotFoundException('User not found');
     }
 
-    const baseUrl = process.env.API_BASE_URL || 'http://localhost:5000';
-    const avatarUrl = `${baseUrl}/uploads/${file.filename}`;
+    const oldAvatarUrl = user.avatarUrl;
 
-    await user.update({ avatarUrl });
+    if (oldAvatarUrl) {
+      try {
+        const oldFilename = path.basename(new URL(oldAvatarUrl).pathname);
+        const oldAvatarPath = path.join(process.cwd(), 'uploads', oldFilename);
+        await fs.access(oldAvatarPath);
+        await fs.unlink(oldAvatarPath);
+      } catch (error) {
+        console.error(`Could not delete old avatar at ${oldAvatarUrl}:`, error.message);
+      }
+    }
+
+    const baseUrl = process.env.API_BASE_URL || 'http://localhost:5000';
+    const newAvatarUrl = `${baseUrl}/uploads/${file.filename}`;
+
+    await user.update({ avatarUrl: newAvatarUrl });
 
     const { password, ...result } = user.toJSON();
     return result;
