@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL|| 'http://localhost:5000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
 
 interface ForgotPasswordRequest {
   email: string;
@@ -20,9 +20,7 @@ interface ResetPasswordResponse {
 export async function forgotPassword(data: ForgotPasswordRequest): Promise<ForgotPasswordResponse> {
   const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
 
@@ -35,8 +33,9 @@ export async function forgotPassword(data: ForgotPasswordRequest): Promise<Forgo
   return result;
 }
 
+
 export async function resetPassword(data: ResetPasswordRequest): Promise<ResetPasswordResponse> {
-  const response = await fetch(`${API_BASE_URL}/auth/resetPassword`, {
+  const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

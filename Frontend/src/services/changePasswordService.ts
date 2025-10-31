@@ -1,35 +1,45 @@
-
 interface ChangePasswordRequest {
-    currentPassword: string;
-    newPassword: string;
+  currentPassword: string;
+  newPassword: string;
+}
+
+interface ChangePasswordResponse {
+  message: string;
+}
+
+export async function changePassword(
+  data: ChangePasswordRequest
+): Promise<ChangePasswordResponse> {
+  const accessToken = localStorage.getItem('accessToken');
+
+  if (!accessToken) {
+    throw new Error('Not authenticated. Please log in again.');
   }
-  
-  interface ChangePasswordResponse {
-    message: string;
-  }
-  
-  export const changePassword = async (
-    data: ChangePasswordRequest
-  ): Promise<ChangePasswordResponse> => {
-    const accessToken = localStorage.getItem('accessToken');
-  
-    if (!accessToken) {
-      throw new Error('Not authenticated. Please log in again.');
-    }
-  
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/change-password`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(data),
-    });
-  
+
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/change-password`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(data),
+      }
+    );
+
+    const result = await response.json();
+
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to change password');
+      throw new Error(result.message || 'Failed to change password');
     }
-  
-    return response.json();
-  };
+
+    return result as ChangePasswordResponse;
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(error.message || 'An unexpected error occurred.');
+    }
+    throw new Error('An unknown error occurred.');
+  }
+}

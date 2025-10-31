@@ -1,18 +1,40 @@
-import ResetPasswordForm from '@/components/auth/ResetPasswordForm';
-import { Suspense } from 'react';
+'use client';
 
-// This is the key part for Next.js to connect the URL to the page.
-export default function ResetPasswordPage({ params }: { params: { token: string } }) {
+import { use, Suspense } from 'react';
+import ResetPasswordForm from '@/components/auth/ResetPasswordForm';
+
+interface PageProps {
+  params: Promise<{ token: string }>;
+  searchParams?: Promise<{ token?: string }>;
+}
+
+export default function ResetPasswordPage({ params, searchParams }: PageProps) {
+  const resolvedParams = use(params);
+  const resolvedSearchParams = searchParams ? use(searchParams) : undefined;
+  
+  const token = resolvedParams.token || resolvedSearchParams?.token;
+
+  if (!token) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <p className="text-center text-red-600">Invalid or missing token.</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-card rounded-lg shadow-lg p-8 border">
-          <Suspense fallback={<div className="text-center">Loading...</div>}>
-            {/* The token from the URL is passed here */}
-            <ResetPasswordForm token={params.token} />
-          </Suspense>
-        </div>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="max-w-md w-full px-4">
+        <h1 className="text-2xl font-bold text-center mb-6">Reset Password</h1>
+        <Suspense fallback={<div className="text-center">Loading...</div>}>
+          <ResetPasswordForm token={token} />
+        </Suspense>
       </div>
     </div>
   );
 }
+
+
+
+
+
