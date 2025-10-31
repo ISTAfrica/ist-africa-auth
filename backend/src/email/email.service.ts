@@ -30,7 +30,7 @@ export class EmailService {
       }),
     });
   }
-  
+
   async sendVerificationEmail(
     email: string,
     verifyUrl: string,
