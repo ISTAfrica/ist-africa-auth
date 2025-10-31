@@ -13,12 +13,17 @@ import {UserModule} from '../models/user/user.module'
       isGlobal: true,
       envFilePath: '.env',
     }),
-    SequelizeModule.forRoot(databaseConfig()),
-    SequelizeModule.forRoot(databaseConfig()),
+    SequelizeModule.forRoot({
+      ...databaseConfig(), 
+      synchronize: true,   
+    }),
     UsersModule,
     AuthModule,
     EmailModule,
     UserModule,
   ],
+  
 })
+
+
 export class AppModule {}
