@@ -20,7 +20,9 @@ interface ResetPasswordResponse {
 export async function forgotPassword(data: ForgotPasswordRequest): Promise<ForgotPasswordResponse> {
   const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+    },
     body: JSON.stringify(data),
   });
 
@@ -33,8 +35,8 @@ export async function forgotPassword(data: ForgotPasswordRequest): Promise<Forgo
   return result;
 }
 
-
 export async function resetPassword(data: ResetPasswordRequest): Promise<ResetPasswordResponse> {
+  // FIX: Changed from /auth/resetPassword to /auth/reset-password
   const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
     method: 'POST',
     headers: {
