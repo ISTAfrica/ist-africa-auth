@@ -4,11 +4,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
+import { ConfigService } from '@nestjs/config';
 import { User } from '../../users/entities/user.entity';
 import { PasswordResetToken } from './entities/password-reset-token.model';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { EmailService } from '../../../../src/email/email.service';
+import { EmailService } from './resetEmail/resetEmail.service';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 
@@ -22,28 +23,22 @@ export class PasswordResetService {
     private readonly tokenModel: typeof PasswordResetToken,
 
     private readonly emailService: EmailService,
+    private readonly configService: ConfigService,
   ) {}
 
-  /**
-   * Step 1: Generate reset token and send via email
-   */
   async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
-    const user = await this.userModel.findOne({ where: { email: dto.email } });
+    const user: User | null = await this.userModel.findOne({
+      where: { email: dto.email },
+    });
     if (!user) throw new NotFoundException('User not found');
-
-    // Delete any existing tokens for this user
     await this.tokenModel.destroy({ where: { userId: user.id } });
-
-    // Generate token & expiry (1 hour)
     const token = randomBytes(32).toString('hex');
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour from now
+    const expiresAt = new Date(now.getTime() + 60 * 60 * 1000);
 
     console.log('📅 Creating token at:', now.toISOString());
     console.log('📅 Token will expire at:', expiresAt.toISOString());
-
-    // Save to DB
-    const savedToken = await this.tokenModel.create({
+    const savedToken: PasswordResetToken = await this.tokenModel.create({
       userId: user.id,
       token,
       expiresAt,
@@ -54,25 +49,30 @@ export class PasswordResetService {
       savedToken.expiresAt.toISOString(),
     );
 
-    // Send email
-    await this.emailService.sendPasswordResetEmail(dto.email, token);
+    const frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    const resetUrl = `${frontendUrl}/auth/resetPassword/${token}`;
+
+    await this.emailService.sendPasswordResetEmail(
+      user.name || user.email.split('@')[0],
+      user.email,
+      resetUrl,
+    );
 
     return { message: 'Password reset email sent successfully' };
   }
 
-  /**
-   * Step 2: Reset password using token
-   */
   async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
-    // Clean token (remove "Bearer " prefix if present)
     const cleanToken = dto.token.replace(/^Bearer\s+/i, '').trim();
 
     console.log('🔍 Step 1: Received token:', cleanToken);
     console.log('🔍 Step 1: New password length:', dto.newPassword?.length);
 
-    const resetToken = await this.tokenModel.findOne({
-      where: { token: cleanToken },
-    });
+    const resetToken: PasswordResetToken | null = await this.tokenModel.findOne(
+      {
+        where: { token: cleanToken },
+      },
+    );
 
     console.log('🔍 Step 2: Token found in DB?', resetToken ? 'YES' : 'NO');
 
@@ -80,7 +80,6 @@ export class PasswordResetService {
       throw new BadRequestException('Invalid or expired token');
     }
 
-    // Token expired?
     const now = new Date();
     console.log('🕐 Current time:', now.toISOString());
     console.log('🕐 Token expires at:', resetToken.expiresAt.toISOString());
@@ -101,14 +100,13 @@ export class PasswordResetService {
     console.log('✅ Token is valid!');
     console.log('🔍 Step 3: Looking for user with ID:', resetToken.userId);
 
-    const user = await this.userModel.findByPk(resetToken.userId);
+    const user: User | null = await this.userModel.findByPk(resetToken.userId);
 
     console.log('🔍 Step 4: User found?', user ? 'YES' : 'NO');
 
     if (!user) throw new NotFoundException('User not found');
 
     console.log('🔍 Step 5: Hashing new password...');
-
     const hashedPassword: string = await bcrypt.hash(dto.newPassword, 10);
 
     console.log('🔍 Step 6: Updating user password...');
