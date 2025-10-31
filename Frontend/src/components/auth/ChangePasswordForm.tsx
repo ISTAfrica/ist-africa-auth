@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, Loader2, CheckCircle } from 'lucide-react';
+import { AlertCircle, Loader2, CheckCircle, Eye, EyeOff } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,11 @@ export default function ChangePasswordForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+
+  // Eye toggle states
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +72,35 @@ export default function ChangePasswordForm() {
     }
   };
 
+  const renderPasswordInput = (
+    id: string,
+    label: string,
+    value: string,
+    setValue: React.Dispatch<React.SetStateAction<string>>,
+    showPassword: boolean,
+    toggleShowPassword: () => void
+  ) => (
+    <div className="space-y-2 relative">
+      <Label htmlFor={id}>{label}</Label>
+      <Input
+        id={id}
+        type={showPassword ? 'text' : 'password'}
+        placeholder={label}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        required
+        disabled={loading}
+        className="pr-10"
+      />
+      <span
+        className="absolute right-3 top-[38px] cursor-pointer"
+        onClick={toggleShowPassword}
+      >
+        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </span>
+    </div>
+  );
+
   return (
     <>
       <div className="mb-6 text-center">
@@ -92,49 +126,35 @@ export default function ChangePasswordForm() {
             </Alert>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="current-password">Current Password</Label>
-            <Input
-              id="current-password"
-              type="password"
-              placeholder="Enter current password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              required
-              disabled={loading}
-            />
-          </div>
+          {renderPasswordInput(
+            'current-password',
+            'Current Password',
+            currentPassword,
+            setCurrentPassword,
+            showCurrentPassword,
+            () => setShowCurrentPassword((prev) => !prev)
+          )}
 
-          <div className="space-y-2">
-            <Label htmlFor="new-password">New Password</Label>
-            <Input
-              id="new-password"
-              type="password"
-              placeholder="Enter new password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
-              disabled={loading}
-              minLength={8}
-            />
-            <p className="text-xs text-muted-foreground">
-              Must be at least 8 characters long
-            </p>
-          </div>
+          {renderPasswordInput(
+            'new-password',
+            'New Password',
+            newPassword,
+            setNewPassword,
+            showNewPassword,
+            () => setShowNewPassword((prev) => !prev)
+          )}
+          <p className="text-xs text-muted-foreground">
+            Must be at least 8 characters long
+          </p>
 
-          <div className="space-y-2">
-            <Label htmlFor="confirm-password">Confirm New Password</Label>
-            <Input
-              id="confirm-password"
-              type="password"
-              placeholder="Confirm new password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              disabled={loading}
-              minLength={8}
-            />
-          </div>
+          {renderPasswordInput(
+            'confirm-password',
+            'Confirm New Password',
+            confirmPassword,
+            setConfirmPassword,
+            showConfirmPassword,
+            () => setShowConfirmPassword((prev) => !prev)
+          )}
 
           <Button
             type="submit"
