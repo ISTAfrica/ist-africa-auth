@@ -1,64 +1,72 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 interface ForgotPasswordRequest { email: string; }
-interface ForgotPasswordResponse { message: string; }
+interface ForgotPasswordResponse { success: boolean; message: string; }
 interface ResetPasswordRequest { token: string; newPassword: string; }
-interface ResetPasswordResponse { message: string; }
+interface ResetPasswordResponse { success: boolean; message: string; }
 
-/**
- * 🔥 Send password reset email request
- */
 export async function forgotPassword(data: ForgotPasswordRequest): Promise<ForgotPasswordResponse> {
-  console.log('🔥 Calling forgotPassword API with email:', data.email);
-  console.log('🌐 API_BASE_URL:', API_BASE_URL);
+  const fullUrl = `${API_BASE_URL}/auth/forgot-password`;
 
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+    const response = await fetch(fullUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
 
-    const result = await response.json();
-    console.log('📡 Response status:', response.status);
-    console.log('✅ API Response:', result);
+    const contentType = response.headers.get('content-type');
+    let result: ForgotPasswordResponse;
 
-    if (!response.ok) throw new Error(result.message || 'Failed to send reset email');
+    if (contentType && contentType.includes('application/json')) {
+      result = await response.json();
+    } else {
+      const text = await response.text();
+      return { success: false, message: text || 'Server returned non-JSON response' };
+    }
 
-    alert(result.message); // show success alert to user
-    return result;
+    if (!response.ok) {
+      return { success: false, message: result.message || 'Failed to send reset email' };
+    }
+
+    return { success: true, message: result.message };
   } catch (error) {
-    console.error('❌ API Error:', error);
-    alert(error instanceof Error ? error.message : 'Error sending reset email');
-    throw error;
+    console.error('Forgot Password Error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Error sending reset email';
+    return { success: false, message: errorMessage };
   }
 }
 
-/**
- * 🔁 Reset password with token
- */
 export async function resetPassword(data: ResetPasswordRequest): Promise<ResetPasswordResponse> {
-  console.log('🔥 Calling resetPassword API with token:', data.token);
+  const fullUrl = `${API_BASE_URL}/auth/reset-password`;
 
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+    const response = await fetch(fullUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: data.token, newPassword: data.newPassword }),
     });
 
-    const result = await response.json();
-    console.log('📡 Response status:', response.status);
-    console.log('✅ API Response:', result);
+    const contentType = response.headers.get('content-type');
+    let result: ResetPasswordResponse;
 
-    if (!response.ok) throw new Error(result.message || 'Failed to reset password');
+    if (contentType && contentType.includes('application/json')) {
+      result = await response.json();
+    } else {
+      const text = await response.text();
+      return { success: false, message: text || 'Server returned non-JSON response' };
+    }
 
-    alert(result.message); // show success alert to user
-    return result;
+    if (!response.ok) {
+      return { success: false, message: result.message || 'Failed to reset password' };
+    }
+
+    return { success: true, message: result.message };
   } catch (error) {
-    console.error('❌ API Error:', error);
-    alert(error instanceof Error ? error.message : 'Error resetting password');
-    throw error;
+    console.error('Reset Password Error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Error resetting password';
+    return { success: false, message: errorMessage };
   }
 }
+
 

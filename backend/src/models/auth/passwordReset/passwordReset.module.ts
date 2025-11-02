@@ -5,7 +5,7 @@ import { PasswordResetService } from './passwordReset.service';
 import { PasswordResetController } from './passwordReset.controller';
 import { User } from '../../users/entities/user.entity';
 import { PasswordResetToken } from './entities/password-reset-token.model';
-import { EmailResetModule } from './resetEmail/restEmail.module';
+import { EmailResetModule } from './resetEmail/resetEmail.module';
 
 @Module({
   imports: [

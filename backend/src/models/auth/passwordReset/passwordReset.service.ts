@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  BadRequestException,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { ConfigService } from '@nestjs/config';
 import { User } from '../../users/entities/user.entity';
@@ -26,72 +22,95 @@ export class PasswordResetService {
     private readonly configService: ConfigService,
   ) {}
 
-  async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
-    console.log('🔥 forgotPassword method called with email:', dto.email);
+  async forgotPassword(
+    dto: ForgotPasswordDto,
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const user = await this.userModel.findOne({
+        where: { email: dto.email },
+      });
 
-    const user: User | null = await this.userModel.findOne({
-      where: { email: dto.email },
-    });
+      if (!user) {
+        return { success: false, message: 'User not found' };
+      }
 
-    if (!user) throw new NotFoundException('User not found');
+      await this.tokenModel.destroy({ where: { userId: user.id } });
 
-    // Remove existing tokens
-    await this.tokenModel.destroy({ where: { userId: user.id } });
+      const rawToken = randomBytes(32).toString('hex');
+      const hashedToken = await bcrypt.hash(rawToken, 10);
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
-    // Generate and hash token
-    const rawToken = randomBytes(32).toString('hex');
-    const hashedToken = await bcrypt.hash(rawToken, 10);
+      await this.tokenModel.create({
+        userId: user.id,
+        token: hashedToken,
+        expiresAt,
+      });
 
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+      const frontendUrl =
+        this.configService.get<string>('FRONTEND_URL') ||
+        'http://localhost:3000';
+      const resetUrl = `${frontendUrl}/auth/resetPassword/${rawToken}`;
 
-    // Save hashed token
-    await this.tokenModel.create({
-      userId: user.id,
-      token: hashedToken,
-      expiresAt,
-    });
+      await this.emailService.sendPasswordResetEmail(
+        user.name || user.email.split('@')[0],
+        user.email,
+        resetUrl,
+      );
 
-    const frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
-    const resetUrl = `${frontendUrl}/auth/resetPassword/${rawToken}`;
-
-    console.log(`📧 Sending password reset email to: ${user.email}`);
-    await this.emailService.sendPasswordResetEmail(
-      user.name || user.email.split('@')[0],
-      user.email,
-      resetUrl,
-    );
-
-    return { message: 'Password reset email sent successfully' };
+      return {
+        success: true,
+        message: 'Password reset email sent successfully',
+      };
+    } catch (error) {
+      console.error('Forgot Password Error:', error);
+      return {
+        success: false,
+        message: 'Something went wrong. Please try again later.',
+      };
+    }
   }
 
-  async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
-    const cleanToken = dto.token.replace(/^Bearer\s+/i, '').trim();
+  async resetPassword(
+    dto: ResetPasswordDto,
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const cleanToken = dto.token.replace(/^Bearer\s+/i, '').trim();
 
-    const tokens = await this.tokenModel.findAll();
-    const resetToken = tokens.find((t) =>
-      bcrypt.compareSync(cleanToken, t.token),
-    );
-
-    if (!resetToken) {
-      throw new BadRequestException('Invalid or expired token');
-    }
-
-    if (resetToken.expiresAt.getTime() - Date.now() <= 0) {
-      await resetToken.destroy();
-      throw new BadRequestException(
-        'Token has expired. Please request a new password reset link.',
+      const tokens = await this.tokenModel.findAll();
+      const resetToken = tokens.find((t) =>
+        bcrypt.compareSync(cleanToken, t.token),
       );
+
+      if (!resetToken) {
+        return { success: false, message: 'Invalid or expired token' };
+      }
+
+      if (resetToken.expiresAt.getTime() <= Date.now()) {
+        await resetToken.destroy();
+        return {
+          success: false,
+          message:
+            'Token has expired. Please request a new password reset link.',
+        };
+      }
+
+      const user = await this.userModel.findByPk(resetToken.userId);
+      if (!user) {
+        return { success: false, message: 'User not found' };
+      }
+
+      const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
+      await user.update({ password: hashedPassword });
+
+      await resetToken.destroy();
+
+      return { success: true, message: 'Password has been reset successfully' };
+    } catch (error) {
+      console.error('Reset Password Error:', error);
+      return {
+        success: false,
+        message: 'Something went wrong. Please try again later.',
+      };
     }
-
-    const user: User | null = await this.userModel.findByPk(resetToken.userId);
-    if (!user) throw new NotFoundException('User not found');
-
-    const hashedPassword: string = await bcrypt.hash(dto.newPassword, 10);
-    await user.update({ password: hashedPassword });
-
-    await resetToken.destroy();
-
-    return { message: 'Password has been reset successfully' };
   }
 }
