@@ -27,32 +27,35 @@ export class PasswordResetService {
   ) {}
 
   async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
+    console.log('🔥 forgotPassword method called with email:', dto.email);
+
     const user: User | null = await this.userModel.findOne({
       where: { email: dto.email },
     });
-    if (!user) throw new NotFoundException('User not found');
-    await this.tokenModel.destroy({ where: { userId: user.id } });
-    const token = randomBytes(32).toString('hex');
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + 60 * 60 * 1000);
 
-    console.log('📅 Creating token at:', now.toISOString());
-    console.log('📅 Token will expire at:', expiresAt.toISOString());
-    const savedToken: PasswordResetToken = await this.tokenModel.create({
+    if (!user) throw new NotFoundException('User not found');
+
+    // Remove existing tokens
+    await this.tokenModel.destroy({ where: { userId: user.id } });
+
+    // Generate and hash token
+    const rawToken = randomBytes(32).toString('hex');
+    const hashedToken = await bcrypt.hash(rawToken, 10);
+
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    // Save hashed token
+    await this.tokenModel.create({
       userId: user.id,
-      token,
+      token: hashedToken,
       expiresAt,
     });
 
-    console.log(
-      '📅 Saved token expires at:',
-      savedToken.expiresAt.toISOString(),
-    );
-
     const frontendUrl =
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
-    const resetUrl = `${frontendUrl}/auth/resetPassword/${token}`;
+    const resetUrl = `${frontendUrl}/auth/resetPassword/${rawToken}`;
 
+    console.log(`📧 Sending password reset email to: ${user.email}`);
     await this.emailService.sendPasswordResetEmail(
       user.name || user.email.split('@')[0],
       user.email,
@@ -65,57 +68,29 @@ export class PasswordResetService {
   async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
     const cleanToken = dto.token.replace(/^Bearer\s+/i, '').trim();
 
-    console.log('🔍 Step 1: Received token:', cleanToken);
-    console.log('🔍 Step 1: New password length:', dto.newPassword?.length);
-
-    const resetToken: PasswordResetToken | null = await this.tokenModel.findOne(
-      {
-        where: { token: cleanToken },
-      },
+    const tokens = await this.tokenModel.findAll();
+    const resetToken = tokens.find((t) =>
+      bcrypt.compareSync(cleanToken, t.token),
     );
-
-    console.log('🔍 Step 2: Token found in DB?', resetToken ? 'YES' : 'NO');
 
     if (!resetToken) {
       throw new BadRequestException('Invalid or expired token');
     }
 
-    const now = new Date();
-    console.log('🕐 Current time:', now.toISOString());
-    console.log('🕐 Token expires at:', resetToken.expiresAt.toISOString());
-
-    const timeRemainingMs = resetToken.expiresAt.getTime() - now.getTime();
-    const timeRemainingMinutes = Math.floor(timeRemainingMs / 1000 / 60);
-
-    console.log('🕐 Time remaining (minutes):', timeRemainingMinutes);
-
-    if (timeRemainingMs <= 0) {
-      console.log('❌ Token expired!');
+    if (resetToken.expiresAt.getTime() - Date.now() <= 0) {
       await resetToken.destroy();
       throw new BadRequestException(
         'Token has expired. Please request a new password reset link.',
       );
     }
 
-    console.log('✅ Token is valid!');
-    console.log('🔍 Step 3: Looking for user with ID:', resetToken.userId);
-
     const user: User | null = await this.userModel.findByPk(resetToken.userId);
-
-    console.log('🔍 Step 4: User found?', user ? 'YES' : 'NO');
-
     if (!user) throw new NotFoundException('User not found');
 
-    console.log('🔍 Step 5: Hashing new password...');
     const hashedPassword: string = await bcrypt.hash(dto.newPassword, 10);
-
-    console.log('🔍 Step 6: Updating user password...');
     await user.update({ password: hashedPassword });
 
-    console.log('🔍 Step 7: Deleting token...');
     await resetToken.destroy();
-
-    console.log('✅ Password reset successful!');
 
     return { message: 'Password has been reset successfully' };
   }

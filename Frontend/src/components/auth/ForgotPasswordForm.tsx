@@ -8,7 +8,34 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { forgotPassword } from '@/services/resetPasswordService';
+
+// Inline API call for debugging
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+
+async function forgotPasswordDirect(email: string) {
+  console.log('🌐 API_BASE_URL:', API_BASE_URL);
+  console.log('🔥 Making fetch request to:', `${API_BASE_URL}/auth/forgot-password`);
+  
+  const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email }),
+  });
+
+  console.log('📡 Response status:', response.status);
+  console.log('📡 Response ok:', response.ok);
+
+  const result = await response.json();
+  console.log('📦 Response data:', result);
+
+  if (!response.ok) {
+    throw new Error(result.message || 'Failed to send reset email');
+  }
+
+  return result;
+}
 
 export default function ForgotPasswordForm() {
   const router = useRouter();
@@ -23,6 +50,8 @@ export default function ForgotPasswordForm() {
     setError('');
     setSuccess(false);
 
+    console.log('🚀 Form submitted!');
+
     if (!email) {
       setError('Please enter your email address');
       return;
@@ -31,10 +60,13 @@ export default function ForgotPasswordForm() {
     setLoading(true);
 
     try {
-      await forgotPassword({ email });
+      console.log('🔥 Calling forgotPassword API with email:', email);
+      const result = await forgotPasswordDirect(email);
+      console.log('✅ API Response:', result);
       setSuccess(true);
       setEmail('');
     } catch (err: unknown) {
+      console.error('❌ API Error:', err);
       if (err instanceof Error) {
         setError(err.message);
       } else {

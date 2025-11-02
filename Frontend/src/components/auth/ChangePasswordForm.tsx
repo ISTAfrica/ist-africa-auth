@@ -2,59 +2,54 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, Loader2, CheckCircle } from 'lucide-react';
-
+import { AlertCircle, Loader2, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { changePassword } from '@/services/changePasswordService';
+import { resetPassword } from '@/services/resetPasswordService';
 
-export default function ChangePasswordForm() {
+export default function ResetPasswordForm({ token }: { token: string }) {
   const router = useRouter();
 
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
-  const handleChangePassword = async (e: React.FormEvent) => {
+  const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess(false);
 
+    if (!token) {
+      setError('Invalid or missing reset token');
+      return;
+    }
+
     if (newPassword !== confirmPassword) {
-      setError('New passwords do not match');
+      setError('Passwords do not match');
       return;
     }
 
     if (newPassword.length < 8) {
-      setError('New password must be at least 8 characters long');
-      return;
-    }
-
-    if (newPassword === currentPassword) {
-      setError('New password must be different from current password');
+      setError('Password must be at least 8 characters long');
       return;
     }
 
     setLoading(true);
 
     try {
-      await changePassword({
-        currentPassword,
+      await resetPassword({
+        token,
         newPassword,
-        confirmPassword
       });
       setSuccess(true);
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      
       setTimeout(() => {
-        router.push('/dashboard');
+        router.push('/auth/login');
       }, 2000);
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -67,11 +62,24 @@ export default function ChangePasswordForm() {
     }
   };
 
+  if (!token) {
+    return (
+      <div className="text-center">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Invalid or missing reset token. Please request a new password reset link.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="mb-6 text-center">
-        <h2 className="text-2xl font-bold text-foreground mb-1">Change Password</h2>
-        <p className="text-muted-foreground">Update your account password</p>
+        <h2 className="text-2xl font-bold text-foreground mb-1">Reset Password</h2>
+        <p className="text-muted-foreground">Enter your new password</p>
       </div>
 
       {success ? (
@@ -79,12 +87,12 @@ export default function ChangePasswordForm() {
           <Alert className="border-green-500 bg-green-500/10 text-green-700">
             <CheckCircle className="h-4 w-4" />
             <AlertDescription>
-              Password changed successfully! Redirecting...
+              Password reset successfully! Redirecting...
             </AlertDescription>
           </Alert>
         </div>
       ) : (
-        <form onSubmit={handleChangePassword} className="space-y-4">
+        <form onSubmit={handleResetPassword} className="space-y-4">
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -93,30 +101,32 @@ export default function ChangePasswordForm() {
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="current-password">Current Password</Label>
-            <Input
-              id="current-password"
-              type="password"
-              placeholder="Enter current password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              required
-              disabled={loading}
-            />
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="new-password">New Password</Label>
-            <Input
-              id="new-password"
-              type="password"
-              placeholder="Enter new password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
-              disabled={loading}
-              minLength={8}
-            />
+            <div className="relative">
+              <Input
+                id="new-password"
+                type={showNewPassword ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter new password"
+                className="pr-10"
+                required
+                disabled={loading}
+                minLength={8}
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors focus:outline-none"
+                aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+              >
+                {showNewPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
             <p className="text-xs text-muted-foreground">
               Must be at least 8 characters long
             </p>
@@ -124,16 +134,31 @@ export default function ChangePasswordForm() {
 
           <div className="space-y-2">
             <Label htmlFor="confirm-password">Confirm New Password</Label>
-            <Input
-              id="confirm-password"
-              type="password"
-              placeholder="Confirm new password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              disabled={loading}
-              minLength={8}
-            />
+            <div className="relative">
+              <Input
+                id="confirm-password"
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm new password"
+                className="pr-10"
+                required
+                disabled={loading}
+                minLength={8}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors focus:outline-none"
+                aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+              >
+                {showConfirmPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
           </div>
 
           <Button
@@ -144,21 +169,21 @@ export default function ChangePasswordForm() {
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Changing Password...
+                Resetting Password...
               </>
             ) : (
-              'Change Password'
+              'Reset Password'
             )}
           </Button>
 
           <Button
             type="button"
-            onClick={() => router.back()}
             variant="ghost"
+            onClick={() => router.push('/auth/login')}
             className="w-full"
             disabled={loading}
           >
-            Cancel
+            Back to Login
           </Button>
 
           <p className="text-center text-xs text-muted-foreground pt-4">

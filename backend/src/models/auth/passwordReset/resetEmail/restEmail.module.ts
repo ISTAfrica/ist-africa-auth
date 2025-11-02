@@ -7,4 +7,4 @@ import { EmailService } from './resetEmail.service';
   providers: [EmailService],
   exports: [EmailService],
 })
-export class EmailModule {}
+export class EmailResetModule {}
