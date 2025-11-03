@@ -17,6 +17,7 @@ import { EmailService } from '../../email/email.service';
 import { randomInt } from 'crypto'; 
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
@@ -25,6 +26,7 @@ export class AuthService {
     private readonly userModel: typeof User,
     @InjectModel(RefreshToken)
     private readonly refreshTokenModel: typeof RefreshToken,
+     private readonly configService: ConfigService,
     private emailService: EmailService,
   ) {}
 
@@ -132,8 +134,10 @@ export class AuthService {
 
     const refreshToken = randomUUID();
     const now = new Date();
+    const refreshTtlDaysEnv = process.env.REFRESH_TOKEN_TTL_DAYS ?? process.env.REFRESH_TOKEN_EXPIRES_DAYS;
+    const refreshTtlDays = Number.isNaN(Number(refreshTtlDaysEnv)) ? 30 : Number(refreshTtlDaysEnv);
     const expiresAt = new Date(now);
-    expiresAt.setDate(now.getDate() + 30);
+    expiresAt.setDate(now.getDate() + refreshTtlDays);
 
     const refreshTokenData = {
       hashedToken: refreshToken,
@@ -152,25 +156,38 @@ export class AuthService {
   }
 }
 
-  async resendOtp(resendOtpDto: ResendOtpDto) {
-    const { email } = resendOtpDto;
-    const user = await this.userModel.findOne({ where: { email } });
+  async resendOtp(resendOtpDto: ResendOtpDto): Promise<{ message: string }> {
+  const { email } = resendOtpDto;
+  const user = await this.userModel.findOne({ where: { email } });
 
-    if (!user) {
-      throw new NotFoundException('User not found.');
-    }
-
-    if (user.isVerified) {
-      throw new ConflictException('This account is already verified.');
-    }
-
-    const verifyUrlBase = process.env.BACKEND_URL ?? process.env.APP_URL ?? 'http://localhost:5000';
-    const verifyUrl = `${verifyUrlBase.replace(/\/$/, '')}/api/auth/verify-email?token=${user.verificationToken}`;
-    const otp = await this.generateAndSaveOtp(user.id);
-    await this.emailService.sendVerificationEmail(user.name || 'User', user.email, verifyUrl, otp);
-    
-    return { message: 'Verification link sent to your email.' };
+  if (!user) {
+    throw new NotFoundException('User not found.');
   }
+
+  if (user.isVerified) {
+    throw new ConflictException('This account is already verified.');
+  }
+
+  const verifyUrlBase = this.configService.get<string>('BACKEND_URL');
+
+
+  if (!verifyUrlBase) {
+
+    throw new InternalServerErrorException(
+      'Configuration error: BACKEND_URL is not set in environment variables.',
+    );
+  }
+  const verifyUrl = `${verifyUrlBase.replace(/\/$/, '')}/api/auth/verify-email?token=${user.verificationToken}`;
+  const otp = await this.generateAndSaveOtp(user.id);
+  await this.emailService.sendVerificationEmail(
+    user.name || 'User',
+    user.email,
+    verifyUrl,
+    otp,
+  );
+  
+  return { message: 'Verification link sent to your email.' };
+}
 
   async getJwks() {
     try {
@@ -224,8 +241,10 @@ export class AuthService {
 
       const refreshToken = randomUUID();
       const now = new Date();
+      const refreshTtlDaysEnv = process.env.REFRESH_TOKEN_TTL_DAYS ?? process.env.REFRESH_TOKEN_EXPIRES_DAYS;
+      const refreshTtlDays = Number.isNaN(Number(refreshTtlDaysEnv)) ? 30 : Number(refreshTtlDaysEnv);
       const expiresAt = new Date(now);
-      expiresAt.setDate(now.getDate() + 30);
+      expiresAt.setDate(now.getDate() + refreshTtlDays);
       await this.refreshTokenModel.create({ hashedToken: refreshToken, userId, expiresAt });
 
       return { accessToken, refreshToken };
