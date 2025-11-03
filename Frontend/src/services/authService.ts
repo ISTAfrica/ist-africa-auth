@@ -19,14 +19,8 @@ const getAuthHeaders = () => {
   };
 };
 
-export const getProfile = async () => {
-  const response = await fetch(`${API_BASE_URL}/api/user/me`, {
-    method: 'GET',
-    headers: getAuthHeaders(),
-  });
-  if (!response.ok) throw new Error('Failed to fetch profile');
-  return response.json();
-};
+
+
 
 
 
@@ -47,15 +41,29 @@ export const authenticateUser = async (credentials: AuthenticateUserDto) => {
 
   return data;
 };
-
 export const getProfile = async () => {
   const response = await fetch(`${API_BASE_URL}/api/user/me`, {
     method: 'GET',
     headers: getAuthHeaders(),
   });
+<<<<<<< HEAD
   if (!response.ok) throw new Error('Failed to fetch profile');
   return response.json();
 };
+
+  if (!response.ok) {
+    try {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to fetch profile');
+    } catch (e) {
+      throw new Error('Failed to fetch profile');
+    }
+  }
+
+  return response.json();
+};
+
+
 export const requestPasswordReset = async (email: string) => {
   console.log(`Password reset requested for ${email}`);
   await new Promise(resolve => setTimeout(resolve, 1000));
@@ -108,4 +116,44 @@ export const resendOtp = async (payload: ResendOtpDto) => {
     throw new Error(data.message || 'Failed to resend OTP');
   }
   return data;
+};
+
+export const updateProfile = async (data: { name: string }) => {
+  const response = await fetch(`${API_BASE_URL}/api/user/me`, {
+    method: 'PATCH', 
+    headers: getAuthHeaders(), 
+    body: JSON.stringify(data), 
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ message: 'Failed to update profile' }));
+    throw new Error(errorData.message);
+  }
+
+  return response.json();
+};
+
+export const uploadAvatar = async (file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const token = localStorage.getItem('accessToken');
+  if (!token) {
+    throw new Error('No access token found');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/user/me/avatar`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ message: 'Failed to upload avatar' }));
+    throw new Error(errorData.message);
+  }
+
+  return response.json();
 };
