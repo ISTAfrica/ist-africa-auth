@@ -5,6 +5,7 @@ import { UsersModule } from '../models/users/users.module';
 import { AuthModule } from '../models/auth/auth.module';
 import { databaseConfig } from '../config/database.config';
 import { EmailModule } from '../email/email.module';
+import {UserModule} from '../models/user/user.module'
 
 @Module({
   imports: [
@@ -12,12 +13,17 @@ import { EmailModule } from '../email/email.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
-    SequelizeModule.forRoot(databaseConfig()),
-    UsersModule,
-    SequelizeModule.forRoot(databaseConfig()),
+    SequelizeModule.forRoot({
+      ...databaseConfig(), 
+      synchronize: true,   
+    }),
     UsersModule,
     AuthModule,
     EmailModule,
+    UserModule,
   ],
+  
 })
+
+
 export class AppModule {}
