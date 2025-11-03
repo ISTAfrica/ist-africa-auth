@@ -16,6 +16,7 @@ import { AuthenticateUserDto } from './dto/authenticate-user.dto';
 import { EmailService } from '../../email/email.service';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
@@ -24,6 +25,7 @@ export class AuthService {
     private readonly userModel: typeof User,
     @InjectModel(RefreshToken)
     private readonly refreshTokenModel: typeof RefreshToken,
+    private readonly configService: ConfigService,
     private emailService: EmailService,
   ) {}
 
@@ -169,8 +171,13 @@ export class AuthService {
     if (user.isVerified)
       throw new ConflictException('This account is already verified.');
 
-    const verifyUrlBase =
-      process.env.BACKEND_URL ?? process.env.APP_URL ?? 'http://localhost:5000';
+    const verifyUrlBase = this.configService.get<string>('BACKEND_URL');
+
+    if (!verifyUrlBase) {
+      throw new InternalServerErrorException(
+        'Configuration error: BACKEND_URL is not set in environment variables.',
+      );
+    }
     const verifyUrl = `${verifyUrlBase.replace(/\/$/, '')}/api/auth/verify-email?token=${user.verificationToken}`;
     const otp = await this.generateAndSaveOtp(user.id);
     await this.emailService.sendVerificationEmail(
@@ -231,8 +238,14 @@ export class AuthService {
       const refreshToken = randomUUID();
       const hashedRefresh = await hash(refreshToken, 12);
       const now = new Date();
+      const refreshTtlDaysEnv =
+        process.env.REFRESH_TOKEN_TTL_DAYS ??
+        process.env.REFRESH_TOKEN_EXPIRES_DAYS;
+      const refreshTtlDays = Number.isNaN(Number(refreshTtlDaysEnv))
+        ? 30
+        : Number(refreshTtlDaysEnv);
       const expiresAt = new Date(now);
-      expiresAt.setDate(now.getDate() + 30);
+      expiresAt.setDate(now.getDate() + refreshTtlDays);
 
       await this.refreshTokenModel.create({
         hashedToken: hashedRefresh,
