@@ -1,4 +1,4 @@
-port {
+import {
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -16,7 +16,6 @@ import { AuthenticateUserDto } from './dto/authenticate-user.dto';
 import { EmailService } from '../../email/email.service';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
-import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
@@ -25,7 +24,6 @@ export class AuthService {
     private readonly userModel: typeof User,
     @InjectModel(RefreshToken)
     private readonly refreshTokenModel: typeof RefreshToken,
-    private readonly configService: ConfigService,
     private emailService: EmailService,
   ) {}
 
@@ -84,6 +82,7 @@ export class AuthService {
 
   async verifyOtp(verifyOtpDto: VerifyOtpDto) {
     const { email, otp } = verifyOtpDto;
+
     const user = await this.userModel.findOne({ where: { email } });
 
     if (!user || !user.otp || !user.otpExpiresAt) {
@@ -117,8 +116,7 @@ export class AuthService {
     const user = await this.userModel.findOne({ where: { email } });
 
     if (!user) throw new NotFoundException('User not found');
-    if (!user.isVerified)
-      throw new ForbiddenException('Please verify your email before logging in.');
+    if (!user.isVerified) throw new ForbiddenException('Please verify your email before logging in.');
 
     const isPasswordValid = await compare(password, user.password);
     if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
@@ -157,13 +155,12 @@ export class AuthService {
     }
   }
 
-  async resendOtp(resendOtpDto: ResendOtpDto): Promise<{ message: string }> {
+  async resendOtp(resendOtpDto: ResendOtpDto) {
     const { email } = resendOtpDto;
     const user = await this.userModel.findOne({ where: { email } });
 
     if (!user) throw new NotFoundException('User not found.');
-    if (user.isVerified)
-      throw new ConflictException('This account is already verified.');
+    if (user.isVerified) throw new ConflictException('This account is already verified.');
 
     const verifyUrlBase =
       process.env.BACKEND_URL ?? process.env.APP_URL ?? 'http://localhost:5000';
@@ -196,15 +193,10 @@ export class AuthService {
   }
 
   async verifyEmail(token: string) {
-    const user = await this.userModel.findOne({
-      where: { verificationToken: token },
-    });
+    const user = await this.userModel.findOne({ where: { verificationToken: token } });
     if (!user) throw new NotFoundException('Invalid verification token.');
 
-    await this.userModel.update(
-      { isVerified: true, verificationToken: null },
-      { where: { id: user.id } },
-    );
+    await this.userModel.update({ isVerified: true, verificationToken: null }, { where: { id: user.id } });
     const { accessToken, refreshToken } = await this.issueTokens(user.id);
     return { accessToken, refreshToken };
   }
@@ -228,14 +220,8 @@ export class AuthService {
       const refreshToken = randomUUID();
       const hashedRefresh = await hash(refreshToken, 12);
       const now = new Date();
-      const refreshTtlDaysEnv =
-        process.env.REFRESH_TOKEN_TTL_DAYS ??
-        process.env.REFRESH_TOKEN_EXPIRES_DAYS;
-      const refreshTtlDays = Number.isNaN(Number(refreshTtlDaysEnv))
-        ? 30
-        : Number(refreshTtlDaysEnv);
       const expiresAt = new Date(now);
-      expiresAt.setDate(now.getDate() + refreshTtlDays);
+      expiresAt.setDate(now.getDate() + 30);
 
       await this.refreshTokenModel.create({
         hashedToken: hashedRefresh,
@@ -265,16 +251,14 @@ export class AuthService {
       }
     }
 
-    if (!matched)
-      throw new UnauthorizedException('Invalid or expired refresh token.');
+    if (!matched) throw new UnauthorizedException('Invalid or expired refresh token.');
 
     const user = await this.userModel.findByPk(matched.userId);
     if (!user) throw new NotFoundException('User not found for this token.');
 
     await this.refreshTokenModel.destroy({ where: { id: matched.id } });
 
-    const { accessToken, refreshToken: newRefreshToken } =
-      await this.issueTokens(user.id);
+    const { accessToken, refreshToken: newRefreshToken } = await this.issueTokens(user.id);
 
     return {
       message: 'New tokens issued successfully.',
