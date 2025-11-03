@@ -1,17 +1,23 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { format } from 'date-fns';
-import Logo from '@/components/auth/Logo';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { format } from "date-fns";
+import Logo from "@/components/auth/Logo";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
@@ -21,14 +27,27 @@ import {
   DialogTrigger,
   DialogFooter,
   DialogClose,
-} from '@/components/ui/dialog';
-import { 
-  User, Lock, Shield, LogOut, CheckCircle,
-  AlertCircle, Monitor, Smartphone, Globe, Edit, Loader2
-} from 'lucide-react';
-import { getProfile,updateProfile,uploadAvatar } from '@/services/authService';
-import { changePassword } from '@/services/changePasswordService';
-import ChangePasswordForm from '@/components/auth/ChangePasswordForm';
+} from "@/components/ui/dialog";
+import {
+  User,
+  Lock,
+  Shield,
+  LogOut,
+  CheckCircle,
+  AlertCircle,
+  Monitor,
+  Smartphone,
+  Globe,
+  Edit,
+  Loader2,
+} from "lucide-react";
+import {
+  getProfile,
+  updateProfile,
+  uploadAvatar,
+} from "@/services/authService";
+import { changePassword } from "@/services/changePasswordService";
+import ChangePasswordForm from "@/components/auth/ChangePasswordForm";
 type UserProfile = {
   id: number;
   name: string | null;
@@ -38,40 +57,60 @@ type UserProfile = {
 };
 
 const mockSessions = [
-  { id: '1', device: 'Chrome on Windows', location: 'Nairobi, Kenya', ip: '102.68.xxx.xxx', lastActive: 'Active now', current: true, icon: Monitor },
-  { id: '2', device: 'Safari on iPhone', location: 'Lagos, Nigeria', ip: '105.112.xxx.xxx', lastActive: '2 hours ago', current: false, icon: Smartphone },
-  { id: '3', device: 'Firefox on macOS', location: 'Accra, Ghana', ip: '154.160.xxx.xxx', lastActive: '1 day ago', current: false, icon: Globe },
+  {
+    id: "1",
+    device: "Chrome on Windows",
+    location: "Nairobi, Kenya",
+    ip: "102.68.xxx.xxx",
+    lastActive: "Active now",
+    current: true,
+    icon: Monitor,
+  },
+  {
+    id: "2",
+    device: "Safari on iPhone",
+    location: "Lagos, Nigeria",
+    ip: "105.112.xxx.xxx",
+    lastActive: "2 hours ago",
+    current: false,
+    icon: Smartphone,
+  },
+  {
+    id: "3",
+    device: "Firefox on macOS",
+    location: "Accra, Ghana",
+    ip: "154.160.xxx.xxx",
+    lastActive: "1 day ago",
+    current: false,
+    icon: Globe,
+  },
 ];
 
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  
-  
-  const [editedName, setEditedName] = useState('');
-  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
-  const [editError, setEditError] = useState('');
 
+  const [editedName, setEditedName] = useState("");
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [editError, setEditError] = useState("");
 
   const [isUploading, setIsUploading] = useState(false);
-  const [avatarError, setAvatarError] = useState('');
+  const [avatarError, setAvatarError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  
   const editDialogCloseRef = useRef<HTMLButtonElement>(null);
   const passwordDialogCloseRef = useRef<HTMLButtonElement>(null);
 
-  
   useEffect(() => {
     const fetchProfileData = async () => {
       try {
         const profileData = await getProfile();
         setUser(profileData);
-        setEditedName(profileData.name || '');
+        setEditedName(profileData.name || "");
       } catch (error) {
-        console.error('Failed to fetch profile, redirecting...', error);
-        router.push('/auth/login'); 
+        console.error("Failed to fetch profile, redirecting...", error);
+        router.push("/auth/login");
       } finally {
         setIsLoading(false);
       }
@@ -81,17 +120,17 @@ export default function DashboardPage() {
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setEditError('');
+    setEditError("");
     setIsUpdatingProfile(true);
-    
+
     try {
       const updatedUser = await updateProfile({ name: editedName });
-      
+
       setUser(updatedUser);
-      
+
       editDialogCloseRef.current?.click();
     } catch (err: any) {
-      setEditError(err.message || 'Failed to update profile.');
+      setEditError(err.message || "Failed to update profile.");
     } finally {
       setIsUpdatingProfile(false);
     }
@@ -102,30 +141,28 @@ export default function DashboardPage() {
     if (!file) return;
 
     setIsUploading(true);
-    setAvatarError('');
+    setAvatarError("");
 
     try {
       const updatedUser = await uploadAvatar(file);
-      setUser(updatedUser); 
+      setUser(updatedUser);
     } catch (err: any) {
-      setAvatarError(err.message || 'Upload failed.');
+      setAvatarError(err.message || "Upload failed.");
     } finally {
       setIsUploading(false);
-      if(fileInputRef.current) fileInputRef.current.value = "";
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
-  
+
   const handleLogout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    router.push('/auth/login');
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    router.push("/auth/login");
   };
 
   const handleTerminateSession = (sessionId: string) => {
-    console.log('Terminating session:', sessionId);
+    console.log("Terminating session:", sessionId);
   };
-
-  
 
   if (isLoading) {
     return (
@@ -136,7 +173,7 @@ export default function DashboardPage() {
   }
 
   if (!user) {
-    return null; 
+    return null;
   }
 
   return (
@@ -161,7 +198,7 @@ export default function DashboardPage() {
         <div className="max-w-3xl mx-auto space-y-8">
           <div>
             <h1 className="text-3xl font-bold text-foreground mb-2">
-              Welcome back, {user.name?.split(' ')[0] || 'User'}!
+              Welcome back, {user.name?.split(" ")[0] || "User"}!
             </h1>
             <p className="text-muted-foreground">
               Manage your account settings and security preferences.
@@ -170,16 +207,24 @@ export default function DashboardPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><User /> Profile</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <User /> Profile
+              </CardTitle>
               <CardDescription>Your account information</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col md:flex-row gap-6">
                 <div className="flex flex-col items-center gap-4">
                   <Avatar className="h-32 w-32">
-                    <AvatarImage src={user.avatarUrl} alt={user.name || 'User'} />
+                    <AvatarImage
+                      src={user.avatarUrl}
+                      alt={user.name || "User"}
+                    />
                     <AvatarFallback className="text-2xl">
-                      {user.name?.split(' ').map(n => n[0]).join('')}
+                      {user.name
+                        ?.split(" ")
+                        .map((n) => n[0])
+                        .join("")}
                     </AvatarFallback>
                   </Avatar>
 
@@ -194,7 +239,7 @@ export default function DashboardPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => fileInputRef.current?.click()} 
+                    onClick={() => fileInputRef.current?.click()}
                     disabled={isUploading}
                   >
                     {isUploading ? (
@@ -202,69 +247,118 @@ export default function DashboardPage() {
                     ) : (
                       <Edit className="h-4 w-4 mr-2" />
                     )}
-                    {isUploading ? 'Uploading...' : 'Change Photo'}
+                    {isUploading ? "Uploading..." : "Change Photo"}
                   </Button>
-                  
+
                   {/* 3. Add a place to display any upload errors */}
-                  {avatarError && <p className="text-sm text-destructive">{avatarError}</p>}
+                  {avatarError && (
+                    <p className="text-sm text-destructive">{avatarError}</p>
+                  )}
                 </div>
                 <div className="flex-1 space-y-4">
                   <div>
-                    <Label className="text-muted-foreground text-xs">Full Name</Label>
+                    <Label className="text-muted-foreground text-xs">
+                      Full Name
+                    </Label>
                     <p className="text-foreground font-medium">{user.name}</p>
                   </div>
                   <Separator />
                   <div>
-                    <Label className="text-muted-foreground text-xs">Email Address</Label>
+                    <Label className="text-muted-foreground text-xs">
+                      Email Address
+                    </Label>
                     <p className="text-foreground font-medium">{user.email}</p>
                   </div>
                   <Separator />
                   <div>
-                    <Label className="text-muted-foreground text-xs">User ID</Label>
-                    <p className="text-foreground font-mono text-sm">{user.id}</p>
+                    <Label className="text-muted-foreground text-xs">
+                      User ID
+                    </Label>
+                    <p className="text-foreground font-mono text-sm">
+                      {user.id}
+                    </p>
                   </div>
                   <Separator />
                   <div>
-                    <Label className="text-muted-foreground text-xs">Member Since</Label>
-                    <p className="text-foreground font-medium">{format(new Date(user.createdAt), 'MMMM d, yyyy')}</p>
+                    <Label className="text-muted-foreground text-xs">
+                      Member Since
+                    </Label>
+                    <p className="text-foreground font-medium">
+                      {format(new Date(user.createdAt), "MMMM d, yyyy")}
+                    </p>
                   </div>
                   <div className="flex flex-wrap gap-3 pt-4">
                     <Dialog>
                       <DialogTrigger asChild>
-                        <Button variant="default"><Edit className="h-4 w-4 mr-2" /> Edit Profile</Button>
+                        <Button variant="default">
+                          <Edit className="h-4 w-4 mr-2" /> Edit Profile
+                        </Button>
                       </DialogTrigger>
                       <DialogContent>
                         <DialogHeader>
                           <DialogTitle>Edit Profile</DialogTitle>
-                          <DialogDescription>Update your personal information here.</DialogDescription>
+                          <DialogDescription>
+                            Update your personal information here.
+                          </DialogDescription>
                         </DialogHeader>
-                        <form onSubmit={handleProfileUpdate} className="space-y-4 py-4">
-                          {editError && <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription>{editError}</AlertDescription></Alert>}
+                        <form
+                          onSubmit={handleProfileUpdate}
+                          className="space-y-4 py-4"
+                        >
+                          {editError && (
+                            <Alert variant="destructive">
+                              <AlertCircle className="h-4 w-4" />
+                              <AlertDescription>{editError}</AlertDescription>
+                            </Alert>
+                          )}
                           <div className="space-y-2">
                             <Label htmlFor="name">Full Name</Label>
-                            <Input id="name" value={editedName} onChange={(e) => setEditedName(e.target.value)} />
+                            <Input
+                              id="name"
+                              value={editedName}
+                              onChange={(e) => setEditedName(e.target.value)}
+                            />
                           </div>
                           <DialogFooter>
-                            <DialogClose asChild><Button type="button" variant="ghost">Cancel</Button></DialogClose>
+                            <DialogClose asChild>
+                              <Button type="button" variant="ghost">
+                                Cancel
+                              </Button>
+                            </DialogClose>
                             <Button type="submit" disabled={isUpdatingProfile}>
-                              {isUpdatingProfile ? <Loader2 className="animate-spin" /> : 'Save Changes'}
+                              {isUpdatingProfile ? (
+                                <Loader2 className="animate-spin" />
+                              ) : (
+                                "Save Changes"
+                              )}
                             </Button>
                           </DialogFooter>
                         </form>
-                        <DialogClose ref={editDialogCloseRef} className="hidden" />
+                        <DialogClose
+                          ref={editDialogCloseRef}
+                          className="hidden"
+                        />
                       </DialogContent>
                     </Dialog>
                     <Dialog>
                       <DialogTrigger asChild>
-                        <Button variant="outline"><Lock className="h-4 w-4 mr-2" /> Change Password</Button>
+                        <Button variant="outline">
+                          <Lock className="h-4 w-4 mr-2" /> Change Password
+                        </Button>
                       </DialogTrigger>
                       <DialogContent>
                         <DialogHeader>
-                          <DialogTitle>Change Password</DialogTitle>
-                          <DialogDescription>Enter your current password and choose a new one.</DialogDescription>
+                          <DialogTitle></DialogTitle>
+                          <DialogDescription>
+                         
+                          </DialogDescription>
                         </DialogHeader>
+
+                        <DialogClose
+                          ref={passwordDialogCloseRef}
+                          className="hidden"
+                        />
                         <ChangePasswordForm />
-                        <DialogClose ref={passwordDialogCloseRef} className="hidden" />
                       </DialogContent>
                     </Dialog>
                   </div>
@@ -275,24 +369,51 @@ export default function DashboardPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Shield /> Active Sessions</CardTitle>
-              <CardDescription>Manage devices where you're currently logged in</CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <Shield /> Active Sessions
+              </CardTitle>
+              <CardDescription>
+                Manage devices where you're currently logged in
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {mockSessions.map((session) => (
-                <div key={session.id} className="flex items-start justify-between p-4 rounded-lg border border-border bg-muted/30 hover:bg-muted/50 transition-colors">
+                <div
+                  key={session.id}
+                  className="flex items-start justify-between p-4 rounded-lg border border-border bg-muted/30 hover:bg-muted/50 transition-colors"
+                >
                   <div className="flex items-start gap-4">
-                    <div className="p-2 rounded-lg bg-primary/10"><session.icon className="h-5 w-5 text-primary" /></div>
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <session.icon className="h-5 w-5 text-primary" />
+                    </div>
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <p className="font-medium text-foreground">{session.device}</p>
-                        {session.current && <Badge variant="secondary" className="text-xs">Current</Badge>}
+                        <p className="font-medium text-foreground">
+                          {session.device}
+                        </p>
+                        {session.current && (
+                          <Badge variant="secondary" className="text-xs">
+                            Current
+                          </Badge>
+                        )}
                       </div>
-                      <p className="text-sm text-muted-foreground">{session.location} • {session.ip}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{session.lastActive}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {session.location} • {session.ip}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {session.lastActive}
+                      </p>
                     </div>
                   </div>
-                  {!session.current && <Button onClick={() => handleTerminateSession(session.id)} variant="outline" size="sm">Terminate</Button>}
+                  {!session.current && (
+                    <Button
+                      onClick={() => handleTerminateSession(session.id)}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Terminate
+                    </Button>
+                  )}
                 </div>
               ))}
             </CardContent>

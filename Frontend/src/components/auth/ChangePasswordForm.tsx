@@ -21,7 +21,6 @@ export default function ChangePasswordForm() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
-  // Eye toggle states
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -105,9 +104,9 @@ export default function ChangePasswordForm() {
   return (
     <>
       <div className="mb-6 text-center">
-        <h2 className="text-2xl font-bold text-foreground mb-1">Change Password</h2>
+         <h2 className="text-2xl font-bold text-foreground mb-3">Change Password</h2>
         <p className="text-muted-foreground">Update your account password</p>
-      </div>
+      </div> 
 
       {success ? (
         <div className="space-y-4">
