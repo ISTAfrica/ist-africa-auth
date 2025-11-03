@@ -163,6 +163,7 @@ export class AuthService {
   if (!user) {
     throw new NotFoundException('User not found.');
   }
+}
 
   if (user.isVerified) {
     throw new ConflictException('This account is already verified.');
