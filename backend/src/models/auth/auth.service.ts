@@ -14,7 +14,7 @@ import { randomUUID } from 'crypto';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { AuthenticateUserDto } from './dto/authenticate-user.dto';
 import { EmailService } from '../../email/email.service';
-import { randomInt } from 'crypto'; 
+import { randomInt } from 'crypto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
 
@@ -26,7 +26,7 @@ export class AuthService {
     @InjectModel(RefreshToken)
     private readonly refreshTokenModel: typeof RefreshToken,
     private emailService: EmailService,
-  ) {}
+  ) { }
 
   private async generateAndSaveOtp(userId: number): Promise<string> {
     const otp = randomInt(100000, 999999).toString();
@@ -132,8 +132,9 @@ export class AuthService {
         .sign(privateKey);
 
       const refreshToken = randomUUID();
+      const hashedRefresh = await hash(refreshToken, 12);
       await this.refreshTokenModel.create({
-        hashedToken: refreshToken,
+        hashedToken: hashedRefresh,
         userId: user.id,
       });
 
@@ -160,7 +161,7 @@ export class AuthService {
     const verifyUrl = `${verifyUrlBase.replace(/\/$/, '')}/api/auth/verify-email?token=${user.verificationToken}`;
     const otp = await this.generateAndSaveOtp(user.id);
     await this.emailService.sendVerificationEmail(user.name || 'User', user.email, verifyUrl, otp);
-    
+
     return { message: 'Verification link sent to your email.' };
   }
 
@@ -215,12 +216,55 @@ export class AuthService {
         .sign(privateKey);
 
       const refreshToken = randomUUID();
-      await this.refreshTokenModel.create({ hashedToken: refreshToken, userId });
+      const hashedRefresh = await hash(refreshToken, 12);
+      await this.refreshTokenModel.create({
+        hashedToken: hashedRefresh, userId
+      });
 
       return { accessToken, refreshToken };
     } catch (error) {
       console.error('Token Generation Error:', error);
       throw new InternalServerErrorException('Could not generate tokens');
     }
+  }
+async refreshTokens(refreshToken: string) {
+  const tokens = await this.refreshTokenModel.findAll();
+  let matched: any = null;
+
+  console.log('Incoming refreshToken:', refreshToken);
+
+  for (const t of tokens) {
+    console.log('Comparing with stored hash:', t.hashedToken);
+    const match = await compare(refreshToken, t.hashedToken);
+    if (match) {
+      matched = t;
+      break;
+    }
+  }
+
+  if (!matched) {
+    console.error('No match found for refresh token');
+    throw new UnauthorizedException('Invalid or expired refresh token.');
+  }
+
+    const user = await this.userModel.findByPk(matched.userId);
+    if (!user) {
+      throw new NotFoundException('User not found for this token.');
+    }
+
+    await this.refreshTokenModel.destroy({ where: { id: matched.id } });
+
+    const { accessToken, refreshToken: newRefreshToken } = await this.issueTokens(user.id);
+
+    return {
+      message: 'New tokens issued successfully.',
+      owner: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      },
+      accessToken,
+      refreshToken: newRefreshToken,
+    };
   }
 }
