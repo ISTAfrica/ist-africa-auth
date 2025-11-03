@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { changePassword } from '@/services/changePasswordService';
 
+
 export default function ChangePasswordForm() {
   const router = useRouter();
 

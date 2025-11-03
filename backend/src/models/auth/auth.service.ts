@@ -110,53 +110,59 @@ export class AuthService {
     };
   }
 
-  async authenticate(authenticateDto: AuthenticateUserDto) {
-    const { email, password } = authenticateDto;
+ async authenticate(authenticateDto: AuthenticateUserDto) {
+  const { email, password } = authenticateDto;
 
-    const user = await this.userModel.findOne({ where: { email } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    if (!user.isVerified) {
-      throw new ForbiddenException(
-        'Please verify your email before logging in.',
-      );
-    }
-
-    const isPasswordValid = await compare(password, user.password);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    try {
-      const { SignJWT, importPKCS8 } = await import('jose');
-
-      const privateKeyPem = process.env.JWT_PRIVATE_KEY!.replace(/\n/g, '\n');
-      const privateKey = await importPKCS8(privateKeyPem, 'RS256');
-      const keyId = process.env.JWT_KEY_ID!;
-
-      const accessToken = await new SignJWT({ user_type: 'admin_user' })
-        .setProtectedHeader({ alg: 'RS256', kid: keyId })
-        .setIssuer('https://auth.ist.africa')
-        .setAudience('iaa-admin-portal')
-        .setSubject(user.id.toString())
-        .setIssuedAt()
-        .setExpirationTime('1h')
-        .sign(privateKey);
-
-      const refreshToken = randomUUID();
-      await this.refreshTokenModel.create({
-        hashedToken: refreshToken,
-        userId: user.id,
-      });
-
-      return { accessToken, refreshToken };
-    } catch (error) {
-      console.error('Token Generation Error:', error);
-      throw new InternalServerErrorException('Could not generate tokens');
-    }
+  const user = await this.userModel.findOne({ where: { email } });
+  if (!user) {
+    throw new NotFoundException('User not found');
   }
+
+  if (!user.isVerified) {
+    throw new ForbiddenException('Please verify your email before logging in.');
+  }
+
+  const isPasswordValid = await compare(password, user.password);
+  if (!isPasswordValid) {
+    throw new UnauthorizedException('Invalid credentials');
+  }
+
+  try {
+    const { SignJWT, importPKCS8 } = await import('jose');
+    const privateKeyPem = process.env.JWT_PRIVATE_KEY!.replace(/\\n/g, '\n');
+    const privateKey = await importPKCS8(privateKeyPem, 'RS256');
+    const keyId = process.env.JWT_KEY_ID!;
+
+    const accessToken = await new SignJWT({ user_type: 'admin_user' })
+      .setProtectedHeader({ alg: 'RS256', kid: keyId })
+      .setIssuer('https://auth.ist.africa')
+      .setAudience('iaa-admin-portal')
+      .setSubject(user.id.toString())
+      .setIssuedAt()
+      .setExpirationTime('1h')
+      .sign(privateKey);
+
+    const refreshToken = randomUUID();
+    const now = new Date();
+    const expiresAt = new Date(now);
+    expiresAt.setDate(now.getDate() + 30);
+
+    const refreshTokenData = {
+      hashedToken: refreshToken,
+      userId: user.id,
+      expiresAt: expiresAt,
+      updatedAt: now,
+    };
+
+    await this.refreshTokenModel.create(refreshTokenData);
+
+    return { accessToken, refreshToken };
+
+  } catch (error) {
+    console.error('ERROR during token generation or database save:', error);
+    throw new InternalServerErrorException('Could not generate tokens. Check server logs.');
+  }
+}
 
   async resendOtp(resendOtpDto: ResendOtpDto) {
     const { email } = resendOtpDto;
@@ -239,10 +245,10 @@ export class AuthService {
         .sign(privateKey);
 
       const refreshToken = randomUUID();
-      await this.refreshTokenModel.create({
-        hashedToken: refreshToken,
-        userId,
-      });
+      const now = new Date();
+      const expiresAt = new Date(now);
+      expiresAt.setDate(now.getDate() + 30);
+      await this.refreshTokenModel.create({ hashedToken: refreshToken, userId, expiresAt });
 
       return { accessToken, refreshToken };
     } catch (error) {

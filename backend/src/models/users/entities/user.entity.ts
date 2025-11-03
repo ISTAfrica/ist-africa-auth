@@ -61,4 +61,10 @@ export class User extends Model {
     defaultValue: true,
   })
   declare isActive: boolean;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+  })
+  declare avatarUrl: string | null;
 }
