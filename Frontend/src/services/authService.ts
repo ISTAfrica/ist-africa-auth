@@ -15,19 +15,7 @@ const getAuthHeaders = () => {
   };
 };
 
-<<<<<<< HEAD
-export const getProfile = async () => {
-  const response = await fetch(`${API_BASE_URL}/api/user/me`, {
-    method: "GET",
-    headers: getAuthHeaders(),
-  });
-  if (!response.ok) throw new Error("Failed to fetch profile");
-  return response.json();
-};
-=======
 
-
->>>>>>> origin/develop
 
 export const authenticateUser = async (credentials: AuthenticateUserDto) => {
   const response = await fetch(`${API_BASE_URL}/api/auth/authenticate`, {
@@ -117,8 +105,6 @@ export const resendOtp = async (payload: ResendOtpDto) => {
   }
   return data;
 };
-<<<<<<< HEAD
-=======
 
 export const updateProfile = async (data: { name: string }) => {
   const response = await fetch(`${API_BASE_URL}/api/user/me`, {
@@ -159,4 +145,3 @@ export const uploadAvatar = async (file: File) => {
 
   return response.json();
 };
->>>>>>> origin/develop
