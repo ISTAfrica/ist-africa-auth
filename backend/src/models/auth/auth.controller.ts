@@ -8,6 +8,7 @@ import {
   ValidationPipe,
   Query,
   Redirect,
+  Param,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterUserDto } from './dto/register-user.dto';
@@ -61,5 +62,13 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   resendOtp(@Body(new ValidationPipe()) resendOtpDto: ResendOtpDto) {
     return this.authService.resendOtp(resendOtpDto);
+  }
+
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  async refreshTokens(
+    @Body('refreshToken', new ValidationPipe()) refreshToken: string,
+  ) {
+    return this.authService.refreshTokens(refreshToken);
   }
 }
