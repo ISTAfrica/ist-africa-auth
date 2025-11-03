@@ -131,8 +131,7 @@ export class AuthService {
 
     try {
       const { SignJWT, importPKCS8 } = await import('jose');
-
-      const privateKeyPem = process.env.JWT_PRIVATE_KEY!.replace(/\n/g, '\n');
+      const privateKeyPem = process.env.JWT_PRIVATE_KEY!.replace(/\\n/g, '\n');
       const privateKey = await importPKCS8(privateKeyPem, 'RS256');
       const keyId = process.env.JWT_KEY_ID!;
 
@@ -146,15 +145,25 @@ export class AuthService {
         .sign(privateKey);
 
       const refreshToken = randomUUID();
-      await this.refreshTokenModel.create({
+      const now = new Date();
+      const expiresAt = new Date(now);
+      expiresAt.setDate(now.getDate() + 30);
+
+      const refreshTokenData = {
         hashedToken: refreshToken,
         userId: user.id,
-      });
+        expiresAt: expiresAt,
+        updatedAt: now,
+      };
+
+      await this.refreshTokenModel.create(refreshTokenData);
 
       return { accessToken, refreshToken };
     } catch (error) {
-      console.error('Token Generation Error:', error);
-      throw new InternalServerErrorException('Could not generate tokens');
+      console.error('ERROR during token generation or database save:', error);
+      throw new InternalServerErrorException(
+        'Could not generate tokens. Check server logs.',
+      );
     }
   }
 
@@ -239,9 +248,13 @@ export class AuthService {
         .sign(privateKey);
 
       const refreshToken = randomUUID();
+      const now = new Date();
+      const expiresAt = new Date(now);
+      expiresAt.setDate(now.getDate() + 30);
       await this.refreshTokenModel.create({
         hashedToken: refreshToken,
         userId,
+        expiresAt,
       });
 
       return { accessToken, refreshToken };
