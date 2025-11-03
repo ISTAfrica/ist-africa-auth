@@ -32,6 +32,12 @@ export class RefreshToken extends Model {
     defaultValue: false,
   })
   declare revoked: boolean;
+
+  @Column({
+    type: DataType.DATE,
+    allowNull: false,
+  })
+  declare expiresAt: Date;
 }
 
 
