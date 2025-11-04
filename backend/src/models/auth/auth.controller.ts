@@ -8,7 +8,6 @@ import {
   ValidationPipe,
   Query,
   Redirect,
-  Param,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterUserDto } from './dto/register-user.dto';

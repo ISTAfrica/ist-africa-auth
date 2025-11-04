@@ -1,10 +1,9 @@
-import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { compare, hash } from 'bcryptjs';
 import { User } from '../users/entities/user.entity';
-import { UpdateUserDto } from './dto/update-user.dto'
+import { UpdateUserDto } from './dto/update-user.dto';
 import { promises as fs } from 'fs';
-import * as path from 'path'; 
+import * as path from 'path';
 
 @Injectable()
 export class UserService {
@@ -22,22 +21,27 @@ export class UserService {
       throw new NotFoundException('User not found');
     }
     return user.toJSON();
-}
+  }
 
-   async updateProfile(userId: number, updateUserDto: UpdateUserDto): Promise<Omit<User, 'password'>> {
-  
+  async updateProfile(
+    userId: number,
+    updateUserDto: UpdateUserDto,
+  ): Promise<Omit<User, 'password'>> {
     const user = await this.userModel.findByPk(userId);
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
     await user.update(updateUserDto);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...result } = user.toJSON();
     return result;
   }
 
-
-  async updateAvatar(userId: number, file: Express.Multer.File): Promise<Omit<User, 'password'>> {
+  async updateAvatar(
+    userId: number,
+    file: Express.Multer.File,
+  ): Promise<Omit<User, 'password'>> {
     const user = await this.userModel.findByPk(userId);
     if (!user) {
       await fs.unlink(file.path);
@@ -53,7 +57,11 @@ export class UserService {
         await fs.access(oldAvatarPath);
         await fs.unlink(oldAvatarPath);
       } catch (error) {
-        console.error(`Could not delete old avatar at ${oldAvatarUrl}:`, error.message);
+        console.error(
+          `Could not delete old avatar at ${oldAvatarUrl}:`,
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          error.message,
+        );
       }
     }
 
@@ -62,7 +70,8 @@ export class UserService {
 
     await user.update({ avatarUrl: newAvatarUrl });
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...result } = user.toJSON();
     return result;
   }
-  }
+}

@@ -45,19 +45,31 @@ export class AuthService {
   async register(registerDto: RegisterUserDto) {
     const { email, password, name } = registerDto;
 
+    // 🔍 Check if user already exists
     const existingUser = await this.userModel.findOne({ where: { email } });
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
     }
 
+    // ✅ 1. Determine membership status from email domain
+    const istDomains =
+      this.configService.get<string>('IST_DOMAINS')?.split(',') || [];
+    const emailDomain = email.split('@')[1];
+    const membershipStatus = istDomains.includes(emailDomain)
+      ? 'ist_member'
+      : 'ext_member';
+
+    // ✅ 2. Continue registration flow
     const hashedPassword = await hash(password, 12);
     const verificationToken = randomUUID();
 
+    // ✅ 3. Save user with membership status
     const user = await this.userModel.create({
       email,
       name: name || '',
       password: hashedPassword,
       verificationToken,
+      membershipStatus, // 🆕 added field
     });
 
     const verifyUrlBase =
@@ -170,10 +182,6 @@ export class AuthService {
     if (!user) throw new NotFoundException('User not found.');
     if (user.isVerified)
       throw new ConflictException('This account is already verified.');
-
-    if (user.isVerified) {
-      throw new ConflictException('This account is already verified.');
-    }
 
     const verifyUrlBase = this.configService.get<string>('BACKEND_URL');
 

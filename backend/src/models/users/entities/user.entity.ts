@@ -67,4 +67,12 @@ export class User extends Model {
     allowNull: true,
   })
   declare avatarUrl: string | null;
+
+  // 🆕 Add this:
+  @Column({
+    type: DataType.ENUM('ist_member', 'ext_member'),
+    allowNull: false,
+    defaultValue: 'ext_member',
+  })
+  declare membershipStatus: 'ist_member' | 'ext_member';
 }
