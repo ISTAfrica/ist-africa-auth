@@ -6,6 +6,7 @@ import { AuthModule } from '../models/auth/auth.module';
 import { databaseConfig } from '../config/database.config';
 import { EmailModule } from '../email/email.module';
 import {UserModule} from '../models/user/user.module'
+import { RoleModule } from '../models/roles/role.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import {UserModule} from '../models/user/user.module'
     AuthModule,
     EmailModule,
     UserModule,
+    RoleModule,
   ],
   
 })

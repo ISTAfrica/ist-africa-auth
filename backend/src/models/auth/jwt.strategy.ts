@@ -32,21 +32,26 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
    * @returns The full user object if validation is successful.
    */
   async validate(payload: { sub: string; email: string }) {
-    // The 'sub' (subject) claim in the JWT should be the user's ID.
     const userId = parseInt(payload.sub, 10);
-
     if (isNaN(userId)) {
       throw new UnauthorizedException('Invalid token subject.');
     }
 
-    // Use Sequelize's findByPk to find the user by their primary key.
-    const user = await this.userModel.findByPk(userId);
+    // Load user with role relation so downstream guards can check role
+    const user = await this.userModel.findByPk(userId, {
+      include: [{ association: 'role' }],
+      attributes: { exclude: ['password'] },
+    });
 
     if (!user) {
       throw new UnauthorizedException('User not found or token is invalid.');
     }
-    
-    // The returned user object will be attached to the request object as req.user
-    return user;
+
+    // Attach a minimal, serializable user to req.user
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role ? user.role.name : undefined,
+    };
   }
 }
