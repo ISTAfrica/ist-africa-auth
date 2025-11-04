@@ -11,4 +11,8 @@ export const databaseConfig = (): SequelizeModuleOptions => ({
   // Avoid auto-alter; let you manage schema manually in pgAdmin
   sync: undefined,
   logging: false,
+  timezone: '+00:00', // Force UTC timezone
+  dialectOptions: {
+    useUTC: true, // Use UTC for PostgreSQL
+  },
 });
