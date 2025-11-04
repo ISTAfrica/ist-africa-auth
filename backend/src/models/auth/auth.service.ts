@@ -171,6 +171,10 @@ export class AuthService {
     if (user.isVerified)
       throw new ConflictException('This account is already verified.');
 
+    if (user.isVerified) {
+      throw new ConflictException('This account is already verified.');
+    }
+
     const verifyUrlBase = this.configService.get<string>('BACKEND_URL');
 
     if (!verifyUrlBase) {

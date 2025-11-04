@@ -25,4 +25,5 @@ coverage/
 .coverage
 htmlcov/
 .github/workflows/ci.yaml
-/coverage
+config/
+coverage/
