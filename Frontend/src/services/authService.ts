@@ -11,10 +11,6 @@ const getAuthHeaders = () => {
 };
 
 
-
-
-
-
 export const authenticateUser = async (credentials: AuthenticateUserDto) => {
   const response = await fetch(`${API_BASE_URL}/api/auth/authenticate`, {
     method: 'POST',

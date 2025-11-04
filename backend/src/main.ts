@@ -1,8 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app/app.module';
-import { NestExpressApplication } from '@nestjs/platform-express'; 
-import { join } from 'path'; 
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 
 async function bootstrap() {
   console.log('JWT_PRIVATE_KEY on startup:', process.env.JWT_PRIVATE_KEY);

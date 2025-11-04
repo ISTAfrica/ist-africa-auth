@@ -8,7 +8,7 @@ import {
   ValidationPipe,
   Query,
   Redirect,
-  Param
+  Param,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterUserDto } from './dto/register-user.dto';
@@ -18,7 +18,7 @@ import { ResendOtpDto } from './dto/resend-otp.dto';
 
 @Controller('api/auth')
 export class AuthController {
-  constructor(private authService: AuthService) { }
+  constructor(private authService: AuthService) {}
 
   @Post('register')
   register(@Body(new ValidationPipe()) registerDto: RegisterUserDto) {
@@ -27,7 +27,9 @@ export class AuthController {
 
   @Post('authenticate')
   @HttpCode(HttpStatus.OK)
-  authenticate(@Body(new ValidationPipe()) authenticateDto: AuthenticateUserDto) {
+  authenticate(
+    @Body(new ValidationPipe()) authenticateDto: AuthenticateUserDto,
+  ) {
     return this.authService.authenticate(authenticateDto);
   }
 
@@ -39,8 +41,13 @@ export class AuthController {
   @Get('verify-email')
   @Redirect()
   async verifyEmail(@Query('token') token: string) {
-    const { accessToken, refreshToken } = await this.authService.verifyEmail(token);
-    const frontendUrl = (process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+    const { accessToken, refreshToken } =
+      await this.authService.verifyEmail(token);
+    const frontendUrl = (
+      process.env.FRONTEND_URL ||
+      process.env.NEXT_PUBLIC_FRONTEND_URL ||
+      'http://localhost:3000'
+    ).replace(/\/$/, '');
     const url = `${frontendUrl}/auth/verification-success?accessToken=${encodeURIComponent(accessToken)}&refreshToken=${encodeURIComponent(refreshToken)}`;
     return { url };
   }
@@ -57,9 +64,11 @@ export class AuthController {
     return this.authService.resendOtp(resendOtpDto);
   }
 
- @Post('refresh')
+  @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refreshTokens(@Body('refreshToken', new ValidationPipe()) refreshToken: string) {
+  async refreshTokens(
+    @Body('refreshToken', new ValidationPipe()) refreshToken: string,
+  ) {
     return this.authService.refreshTokens(refreshToken);
   }
 }
