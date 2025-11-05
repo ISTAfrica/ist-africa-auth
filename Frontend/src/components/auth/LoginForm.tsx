@@ -9,7 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { authenticateUser, requestPasswordReset } from '@/services/authService';
+import { authenticateUser,  } from '@/services/authService';
+
+import { forgotPassword } from '@/services/resetPasswordService'; // or whatever you named your file
 
 interface LoginFormProps {
   forgotPasswordInitial: boolean;
@@ -51,10 +53,15 @@ export default function LoginForm({ forgotPasswordInitial }: LoginFormProps) {
     e.preventDefault();
     setError('');
     setLoading(true);
+    
+    console.log('🔥 handlePasswordReset called with email:', email);
+    
     try {
-      await requestPasswordReset(email);
+      const result = await forgotPassword({ email });
+      console.log('✅ Password reset successful:', result);
       setResetSent(true);
     } catch (err: unknown) {
+      console.error('❌ Password reset error:', err);
       if (err instanceof Error) {
         setError(err.message);
       } else {
