@@ -50,9 +50,15 @@ export class AuthService {
       throw new ConflictException('User with this email already exists');
     }
 
-    const istDomains =
-      this.configService.get<string>('IST_DOMAINS')?.split(',') || [];
-    const emailDomain = email.split('@')[1];
+    const domainsEnv = this.configService.get<string>('IST_DOMAINS') || '';
+
+    const istDomains = domainsEnv
+      .split(',')
+      .map((d) => d.trim().toLowerCase())
+      .filter((d) => d.length > 0);
+
+    const emailDomain = email.split('@')[1]?.toLowerCase();
+
     const membershipStatus = istDomains.includes(emailDomain)
       ? 'ist_member'
       : 'ext_member';
