@@ -45,13 +45,11 @@ export class AuthService {
   async register(registerDto: RegisterUserDto) {
     const { email, password, name } = registerDto;
 
-    // 🔍 Check if user already exists
     const existingUser = await this.userModel.findOne({ where: { email } });
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
     }
 
-    // ✅ 1. Determine membership status from email domain
     const istDomains =
       this.configService.get<string>('IST_DOMAINS')?.split(',') || [];
     const emailDomain = email.split('@')[1];
@@ -59,17 +57,15 @@ export class AuthService {
       ? 'ist_member'
       : 'ext_member';
 
-    // ✅ 2. Continue registration flow
     const hashedPassword = await hash(password, 12);
     const verificationToken = randomUUID();
 
-    // ✅ 3. Save user with membership status
     const user = await this.userModel.create({
       email,
       name: name || '',
       password: hashedPassword,
       verificationToken,
-      membershipStatus, // 🆕 added field
+      membershipStatus,
     });
 
     const verifyUrlBase =
