@@ -3,6 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import { ChangePasswordController } from './changepassword.controller';
 import { ChangePasswordService } from './changepassword.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { resolve } from 'node:path/win32';
 
 const mockChangePasswordDto: ChangePasswordDto = {
   currentPassword: 'OldPassword123',
@@ -54,7 +55,7 @@ describe('ChangePasswordController', () => {
       const mockRequest = {
         user: {
           id: 1,
-          user_type: 'user',
+          resolve: 'user',
         },
       } as unknown as any;
 
@@ -91,7 +92,7 @@ describe('ChangePasswordController', () => {
       const mockRequest = {
         user: {
           id: null,
-          user_type: 'user',
+          role: 'user',
         },
       } as unknown as any;
 
@@ -118,7 +119,7 @@ describe('ChangePasswordController', () => {
       const mockRequest = {
         user: {
           id: 42,
-          user_type: 'admin',
+          role: 'admin',
         },
       } as unknown as any;
 
@@ -138,7 +139,7 @@ describe('ChangePasswordController', () => {
       const mockRequest = {
         user: {
           id: 1,
-          user_type: 'user',
+          role: 'user',
         },
       } as unknown as any;
 
@@ -157,7 +158,7 @@ describe('ChangePasswordController', () => {
       const mockRequest = {
         user: {
           id: 1,
-          user_type: 'user',
+          role: 'user',
         },
       } as unknown as any;
 
