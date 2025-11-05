@@ -8,14 +8,23 @@ import {
   ValidationPipe,
   Query,
   Redirect,
+  Param,
+  Patch,
+  Req,
+  ForbiddenException,
+  UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { AuthenticateUserDto } from './dto/authenticate-user.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
+import { JwtAuthGuard } from './jwt-auth.guard';
+import { CurrentUser } from 'src/commons/decorators/current-user.decorator';
+import { User } from '../users/entities/user.entity';
 
 @Controller('api/auth')
+// @UseGuards(JwtAuthGuard)
 export class AuthController {
   constructor(private authService: AuthService) {}
 
@@ -69,5 +78,19 @@ export class AuthController {
     @Body('refreshToken', new ValidationPipe()) refreshToken: string,
   ) {
     return this.authService.refreshTokens(refreshToken);
+  }
+  @UseGuards(JwtAuthGuard) // ✅ Make sure this is here
+  @Patch('users/:id/role')
+  async updateRole(
+    @Param('id') userId: string,
+    @Body('role') role: 'user' | 'admin',
+    @Req() req: Request & { user?: any },
+  ) {
+    console.log('Request user:', req.user);
+    const id = Number(userId);
+
+    const callerRole = req.user?.user_type || req.user?.role;
+
+    return this.authService.updateUserRole(callerRole, id, role);
   }
 }

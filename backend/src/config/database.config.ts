@@ -8,8 +8,7 @@ export const databaseConfig = (): SequelizeModuleOptions => ({
   password: process.env.DB_PASSWORD ?? 'postgres',
   database: process.env.DB_DATABASE ?? 'IAA',
   autoLoadModels: true,
-  // Avoid auto-alter; let you manage schema manually in pgAdmin
-  sync: undefined,
+  sync: { force: false }, // or `undefined` if you don't want auto-sync
   logging: false,
   timezone: '+00:00', // Force UTC timezone
   dialectOptions: {

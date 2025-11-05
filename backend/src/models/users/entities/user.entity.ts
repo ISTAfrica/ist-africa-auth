@@ -74,4 +74,11 @@ export class User extends Model {
     defaultValue: 'ext_member',
   })
   declare membershipStatus: 'ist_member' | 'ext_member';
+
+  @Column({
+    type: DataType.ENUM('user', 'admin'),
+    allowNull: false,
+    defaultValue: 'user',
+  })
+  declare role: 'user' | 'admin';
 }

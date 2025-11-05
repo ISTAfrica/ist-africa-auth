@@ -66,6 +66,7 @@ export class AuthService {
       password: hashedPassword,
       verificationToken,
       membershipStatus,
+      role: 'user',
     });
 
     const verifyUrlBase =
@@ -87,6 +88,31 @@ export class AuthService {
         process.env.NEXT_PUBLIC_FRONTEND_URL ??
         'http://localhost:3000'
       ).replace(/\/$/, '')}/auth/verify-email`,
+    };
+  }
+
+  async updateUserRole(
+    callerRole: 'user' | 'admin' | 'admin_user',
+    userId: number,
+    newRole: 'user' | 'admin',
+  ) {
+    if (callerRole !== 'admin' && callerRole !== 'admin_user') {
+      throw new ForbiddenException('Only admins can update user roles');
+    }
+
+    const user = await this.userModel.findByPk(userId);
+    if (!user) throw new NotFoundException('User not found');
+
+    await user.update({ role: newRole });
+
+    return {
+      message: `User role updated to ${newRole}`,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
     };
   }
 
