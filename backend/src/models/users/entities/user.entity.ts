@@ -67,4 +67,12 @@ export class User extends Model {
     allowNull: true,
   })
   declare avatarUrl: string | null;
+
+  // 🆕 Add role column
+  @Column({
+    type: DataType.ENUM('user', 'admin'),
+    allowNull: false,
+    defaultValue: 'user',
+  })
+  declare role: 'user' | 'admin';
 }

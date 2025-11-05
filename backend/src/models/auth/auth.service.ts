@@ -1,3 +1,4 @@
+
 import {
   Injectable,
   NotFoundException,
@@ -58,6 +59,7 @@ export class AuthService {
       name: name || '',
       password: hashedPassword,
       verificationToken,
+      role: 'user', // ensures new users are 'user' by default
     });
 
     const verifyUrlBase =
@@ -79,6 +81,32 @@ export class AuthService {
         process.env.NEXT_PUBLIC_FRONTEND_URL ??
         'http://localhost:3000'
       ).replace(/\/$/, '')}/auth/verify-email`,
+    };
+  }
+
+  async updateUserRole(
+    callerRole: 'user' | 'admin' | 'admin_user', // Add admin_user type
+    userId: number,
+    newRole: 'user' | 'admin',
+  ) {
+    // Change the check to include admin_user
+    if (callerRole !== 'admin' && callerRole !== 'admin_user') {
+      throw new ForbiddenException('Only admins can update user roles');
+    }
+  
+    const user = await this.userModel.findByPk(userId);
+    if (!user) throw new NotFoundException('User not found');
+  
+    await user.update({ role: newRole });
+  
+    return {
+      message: `User role updated to ${newRole}`,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
     };
   }
 
