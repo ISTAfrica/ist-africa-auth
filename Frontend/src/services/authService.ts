@@ -46,7 +46,6 @@ export const getProfile = async () => {
     method: 'GET',
     headers: getAuthHeaders(),
   });
-<<<<<<< HEAD
   if (!response.ok) throw new Error('Failed to fetch profile');
   return response.json();
 };
