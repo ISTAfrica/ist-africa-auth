@@ -58,6 +58,7 @@ export class AuthService {
       name: name || '',
       password: hashedPassword,
       verificationToken,
+      role: 'user', // ensures new users are 'user' by default
     });
 
     const verifyUrlBase =
@@ -82,6 +83,31 @@ export class AuthService {
     };
   }
 
+  async updateUserRole(
+    callerRole: 'user' | 'admin',
+    userId: number,
+    newRole: 'user' | 'admin',
+  ) {
+    if (callerRole !== 'admin') {
+      throw new ForbiddenException('Only admins can update user roles');
+    }
+
+    const user = await this.userModel.findByPk(userId);
+    if (!user) throw new NotFoundException('User not found');
+
+    await user.update({ role: newRole });
+
+    return {
+      message: `User role updated to ${newRole}`,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+    };
+  }
+
   async verifyOtp(verifyOtpDto: VerifyOtpDto) {
     const { email, otp } = verifyOtpDto;
 
@@ -92,7 +118,9 @@ export class AuthService {
     }
 
     if (new Date() > user.otpExpiresAt) {
-      throw new UnauthorizedException('OTP has expired. Please request a new one.');
+      throw new UnauthorizedException(
+        'OTP has expired. Please request a new one.',
+      );
     }
 
     const isOtpValid = await compare(otp, user.otp);
@@ -118,10 +146,14 @@ export class AuthService {
     const user = await this.userModel.findOne({ where: { email } });
 
     if (!user) throw new NotFoundException('User not found');
-    if (!user.isVerified) throw new ForbiddenException('Please verify your email before logging in.');
+    if (!user.isVerified)
+      throw new ForbiddenException(
+        'Please verify your email before logging in.',
+      );
 
     const isPasswordValid = await compare(password, user.password);
-    if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
+    if (!isPasswordValid)
+      throw new UnauthorizedException('Invalid credentials');
 
     try {
       const { SignJWT, importPKCS8 } = await import('jose');
@@ -162,28 +194,27 @@ export class AuthService {
     const user = await this.userModel.findOne({ where: { email } });
 
     if (!user) throw new NotFoundException('User not found.');
-    if (user.isVerified) throw new ConflictException('This account is already verified.');
+    if (user.isVerified)
+      throw new ConflictException('This account is already verified.');
 
     const verifyUrlBase = this.configService.get<string>('BACKEND_URL');
 
-
-  if (!verifyUrlBase) {
-
-    throw new InternalServerErrorException(
-      'Configuration error: BACKEND_URL is not set in environment variables.',
+    if (!verifyUrlBase) {
+      throw new InternalServerErrorException(
+        'Configuration error: BACKEND_URL is not set in environment variables.',
+      );
+    }
+    const verifyUrl = `${verifyUrlBase.replace(/\/$/, '')}/api/auth/verify-email?token=${user.verificationToken}`;
+    const otp = await this.generateAndSaveOtp(user.id);
+    await this.emailService.sendVerificationEmail(
+      user.name || 'User',
+      user.email,
+      verifyUrl,
+      otp,
     );
-  }
-  const verifyUrl = `${verifyUrlBase.replace(/\/$/, '')}/api/auth/verify-email?token=${user.verificationToken}`;
-  const otp = await this.generateAndSaveOtp(user.id);
-  await this.emailService.sendVerificationEmail(
-    user.name || 'User',
-    user.email,
-    verifyUrl,
-    otp,
-  );
 
-  return { message: 'Verification link sent to your email.' };
-}
+    return { message: 'Verification link sent to your email.' };
+  }
 
   async getJwks() {
     try {
@@ -201,10 +232,15 @@ export class AuthService {
   }
 
   async verifyEmail(token: string) {
-    const user = await this.userModel.findOne({ where: { verificationToken: token } });
+    const user = await this.userModel.findOne({
+      where: { verificationToken: token },
+    });
     if (!user) throw new NotFoundException('Invalid verification token.');
 
-    await this.userModel.update({ isVerified: true, verificationToken: null }, { where: { id: user.id } });
+    await this.userModel.update(
+      { isVerified: true, verificationToken: null },
+      { where: { id: user.id } },
+    );
     const { accessToken, refreshToken } = await this.issueTokens(user.id);
     return { accessToken, refreshToken };
   }
@@ -228,8 +264,12 @@ export class AuthService {
       const refreshToken = randomUUID();
       const hashedRefresh = await hash(refreshToken, 12);
       const now = new Date();
-      const refreshTtlDaysEnv = process.env.REFRESH_TOKEN_TTL_DAYS ?? process.env.REFRESH_TOKEN_EXPIRES_DAYS;
-      const refreshTtlDays = Number.isNaN(Number(refreshTtlDaysEnv)) ? 30 : Number(refreshTtlDaysEnv);
+      const refreshTtlDaysEnv =
+        process.env.REFRESH_TOKEN_TTL_DAYS ??
+        process.env.REFRESH_TOKEN_EXPIRES_DAYS;
+      const refreshTtlDays = Number.isNaN(Number(refreshTtlDaysEnv))
+        ? 30
+        : Number(refreshTtlDaysEnv);
       const expiresAt = new Date(now);
       expiresAt.setDate(now.getDate() + refreshTtlDays);
 
@@ -261,14 +301,16 @@ export class AuthService {
       }
     }
 
-    if (!matched) throw new UnauthorizedException('Invalid or expired refresh token.');
+    if (!matched)
+      throw new UnauthorizedException('Invalid or expired refresh token.');
 
     const user = await this.userModel.findByPk(matched.userId);
     if (!user) throw new NotFoundException('User not found for this token.');
 
     await this.refreshTokenModel.destroy({ where: { id: matched.id } });
 
-    const { accessToken, refreshToken: newRefreshToken } = await this.issueTokens(user.id);
+    const { accessToken, refreshToken: newRefreshToken } =
+      await this.issueTokens(user.id);
 
     return {
       message: 'New tokens issued successfully.',
