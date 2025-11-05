@@ -10,4 +10,8 @@ export const databaseConfig = (): SequelizeModuleOptions => ({
   autoLoadModels: true,
   sync: { force: false }, // or `undefined` if you don't want auto-sync
   logging: false,
-}); // ✅ Make sure this closing parenthesis and semicolon exist
+  timezone: '+00:00', // Force UTC timezone
+  dialectOptions: {
+    useUTC: true, // Use UTC for PostgreSQL
+  },
+});

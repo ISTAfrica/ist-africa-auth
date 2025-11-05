@@ -24,6 +24,7 @@ import { CurrentUser } from 'src/commons/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
 
 @Controller('api/auth')
+// @UseGuards(JwtAuthGuard) 
 export class AuthController {
   constructor(private authService: AuthService) {}
 
@@ -78,15 +79,19 @@ export class AuthController {
   ) {
     return this.authService.refreshTokens(refreshToken);
   }
+  @UseGuards(JwtAuthGuard) // ✅ Make sure this is here
   @Patch('users/:id/role')
   async updateRole(
     @Param('id') userId: string,
     @Body('role') role: 'user' | 'admin',
     @Req() req: Request & { user?: any },
   ) {
-    console.log('Request user:', req.user); // 👈 Add this line
+    console.log('Request user:', req.user);
     const id = Number(userId);
-    return this.authService.updateUserRole(req.user?.role, id, role);
+    
+    const callerRole = req.user?.user_type || req.user?.role;
+    
+    return this.authService.updateUserRole(callerRole, id, role);
   }
 
 

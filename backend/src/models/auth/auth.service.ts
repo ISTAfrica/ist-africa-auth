@@ -1,3 +1,4 @@
+
 import {
   Injectable,
   NotFoundException,
@@ -84,19 +85,20 @@ export class AuthService {
   }
 
   async updateUserRole(
-    callerRole: 'user' | 'admin',
+    callerRole: 'user' | 'admin' | 'admin_user', // Add admin_user type
     userId: number,
     newRole: 'user' | 'admin',
   ) {
-    if (callerRole !== 'admin') {
+    // Change the check to include admin_user
+    if (callerRole !== 'admin' && callerRole !== 'admin_user') {
       throw new ForbiddenException('Only admins can update user roles');
     }
-
+  
     const user = await this.userModel.findByPk(userId);
     if (!user) throw new NotFoundException('User not found');
-
+  
     await user.update({ role: newRole });
-
+  
     return {
       message: `User role updated to ${newRole}`,
       user: {
@@ -196,6 +198,10 @@ export class AuthService {
     if (!user) throw new NotFoundException('User not found.');
     if (user.isVerified)
       throw new ConflictException('This account is already verified.');
+
+    if (user.isVerified) {
+      throw new ConflictException('This account is already verified.');
+    }
 
     const verifyUrlBase = this.configService.get<string>('BACKEND_URL');
 
