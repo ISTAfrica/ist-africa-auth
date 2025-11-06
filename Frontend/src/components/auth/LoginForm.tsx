@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { authenticateUser,  } from '@/services/authService';
+import { jwtDecode } from 'jwt-decode';
 
 import { forgotPassword } from '@/services/resetPasswordService'; // or whatever you named your file
 
@@ -37,15 +38,24 @@ export default function LoginForm({ forgotPasswordInitial }: LoginFormProps) {
       const data = await authenticateUser({ email, password });
       localStorage.setItem('accessToken', data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);
-      router.push('/dashboard');
+
+
+      const decodedToken = jwtDecode<DecodedToken>(data.accessToken);
+      
+
+      if (decodedToken.role === 'admin') {
+        router.push('/admin/clients'); 
+      } else {
+        router.push('/dashboard'); 
+      }
+
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
       } else {
         setError('An unknown error occurred');
       }
-    } finally {
-      setLoading(false);
+      setLoading(false); 
     }
   };
 
