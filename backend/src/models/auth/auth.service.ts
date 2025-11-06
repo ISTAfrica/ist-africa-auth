@@ -1,4 +1,3 @@
-
 import {
   Injectable,
   NotFoundException,
@@ -51,6 +50,19 @@ export class AuthService {
       throw new ConflictException('User with this email already exists');
     }
 
+    const domainsEnv = this.configService.get<string>('IST_DOMAINS') || '';
+
+    const istDomains = domainsEnv
+      .split(',')
+      .map((d) => d.trim().toLowerCase())
+      .filter((d) => d.length > 0);
+
+    const emailDomain = email.split('@')[1]?.toLowerCase();
+
+    const membershipStatus = istDomains.includes(emailDomain)
+      ? 'ist_member'
+      : 'ext_member';
+
     const hashedPassword = await hash(password, 12);
     const verificationToken = randomUUID();
 
@@ -59,7 +71,8 @@ export class AuthService {
       name: name || '',
       password: hashedPassword,
       verificationToken,
-      role: 'user', // ensures new users are 'user' by default
+      membershipStatus,
+      role: 'user',
     });
 
     const verifyUrlBase =
@@ -85,20 +98,19 @@ export class AuthService {
   }
 
   async updateUserRole(
-    callerRole: 'user' | 'admin' | 'admin_user', // Add admin_user type
+    callerRole: 'user' | 'admin' | 'admin_user',
     userId: number,
     newRole: 'user' | 'admin',
   ) {
-    // Change the check to include admin_user
     if (callerRole !== 'admin' && callerRole !== 'admin_user') {
       throw new ForbiddenException('Only admins can update user roles');
     }
-  
+
     const user = await this.userModel.findByPk(userId);
     if (!user) throw new NotFoundException('User not found');
-  
+
     await user.update({ role: newRole });
-  
+
     return {
       message: `User role updated to ${newRole}`,
       user: {
@@ -199,10 +211,6 @@ export class AuthService {
     if (user.isVerified)
       throw new ConflictException('This account is already verified.');
 
-    if (user.isVerified) {
-      throw new ConflictException('This account is already verified.');
-    }
-
     const verifyUrlBase = this.configService.get<string>('BACKEND_URL');
 
     if (!verifyUrlBase) {
@@ -257,13 +265,8 @@ export class AuthService {
       const privateKeyPem = process.env.JWT_PRIVATE_KEY!.replace(/\n/g, '\n');
       const privateKey = await importPKCS8(privateKeyPem, 'RS256');
       const keyId = process.env.JWT_KEY_ID!;
-      // Load user to include role in token
-      const user = await this.userModel.findByPk(userId);
-      if (!user) {
-        throw new InternalServerErrorException('User not found when issuing tokens');
-      }
 
-      const accessToken = await new SignJWT({ user_type: 'admin_user', role: user.role })
+      const accessToken = await new SignJWT({ user_type: 'admin_user' })
         .setProtectedHeader({ alg: 'RS256', kid: keyId })
         .setIssuer('https://auth.ist.africa')
         .setAudience('iaa-admin-portal')
