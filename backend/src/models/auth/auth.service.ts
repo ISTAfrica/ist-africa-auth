@@ -1,4 +1,3 @@
-
 import {
   Injectable,
   NotFoundException,
@@ -51,6 +50,19 @@ export class AuthService {
       throw new ConflictException('User with this email already exists');
     }
 
+    const domainsEnv = this.configService.get<string>('IST_DOMAINS') || '';
+
+    const istDomains = domainsEnv
+      .split(',')
+      .map((d) => d.trim().toLowerCase())
+      .filter((d) => d.length > 0);
+
+    const emailDomain = email.split('@')[1]?.toLowerCase();
+
+    const membershipStatus = istDomains.includes(emailDomain)
+      ? 'ist_member'
+      : 'ext_member';
+
     const hashedPassword = await hash(password, 12);
     const verificationToken = randomUUID();
 
@@ -59,7 +71,8 @@ export class AuthService {
       name: name || '',
       password: hashedPassword,
       verificationToken,
-      role: 'user', // ensures new users are 'user' by default
+      membershipStatus,
+      role: 'user',
     });
 
     const verifyUrlBase =
@@ -85,20 +98,19 @@ export class AuthService {
   }
 
   async updateUserRole(
-    callerRole: 'user' | 'admin' | 'admin_user', // Add admin_user type
+    callerRole: 'user' | 'admin' | 'admin_user',
     userId: number,
     newRole: 'user' | 'admin',
   ) {
-    // Change the check to include admin_user
     if (callerRole !== 'admin' && callerRole !== 'admin_user') {
       throw new ForbiddenException('Only admins can update user roles');
     }
-  
+
     const user = await this.userModel.findByPk(userId);
     if (!user) throw new NotFoundException('User not found');
-  
+
     await user.update({ role: newRole });
-  
+
     return {
       message: `User role updated to ${newRole}`,
       user: {
@@ -198,10 +210,6 @@ export class AuthService {
     if (!user) throw new NotFoundException('User not found.');
     if (user.isVerified)
       throw new ConflictException('This account is already verified.');
-
-    if (user.isVerified) {
-      throw new ConflictException('This account is already verified.');
-    }
 
     const verifyUrlBase = this.configService.get<string>('BACKEND_URL');
 
