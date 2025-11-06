@@ -51,6 +51,19 @@ export class AuthService {
       throw new ConflictException('User with this email already exists');
     }
 
+    const domainsEnv = this.configService.get<string>('IST_DOMAINS') || '';
+
+    const istDomains = domainsEnv
+      .split(',')
+      .map((d) => d.trim().toLowerCase())
+      .filter((d) => d.length > 0);
+
+    const emailDomain = email.split('@')[1]?.toLowerCase();
+
+    const membershipStatus = istDomains.includes(emailDomain)
+      ? 'ist_member'
+      : 'ext_member';
+
     const hashedPassword = await hash(password, 12);
     const verificationToken = randomUUID();
 
@@ -59,7 +72,8 @@ export class AuthService {
       name: name || '',
       password: hashedPassword,
       verificationToken,
-      role: 'user', // default role
+      membershipStatus,
+      role: 'user',
     });
 
     const verifyUrlBase =
@@ -194,7 +208,8 @@ export class AuthService {
     const user = await this.userModel.findOne({ where: { email } });
 
     if (!user) throw new NotFoundException('User not found.');
-    if (user.isVerified) throw new ConflictException('This account is already verified.');
+    if (user.isVerified)
+      throw new ConflictException('This account is already verified.');
 
     const verifyUrlBase = this.configService.get<string>('BACKEND_URL');
     if (!verifyUrlBase) {
@@ -299,5 +314,39 @@ export class AuthService {
       console.error('Token Generation Error:', error);
       throw new InternalServerErrorException('Could not generate tokens');
     }
+  }
+
+  async refreshTokens(refreshToken: string) {
+    const tokens = await this.refreshTokenModel.findAll();
+    let matched: any = null;
+
+    console.log('Incoming refreshToken:', refreshToken);
+
+    for (const t of tokens) {
+      console.log('Comparing with stored hash:', t.hashedToken);
+      const match = await compare(refreshToken, t.hashedToken);
+      if (match) {
+        matched = t;
+        break;
+      }
+    }
+
+    if (!matched)
+      throw new UnauthorizedException('Invalid or expired refresh token.');
+
+    const user = await this.userModel.findByPk(matched.userId);
+    if (!user) throw new NotFoundException('User not found for this token.');
+
+    await this.refreshTokenModel.destroy({ where: { id: matched.id } });
+
+    const { accessToken, refreshToken: newRefreshToken } =
+      await this.issueTokens(user.id);
+
+    return {
+      message: 'New tokens issued successfully.',
+      owner: { id: user.id, name: user.name, email: user.email },
+      accessToken,
+      refreshToken: newRefreshToken,
+    };
   }
 }
