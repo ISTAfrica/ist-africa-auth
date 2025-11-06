@@ -77,7 +77,7 @@ export class AuthService {
 
     const verifyUrlBase =
       process.env.BACKEND_URL ?? process.env.APP_URL ?? 'http://localhost:5000';
-    const verifyUrl = `${verifyUrlBase.replace(/\/$/, '')}/api/auth/verify-email?token=${verificationToken}`;
+    const verifyUrl = ${verifyUrlBase.replace(/\/$/, '')}/api/auth/verify-email?token=${verificationToken};
 
     const otp = await this.generateAndSaveOtp(user.id);
     await this.emailService.sendVerificationEmail(
@@ -112,7 +112,7 @@ export class AuthService {
     await user.update({ role: newRole });
 
     return {
-      message: `User role updated to ${newRole}`,
+      message: User role updated to ${newRole},
       user: {
         id: user.id,
         email: user.email,
@@ -218,7 +218,7 @@ export class AuthService {
         'Configuration error: BACKEND_URL is not set in environment variables.',
       );
     }
-    const verifyUrl = `${verifyUrlBase.replace(/\/$/, '')}/api/auth/verify-email?token=${user.verificationToken}`;
+    const verifyUrl = ${verifyUrlBase.replace(/\/$/, '')}/api/auth/verify-email?token=${user.verificationToken};
     const otp = await this.generateAndSaveOtp(user.id);
     await this.emailService.sendVerificationEmail(
       user.name || 'User',
