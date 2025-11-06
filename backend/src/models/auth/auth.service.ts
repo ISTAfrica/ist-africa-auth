@@ -29,6 +29,7 @@ export class AuthService {
     private emailService: EmailService,
   ) {}
 
+  // -------------------- OTP Utility --------------------
   private async generateAndSaveOtp(userId: number): Promise<string> {
     const otp = randomInt(100000, 999999).toString();
     const hashedOtp = await hash(otp, 10);
@@ -52,14 +53,12 @@ export class AuthService {
     }
 
     const domainsEnv = this.configService.get<string>('IST_DOMAINS') || '';
-
     const istDomains = domainsEnv
       .split(',')
       .map((d) => d.trim().toLowerCase())
       .filter((d) => d.length > 0);
 
     const emailDomain = email.split('@')[1]?.toLowerCase();
-
     const membershipStatus = istDomains.includes(emailDomain)
       ? 'ist_member'
       : 'ext_member';
@@ -118,12 +117,7 @@ export class AuthService {
 
     return {
       message: `User role updated to ${newRole}`,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-      },
+      user: { id: user.id, email: user.email, name: user.name, role: user.role },
     };
   }
 
@@ -170,36 +164,7 @@ export class AuthService {
     const isPasswordValid = await compare(password, user.password);
     if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
 
-    const { SignJWT, importPKCS8 } = await import('jose');
-    const privateKeyPem = process.env.JWT_PRIVATE_KEY!.replace(/\\n/g, '\n');
-    const privateKey = await importPKCS8(privateKeyPem, 'RS256');
-    const keyId = process.env.JWT_KEY_ID!;
-
-    const accessToken = await new SignJWT({ role: user.role })
-      .setProtectedHeader({ alg: 'RS256', kid: keyId })
-      .setIssuer('https://auth.ist.africa')
-      .setAudience('iaa-admin-portal')
-      .setSubject(user.id.toString())
-      .setIssuedAt()
-      .setExpirationTime('1h')
-      .sign(privateKey);
-
-    const refreshToken = randomUUID();
-    const hashedRefresh = await hash(refreshToken, 12);
-    const now = new Date();
-    const refreshTtlDaysEnv =
-      process.env.REFRESH_TOKEN_TTL_DAYS ?? process.env.REFRESH_TOKEN_EXPIRES_DAYS;
-    const refreshTtlDays = Number.isNaN(Number(refreshTtlDaysEnv)) ? 30 : Number(refreshTtlDaysEnv);
-    const expiresAt = new Date(now);
-    expiresAt.setDate(now.getDate() + refreshTtlDays);
-
-    await this.refreshTokenModel.create({
-      hashedToken: hashedRefresh,
-      userId: user.id,
-      expiresAt,
-    });
-
-    return { accessToken, refreshToken };
+    return this.issueTokens(user.id, user.role);
   }
 
   // -------------------- Resend OTP --------------------
@@ -232,15 +197,14 @@ export class AuthService {
 
     await this.userModel.update({ isVerified: true, verificationToken: null }, { where: { id: user.id } });
 
-    const { accessToken, refreshToken } = await this.issueTokens(user.id, user.role);
-    return { accessToken, refreshToken };
+    return this.issueTokens(user.id, user.role);
   }
 
   // -------------------- JWKS --------------------
   async getJwks() {
     try {
       const { importSPKI, exportJWK } = await import('jose');
-      const publicKeyPem = process.env.JWT_PUBLIC_KEY!.replace(/\n/g, '\n');
+      const publicKeyPem = process.env.JWT_PUBLIC_KEY!.replace(/\\n/g, '\n');
       const keyId = process.env.JWT_KEY_ID!;
       const ecPublicKey = await importSPKI(publicKeyPem, 'RS256');
       const jwk = await exportJWK(ecPublicKey);
@@ -254,7 +218,7 @@ export class AuthService {
   // -------------------- Refresh Tokens --------------------
   async refreshTokens(refreshToken: string) {
     const tokens = await this.refreshTokenModel.findAll();
-    let matched: any = null;
+    let matched: RefreshToken | null = null;
 
     for (const t of tokens) {
       const match = await compare(refreshToken, t.hashedToken);
@@ -271,17 +235,10 @@ export class AuthService {
 
     await this.refreshTokenModel.destroy({ where: { id: matched.id } });
 
-    const { accessToken, refreshToken: newRefreshToken } = await this.issueTokens(user.id, user.role);
-
-    return {
-      message: 'New tokens issued successfully.',
-      owner: { id: user.id, name: user.name, email: user.email },
-      accessToken,
-      refreshToken: newRefreshToken,
-    };
+    return this.issueTokens(user.id, user.role);
   }
 
-  // -------------------- Token Issuing Helper --------------------
+  // -------------------- Token Helper --------------------
   private async issueTokens(userId: number, role: 'user' | 'admin') {
     try {
       const { SignJWT, importPKCS8 } = await import('jose');
@@ -301,11 +258,9 @@ export class AuthService {
       const refreshToken = randomUUID();
       const hashedRefresh = await hash(refreshToken, 12);
       const now = new Date();
-      const refreshTtlDaysEnv =
-        process.env.REFRESH_TOKEN_TTL_DAYS ?? process.env.REFRESH_TOKEN_EXPIRES_DAYS;
-      const refreshTtlDays = Number.isNaN(Number(refreshTtlDaysEnv)) ? 30 : Number(refreshTtlDaysEnv);
+      const ttl = Number(this.configService.get('REFRESH_TOKEN_TTL_DAYS') ?? 30);
       const expiresAt = new Date(now);
-      expiresAt.setDate(now.getDate() + refreshTtlDays);
+      expiresAt.setDate(now.getDate() + ttl);
 
       await this.refreshTokenModel.create({ hashedToken: hashedRefresh, userId, expiresAt });
 
@@ -314,39 +269,5 @@ export class AuthService {
       console.error('Token Generation Error:', error);
       throw new InternalServerErrorException('Could not generate tokens');
     }
-  }
-
-  async refreshTokens(refreshToken: string) {
-    const tokens = await this.refreshTokenModel.findAll();
-    let matched: any = null;
-
-    console.log('Incoming refreshToken:', refreshToken);
-
-    for (const t of tokens) {
-      console.log('Comparing with stored hash:', t.hashedToken);
-      const match = await compare(refreshToken, t.hashedToken);
-      if (match) {
-        matched = t;
-        break;
-      }
-    }
-
-    if (!matched)
-      throw new UnauthorizedException('Invalid or expired refresh token.');
-
-    const user = await this.userModel.findByPk(matched.userId);
-    if (!user) throw new NotFoundException('User not found for this token.');
-
-    await this.refreshTokenModel.destroy({ where: { id: matched.id } });
-
-    const { accessToken, refreshToken: newRefreshToken } =
-      await this.issueTokens(user.id);
-
-    return {
-      message: 'New tokens issued successfully.',
-      owner: { id: user.id, name: user.name, email: user.email },
-      accessToken,
-      refreshToken: newRefreshToken,
-    };
   }
 }
