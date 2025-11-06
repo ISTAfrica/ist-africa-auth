@@ -1,4 +1,10 @@
-import { Column, DataType, ForeignKey, Model, Table } from 'sequelize-typescript';
+import {
+  Column,
+  DataType,
+  ForeignKey,
+  Model,
+  Table,
+} from 'sequelize-typescript';
 import { User } from './user.entity';
 
 @Table({
@@ -39,5 +45,3 @@ export class RefreshToken extends Model {
   })
   declare expiresAt: Date;
 }
-
-
