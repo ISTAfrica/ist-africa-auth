@@ -59,7 +59,7 @@ export class AuthService {
       name: name || '',
       password: hashedPassword,
       verificationToken,
-      role: 'user', // ensures new users are 'user' by default
+      role: 'user', 
     });
 
     const verifyUrlBase =
@@ -85,7 +85,7 @@ export class AuthService {
   }
 
   async updateUserRole(
-    callerRole: 'user' | 'admin' | 'admin_user', // Add admin_user type
+    callerRole: 'user' | 'admin' | 'admin_user', 
     userId: number,
     newRole: 'user' | 'admin',
   ) {
@@ -163,7 +163,7 @@ export class AuthService {
       const privateKey = await importPKCS8(privateKeyPem, 'RS256');
       const keyId = process.env.JWT_KEY_ID!;
 
-      const accessToken = await new SignJWT({ user_type: 'admin_user' })
+      const accessToken = await new SignJWT({ user_type: 'admin_user', role: user.role })
         .setProtectedHeader({ alg: 'RS256', kid: keyId })
         .setIssuer('https://auth.ist.africa')
         .setAudience('iaa-admin-portal')
@@ -257,8 +257,13 @@ export class AuthService {
       const privateKeyPem = process.env.JWT_PRIVATE_KEY!.replace(/\n/g, '\n');
       const privateKey = await importPKCS8(privateKeyPem, 'RS256');
       const keyId = process.env.JWT_KEY_ID!;
+      // Load user to include role in token
+      const user = await this.userModel.findByPk(userId);
+      if (!user) {
+        throw new InternalServerErrorException('User not found when issuing tokens');
+      }
 
-      const accessToken = await new SignJWT({ user_type: 'admin_user' })
+      const accessToken = await new SignJWT({ user_type: 'admin_user', role: user.role })
         .setProtectedHeader({ alg: 'RS256', kid: keyId })
         .setIssuer('https://auth.ist.africa')
         .setAudience('iaa-admin-portal')

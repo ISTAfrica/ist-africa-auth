@@ -8,6 +8,7 @@ import { PasswordResetModule } from '../models/auth/passwordReset/passwordReset.
 import { databaseConfig } from '../config/database.config';
 import { EmailModule } from '../email/email.module';
 import { UserModule } from '../models/user/user.module';
+import { ClientsModule } from '../models/clients/clients.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { UserModule } from '../models/user/user.module';
     PasswordResetModule,
     EmailModule,
     UserModule,
+    ClientsModule
   ],
 })
 export class AppModule {}
