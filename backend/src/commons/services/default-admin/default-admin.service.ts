@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, InternalServerErrorException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { User } from '../../../models/users/entities/user.entity';
 import { hash } from 'bcryptjs';
@@ -23,36 +23,42 @@ export class DefaultAdminService implements OnModuleInit {
     const password = this.configService.get<string>('DEFAULT_ADMIN_PASSWORD');
     const name = this.configService.get<string>('DEFAULT_ADMIN_NAME') ?? 'Default Admin';
 
-    if (!email || !password) {
-      this.logger.warn('Default admin credentials not set in .env — skipping creation');
+    const existingAdmins = await this.userModel.count({ where: { role: 'admin', isActive: true } });
+
+    if (existingAdmins === 0 && (!email || !password)) {
+      this.logger.error(
+        'No active admin found and no DEFAULT_ADMIN_EMAIL or DEFAULT_ADMIN_PASSWORD set in .env. ' +
+        'Please provide default admin credentials before starting the application.',
+      );
+      throw new InternalServerErrorException(
+        'Missing default admin credentials. Please set DEFAULT_ADMIN_EMAIL and DEFAULT_ADMIN_PASSWORD in .env before starting the server.',
+      );
+    }
+
+    if (existingAdmins > 0) {
+      this.logger.debug('Active admin exists — skipping default admin creation');
       return;
     }
 
-    const existingAdmins = await this.userModel.count({ where: { role: 'admin', isActive: true } });
+    let admin = await this.userModel.findOne({ where: { email } });
 
-    if (existingAdmins === 0) {
-      let admin = await this.userModel.findOne({ where: { email } });
-
-      if (admin) {
-        admin.isActive = true;
-        admin.isDefaultAdmin = true;
-        await admin.save();
-        this.logger.log('Reactivated default admin account');
-      } else {
-        const hashed = await hash(password, 10);
-        await this.userModel.create({
-          email,
-          name,
-          password: hashed,
-          role: 'admin',
-          isVerified: true,
-          isActive: true,
-          isDefaultAdmin: true,
-        });
-        this.logger.log('Created default admin account');
-      }
-    } else {
-      this.logger.debug('Active admin exists — skipping default admin creation');
+    if (admin) {
+      admin.isActive = true;
+      admin.isDefaultAdmin = true;
+      await admin.save();
+      this.logger.log('Reactivated default admin account');
+    } else if (email && password) {
+      const hashed = await hash(password, 10); 
+      await this.userModel.create({
+        email,
+        name,
+        password: hashed,
+        role: 'admin',
+        isVerified: true,
+        isActive: true,
+        isDefaultAdmin: true,
+      });
+      this.logger.log('Created default admin account');
     }
   }
 }
