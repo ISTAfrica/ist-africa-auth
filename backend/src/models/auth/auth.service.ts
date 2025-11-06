@@ -175,7 +175,7 @@ export class AuthService {
       const privateKey = await importPKCS8(privateKeyPem, 'RS256');
       const keyId = process.env.JWT_KEY_ID!;
 
-      const accessToken = await new SignJWT({ user_type: 'admin_user' })
+      const accessToken = await new SignJWT({ user_type: 'admin_user', role: user.role })
         .setProtectedHeader({ alg: 'RS256', kid: keyId })
         .setIssuer('https://auth.ist.africa')
         .setAudience('iaa-admin-portal')
