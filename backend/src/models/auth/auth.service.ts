@@ -162,29 +162,6 @@ export class AuthService {
       throw new ForbiddenException('Please verify your email before logging in.');
 
     const isPasswordValid = await compare(password, user.password);
-    if (!isPasswordValid)
-      throw new UnauthorizedException('Invalid credentials');
-
-    try {
-      const { SignJWT, importPKCS8 } = await import('jose');
-      const privateKeyPem = process.env.JWT_PRIVATE_KEY!.replace(/\\n/g, '\n');
-      const privateKey = await importPKCS8(privateKeyPem, 'RS256');
-      const keyId = process.env.JWT_KEY_ID!;
-
-      const accessToken = await new SignJWT({ user_type: 'admin_user', role: user.role })
-        .setProtectedHeader({ alg: 'RS256', kid: keyId })
-        .setIssuer('https://auth.ist.africa')
-        .setAudience('iaa-admin-portal')
-        .setSubject(user.id.toString())
-        .setIssuedAt()
-        .setExpirationTime('1h')
-        .sign(privateKey);
-
-      const refreshToken = randomUUID();
-      const hashedRefresh = await hash(refreshToken, 12);
-      const now = new Date();
-      const expiresAt = new Date(now);
-      expiresAt.setDate(now.getDate() + 30);
     if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
 
     return this.issueTokens(user.id, user.role);
@@ -293,39 +270,4 @@ export class AuthService {
       throw new InternalServerErrorException('Could not generate tokens');
     }
   }
-
-  async refreshTokens(refreshToken: string) {
-    const tokens = await this.refreshTokenModel.findAll();
-    let matched: any = null;
-
-    console.log('Incoming refreshToken:', refreshToken);
-
-    for (const t of tokens) {
-      console.log('Comparing with stored hash:', t.hashedToken);
-      const match = await compare(refreshToken, t.hashedToken);
-      if (match) {
-        matched = t;
-        break;
-      }
-    }
-
-    if (!matched)
-      throw new UnauthorizedException('Invalid or expired refresh token.');
-
-    const user = await this.userModel.findByPk(matched.userId);
-    if (!user) throw new NotFoundException('User not found for this token.');
-
-    await this.refreshTokenModel.destroy({ where: { id: matched.id } });
-
-    const { accessToken, refreshToken: newRefreshToken } =
-      await this.issueTokens(user.id);
-
-    return {
-      message: 'New tokens issued successfully.',
-      owner: { id: user.id, name: user.name, email: user.email },
-      accessToken,
-      refreshToken: newRefreshToken,
-    };
-  }
-}
 }
