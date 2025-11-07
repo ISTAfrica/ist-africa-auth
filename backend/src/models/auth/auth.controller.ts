@@ -85,9 +85,9 @@ export class AuthController {
   ) {
     console.log('Request user:', req.user);
     const id = Number(userId);
-
-    const callerRole = req.user?.user_type || req.user?.role;
-
+    
+    const callerRole = req.user?.role || req.user?.role;
+    
     return this.authService.updateUserRole(callerRole, id, role);
   }
 }

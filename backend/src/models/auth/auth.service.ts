@@ -29,6 +29,7 @@ export class AuthService {
     private emailService: EmailService,
   ) {}
 
+  // -------------------- OTP Utility --------------------
   private async generateAndSaveOtp(userId: number): Promise<string> {
     const otp = randomInt(100000, 999999).toString();
     const hashedOtp = await hash(otp, 10);
@@ -42,6 +43,7 @@ export class AuthService {
     return otp;
   }
 
+  // -------------------- Register --------------------
   async register(registerDto: RegisterUserDto) {
     const { email, password, name } = registerDto;
 
@@ -51,14 +53,12 @@ export class AuthService {
     }
 
     const domainsEnv = this.configService.get<string>('IST_DOMAINS') || '';
-
     const istDomains = domainsEnv
       .split(',')
       .map((d) => d.trim().toLowerCase())
       .filter((d) => d.length > 0);
 
     const emailDomain = email.split('@')[1]?.toLowerCase();
-
     const membershipStatus = istDomains.includes(emailDomain)
       ? 'ist_member'
       : 'ext_member';
@@ -77,7 +77,10 @@ export class AuthService {
 
     const verifyUrlBase =
       process.env.BACKEND_URL ?? process.env.APP_URL ?? 'http://localhost:5000';
-    const verifyUrl = `${verifyUrlBase.replace(/\/$/, '')}/api/auth/verify-email?token=${verificationToken}`;
+    const verifyUrl = `${verifyUrlBase.replace(
+      /\/$/,
+      '',
+    )}/api/auth/verify-email?token=${verificationToken}`;
 
     const otp = await this.generateAndSaveOtp(user.id);
     await this.emailService.sendVerificationEmail(
@@ -97,6 +100,7 @@ export class AuthService {
     };
   }
 
+  // -------------------- Role Update --------------------
   async updateUserRole(
     callerRole: 'user' | 'admin' | 'admin_user',
     userId: number,
@@ -113,28 +117,21 @@ export class AuthService {
 
     return {
       message: `User role updated to ${newRole}`,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-      },
+      user: { id: user.id, email: user.email, name: user.name, role: user.role },
     };
   }
 
+  // -------------------- OTP Verification --------------------
   async verifyOtp(verifyOtpDto: VerifyOtpDto) {
     const { email, otp } = verifyOtpDto;
 
     const user = await this.userModel.findOne({ where: { email } });
-
     if (!user || !user.otp || !user.otpExpiresAt) {
       throw new NotFoundException('Invalid request or user not found.');
     }
 
     if (new Date() > user.otpExpiresAt) {
-      throw new UnauthorizedException(
-        'OTP has expired. Please request a new one.',
-      );
+      throw new UnauthorizedException('OTP has expired. Please request a new one.');
     }
 
     const isOtpValid = await compare(otp, user.otp);
@@ -147,7 +144,7 @@ export class AuthService {
       { where: { id: user.id } },
     );
 
-    const { accessToken, refreshToken } = await this.issueTokens(user.id);
+    const { accessToken, refreshToken } = await this.issueTokens(user.id, user.role);
     return {
       message: 'Email verified successfully.',
       accessToken,
@@ -155,54 +152,22 @@ export class AuthService {
     };
   }
 
+  // -------------------- Authenticate --------------------
   async authenticate(authenticateDto: AuthenticateUserDto) {
     const { email, password } = authenticateDto;
     const user = await this.userModel.findOne({ where: { email } });
 
     if (!user) throw new NotFoundException('User not found');
     if (!user.isVerified)
-      throw new ForbiddenException(
-        'Please verify your email before logging in.',
-      );
+      throw new ForbiddenException('Please verify your email before logging in.');
 
     const isPasswordValid = await compare(password, user.password);
-    if (!isPasswordValid)
-      throw new UnauthorizedException('Invalid credentials');
+    if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
 
-    try {
-      const { SignJWT, importPKCS8 } = await import('jose');
-      const privateKeyPem = process.env.JWT_PRIVATE_KEY!.replace(/\\n/g, '\n');
-      const privateKey = await importPKCS8(privateKeyPem, 'RS256');
-      const keyId = process.env.JWT_KEY_ID!;
-
-      const accessToken = await new SignJWT({ user_type: 'admin_user' })
-        .setProtectedHeader({ alg: 'RS256', kid: keyId })
-        .setIssuer('https://auth.ist.africa')
-        .setAudience('iaa-admin-portal')
-        .setSubject(user.id.toString())
-        .setIssuedAt()
-        .setExpirationTime('1h')
-        .sign(privateKey);
-
-      const refreshToken = randomUUID();
-      const hashedRefresh = await hash(refreshToken, 12);
-      const now = new Date();
-      const expiresAt = new Date(now);
-      expiresAt.setDate(now.getDate() + 30);
-
-      await this.refreshTokenModel.create({
-        hashedToken: hashedRefresh,
-        userId: user.id,
-        expiresAt,
-      });
-
-      return { accessToken, refreshToken };
-    } catch (error) {
-      console.error('Token Generation Error:', error);
-      throw new InternalServerErrorException('Could not generate tokens');
-    }
+    return this.issueTokens(user.id, user.role);
   }
 
+  // -------------------- Resend OTP --------------------
   async resendOtp(resendOtpDto: ResendOtpDto) {
     const { email } = resendOtpDto;
     const user = await this.userModel.findOne({ where: { email } });
@@ -212,32 +177,37 @@ export class AuthService {
       throw new ConflictException('This account is already verified.');
 
     const verifyUrlBase = this.configService.get<string>('BACKEND_URL');
-
     if (!verifyUrlBase) {
       throw new InternalServerErrorException(
         'Configuration error: BACKEND_URL is not set in environment variables.',
       );
     }
+
     const verifyUrl = `${verifyUrlBase.replace(/\/$/, '')}/api/auth/verify-email?token=${user.verificationToken}`;
     const otp = await this.generateAndSaveOtp(user.id);
-    await this.emailService.sendVerificationEmail(
-      user.name || 'User',
-      user.email,
-      verifyUrl,
-      otp,
-    );
+    await this.emailService.sendVerificationEmail(user.name || 'User', user.email, verifyUrl, otp);
 
     return { message: 'Verification link sent to your email.' };
   }
 
+  // -------------------- Verify Email --------------------
+  async verifyEmail(token: string) {
+    const user = await this.userModel.findOne({ where: { verificationToken: token } });
+    if (!user) throw new NotFoundException('Invalid verification token.');
+
+    await this.userModel.update({ isVerified: true, verificationToken: null }, { where: { id: user.id } });
+
+    return this.issueTokens(user.id, user.role);
+  }
+
+  // -------------------- JWKS --------------------
   async getJwks() {
     try {
       const { importSPKI, exportJWK } = await import('jose');
-      const publicKeyPem = process.env.JWT_PUBLIC_KEY!.replace(/\n/g, '\n');
+      const publicKeyPem = process.env.JWT_PUBLIC_KEY!.replace(/\\n/g, '\n');
       const keyId = process.env.JWT_KEY_ID!;
       const ecPublicKey = await importSPKI(publicKeyPem, 'RS256');
       const jwk = await exportJWK(ecPublicKey);
-
       return { keys: [{ ...jwk, kid: keyId, use: 'sig', alg: 'RS256' }] };
     } catch (error) {
       console.error('JWKS Error:', error);
@@ -245,28 +215,38 @@ export class AuthService {
     }
   }
 
-  async verifyEmail(token: string) {
-    const user = await this.userModel.findOne({
-      where: { verificationToken: token },
-    });
-    if (!user) throw new NotFoundException('Invalid verification token.');
+  // -------------------- Refresh Tokens --------------------
+  async refreshTokens(refreshToken: string) {
+    const tokens = await this.refreshTokenModel.findAll();
+    let matched: RefreshToken | null = null;
 
-    await this.userModel.update(
-      { isVerified: true, verificationToken: null },
-      { where: { id: user.id } },
-    );
-    const { accessToken, refreshToken } = await this.issueTokens(user.id);
-    return { accessToken, refreshToken };
+    for (const t of tokens) {
+      const match = await compare(refreshToken, t.hashedToken);
+      if (match) {
+        matched = t;
+        break;
+      }
+    }
+
+    if (!matched) throw new UnauthorizedException('Invalid or expired refresh token.');
+
+    const user = await this.userModel.findByPk(matched.userId);
+    if (!user) throw new NotFoundException('User not found for this token.');
+
+    await this.refreshTokenModel.destroy({ where: { id: matched.id } });
+
+    return this.issueTokens(user.id, user.role);
   }
 
-  private async issueTokens(userId: number) {
+  // -------------------- Token Helper --------------------
+  private async issueTokens(userId: number, role: 'user' | 'admin') {
     try {
       const { SignJWT, importPKCS8 } = await import('jose');
-      const privateKeyPem = process.env.JWT_PRIVATE_KEY!.replace(/\n/g, '\n');
+      const privateKeyPem = process.env.JWT_PRIVATE_KEY!.replace(/\\n/g, '\n');
       const privateKey = await importPKCS8(privateKeyPem, 'RS256');
       const keyId = process.env.JWT_KEY_ID!;
 
-      const accessToken = await new SignJWT({ user_type: 'admin_user' })
+      const accessToken = await new SignJWT({ role })
         .setProtectedHeader({ alg: 'RS256', kid: keyId })
         .setIssuer('https://auth.ist.africa')
         .setAudience('iaa-admin-portal')
@@ -278,59 +258,16 @@ export class AuthService {
       const refreshToken = randomUUID();
       const hashedRefresh = await hash(refreshToken, 12);
       const now = new Date();
-      const refreshTtlDaysEnv =
-        process.env.REFRESH_TOKEN_TTL_DAYS ??
-        process.env.REFRESH_TOKEN_EXPIRES_DAYS;
-      const refreshTtlDays = Number.isNaN(Number(refreshTtlDaysEnv))
-        ? 30
-        : Number(refreshTtlDaysEnv);
+      const ttl = Number(this.configService.get('REFRESH_TOKEN_TTL_DAYS') ?? 30);
       const expiresAt = new Date(now);
-      expiresAt.setDate(now.getDate() + refreshTtlDays);
+      expiresAt.setDate(now.getDate() + ttl);
 
-      await this.refreshTokenModel.create({
-        hashedToken: hashedRefresh,
-        userId,
-        expiresAt,
-      });
+      await this.refreshTokenModel.create({ hashedToken: hashedRefresh, userId, expiresAt });
 
       return { accessToken, refreshToken };
     } catch (error) {
       console.error('Token Generation Error:', error);
       throw new InternalServerErrorException('Could not generate tokens');
     }
-  }
-
-  async refreshTokens(refreshToken: string) {
-    const tokens = await this.refreshTokenModel.findAll();
-    let matched: any = null;
-
-    console.log('Incoming refreshToken:', refreshToken);
-
-    for (const t of tokens) {
-      console.log('Comparing with stored hash:', t.hashedToken);
-      const match = await compare(refreshToken, t.hashedToken);
-      if (match) {
-        matched = t;
-        break;
-      }
-    }
-
-    if (!matched)
-      throw new UnauthorizedException('Invalid or expired refresh token.');
-
-    const user = await this.userModel.findByPk(matched.userId);
-    if (!user) throw new NotFoundException('User not found for this token.');
-
-    await this.refreshTokenModel.destroy({ where: { id: matched.id } });
-
-    const { accessToken, refreshToken: newRefreshToken } =
-      await this.issueTokens(user.id);
-
-    return {
-      message: 'New tokens issued successfully.',
-      owner: { id: user.id, name: user.name, email: user.email },
-      accessToken,
-      refreshToken: newRefreshToken,
-    };
   }
 }

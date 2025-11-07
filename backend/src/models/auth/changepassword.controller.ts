@@ -17,7 +17,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 interface AuthenticatedRequest extends Request {
   user?: {
     id: number;
-    user_type?: string;
+    role?: string;
   };
 }
 

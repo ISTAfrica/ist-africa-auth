@@ -3,7 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/sequelize';
-import { User } from '../users/entities/user.entity'; // Adjust path if necessary
+import { User } from '../users/entities/user.entity'; 
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -25,21 +25,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  /**
-   * This method is called by Passport to validate the JWT payload.
-   * It finds the user in the database based on the subject (sub) claim.
-   * @param payload The decoded JWT payload.
-   * @returns The full user object if validation is successful.
-   */
-  async validate(payload: { sub: string; email: string }) {
+  async validate(payload: { sub: string; email: string; role?: 'user' | 'admin' }) {
     const userId = parseInt(payload.sub, 10);
     if (isNaN(userId)) {
       throw new UnauthorizedException('Invalid token subject.');
     }
 
-    // Load user with role relation so downstream guards can check role
     const user = await this.userModel.findByPk(userId, {
-      include: [{ association: 'role' }],
       attributes: { exclude: ['password'] },
     });
 
@@ -47,11 +39,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('User not found or token is invalid.');
     }
 
-    // Attach a minimal, serializable user to req.user
     return {
       id: user.id,
       email: user.email,
-      role: user.role,
+      role: user.role as 'user' | 'admin', 
     };
   }
 }
