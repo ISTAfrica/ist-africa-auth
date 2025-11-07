@@ -27,8 +27,8 @@ import { DefaultAdminModule } from '../commons/services/default-admin/default-ad
     PasswordResetModule,
     EmailModule,
     UserModule,
-    ClientsModule
-    DefaultAdminModule, 
+    ClientsModule,
+    DefaultAdminModule
   ],
 })
 export class AppModule {}
