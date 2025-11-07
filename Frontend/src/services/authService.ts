@@ -6,14 +6,19 @@ import {
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-const getAuthHeaders = () => {
+
+export const getAuthHeaders = () => {
   const token = localStorage.getItem("accessToken");
-  if (!token) throw new Error("No access token found.");
+  if (!token) {
+    throw new Error("No access token found.");
+  }
+
   return {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
   };
 };
+
 
 
 export const authenticateUser = async (credentials: AuthenticateUserDto) => {

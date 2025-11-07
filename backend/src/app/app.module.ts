@@ -8,6 +8,7 @@ import { PasswordResetModule } from '../models/auth/passwordReset/passwordReset.
 import { databaseConfig } from '../config/database.config';
 import { EmailModule } from '../email/email.module';
 import { UserModule } from '../models/user/user.module';
+import { ClientsModule } from '../models/clients/clients.module';
 import { DefaultAdminModule } from '../commons/services/default-admin/default-admin.module';
 
 @Module({
@@ -26,7 +27,8 @@ import { DefaultAdminModule } from '../commons/services/default-admin/default-ad
     PasswordResetModule,
     EmailModule,
     UserModule,
-    DefaultAdminModule, 
+    ClientsModule,
+    DefaultAdminModule
   ],
 })
 export class AppModule {}
