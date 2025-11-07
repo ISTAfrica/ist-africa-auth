@@ -5,6 +5,18 @@ import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/sequelize';
 import { User } from '../../users/entities/user.entity';
 
+interface JwtPayload {
+  sub: string;
+  role: string;
+  iat?: number;
+  exp?: number;
+}
+
+interface ValidatedUser {
+  id: number;
+  role: string;
+}
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
@@ -37,5 +49,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     return user;
+  validate(payload: JwtPayload): ValidatedUser {
+    return {
+      id: parseInt(payload.sub, 10),
+      role: payload.role,
+    };
   }
 }

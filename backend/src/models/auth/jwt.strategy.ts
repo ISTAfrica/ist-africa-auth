@@ -26,12 +26,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: { sub: string }) {
+  async validate(payload: { sub: string; email: string; role?: 'user' | 'admin' }) {
     const userId = parseInt(payload.sub, 10);
     if (isNaN(userId)) {
       throw new UnauthorizedException('Invalid token subject.');
     }
 
     const user = await this.userModel.findByPk(userId);
+    const user = await this.userModel.findByPk(userId, {
+      attributes: { exclude: ['password'] },
+    });
 
     if (!user) {
       throw new UnauthorizedException('User not found or token is invalid.');
@@ -39,5 +43,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     console.log('USER RETURNED FROM STRATEGY:', user.toJSON()); 
     return user;
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role as 'user' | 'admin', 
+    };
   }
 }

@@ -9,6 +9,7 @@ import {
   Patch,
   UploadedFile,
   UseInterceptors,
+  Param,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -17,12 +18,15 @@ import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import { RolesGuard } from './guards/roles.guard';
+import { Roles } from './decorators/roles.decorator';
 
 @Controller('api/user')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard) // Protects all routes with JWT
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService) { }
 
+  // -------------------- User self routes --------------------
   @Get('me')
   getProfile(@Req() req: Request) {
     const user = req.user as { id: number };
@@ -51,7 +55,6 @@ export class UserController {
           callback(null, filename);
         },
       }),
-
       fileFilter: (req, file, callback) => {
         if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
           return callback(new Error('Only image files are allowed!'), false);
@@ -63,5 +66,18 @@ export class UserController {
   uploadAvatar(@Req() req: Request, @UploadedFile() file: Express.Multer.File) {
     const user = req.user as { id: number };
     return this.userService.updateAvatar(user.id, file);
+  }
+  @Patch(':id/role')
+  @UseGuards(JwtAuthGuard, RolesGuard) // <
+  @Roles('admin')
+  async updateUserRole(
+    @Param('id') userId: string,
+    @Body('role') role: 'user' | 'admin',
+  ) {
+    const updatedUser = await this.userService.updateProfile(+userId, { role });
+    return {
+      message: `User role updated to ${role}`,
+      user: updatedUser,
+    };
   }
 }
