@@ -3,14 +3,10 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 
+// Mock data
 const mockUserList = [
-  {
-    id: 1,
-    name: 'Alice',
-    email: 'alice@example.com',
-    password: 'hashedpassword1',
-  },
-  { id: 2, name: 'Bob', email: 'bob@example.com', password: 'hashedpassword2' },
+  { id: 1, name: 'Alice', email: 'alice@example.com', role: 'user' },
+  { id: 2, name: 'Bob', email: 'bob@example.com', role: 'user' },
 ];
 
 const mockCreateUserDto: CreateUserDto = {
@@ -20,22 +16,19 @@ const mockCreateUserDto: CreateUserDto = {
   role: 'user',
 };
 
-const mockCreatedUser = {
-  id: 3,
-  ...mockCreateUserDto,
-};
+const mockCreatedUser = { id: 3, ...mockCreateUserDto };
 
+// Mock UsersService
 class MockUsersService {
-  findAll(this: void) {
+  findAll() {
     return Promise.resolve(mockUserList);
   }
 
-  findOne(this: void, id: number) {
+  findOne(id: number) {
     return Promise.resolve(mockUserList.find((u) => u.id === id) || null);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  create(this: void, dto: CreateUserDto) {
+  create(dto: CreateUserDto) {
     return Promise.resolve(mockCreatedUser);
   }
 }
@@ -56,13 +49,7 @@ describe('UsersController', () => {
     }).compile();
 
     controller = module.get<UsersController>(UsersController);
-    service = module.get(UsersService);
-
-    jest.spyOn(service, 'findAll').mockResolvedValue(mockUserList);
-    jest.spyOn(service, 'findOne').mockImplementation((id: number) => {
-      return Promise.resolve(mockUserList.find((u) => u.id === id) || null);
-    });
-    jest.spyOn(service, 'create').mockResolvedValue(mockCreatedUser);
+    service = module.get(UsersService) as unknown as MockUsersService;
   });
 
   it('should be defined', () => {
@@ -72,7 +59,6 @@ describe('UsersController', () => {
   describe('create', () => {
     it('should call usersService.create and return the new user object', async () => {
       const result = await controller.create(mockCreateUserDto);
-
       expect(service.create).toHaveBeenCalledWith(mockCreateUserDto);
       expect(result).toEqual(mockCreatedUser);
     });
@@ -81,30 +67,23 @@ describe('UsersController', () => {
   describe('findAll', () => {
     it('should call usersService.findAll and return a list of users', async () => {
       const result = await controller.findAll();
-
       expect(service.findAll).toHaveBeenCalled();
-
       expect(result).toEqual(mockUserList);
     });
   });
+
   describe('findOne', () => {
     it('should call usersService.findOne with the parsed ID and return a single user', async () => {
       const idToFind = '1';
-
       const result = await controller.findOne(idToFind);
-
       expect(service.findOne).toHaveBeenCalledWith(+idToFind);
       expect(result).toEqual(mockUserList.find((u) => u.id === 1));
     });
 
-    it('should return null or undefined if the user is not found', async () => {
-      const nonExistentId = '999';
-
+    it('should return null if the user is not found', async () => {
       jest.spyOn(service, 'findOne').mockResolvedValueOnce(null);
-
-      const result = await controller.findOne(nonExistentId);
-
-      expect(service.findOne).toHaveBeenCalledWith(+nonExistentId);
+      const result = await controller.findOne('999');
+      expect(service.findOne).toHaveBeenCalledWith(999);
       expect(result).toBeNull();
     });
   });
