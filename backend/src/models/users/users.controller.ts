@@ -1,17 +1,24 @@
-import { Controller, Get, Param, Patch, Body, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Param, Patch, Body, BadRequestException, Post } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
+import { CreateUserDto } from './dto/create-user.dto';
 
 @Controller('api/users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
-
+  constructor(private readonly usersService: UsersService) { }
+  @Post()
+  create(@Body() createUserDto: CreateUserDto) {
+    return this.usersService.create(createUserDto);
+  }
   // GET all users
   @Get()
   async findAll(): Promise<User[]> {
     return this.usersService.findAll();
   }
-
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.usersService.findOne(+id); 
+  }
   // PATCH /api/users/:id/status - toggle user status
   @Patch(':id/status')
   async updateStatus(
