@@ -13,12 +13,13 @@ import { Label } from "@/components/ui/label";
 import { Search, Edit, Lock, Unlock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { fetchUsers, updateUserStatus, updateUserRole, User } from "@/services/users";
-import { format } from "date-fns/format";
+import { format } from "date-fns";
 
 const AdminUsers = () => {
   const { toast } = useToast();
 
   const [users, setUsers] = useState<User[]>([]);
+  const [loggedInUserId, setLoggedInUserId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
@@ -26,14 +27,17 @@ const AdminUsers = () => {
   const [selectedUserForRole, setSelectedUserForRole] = useState<User | null>(null);
   const [reason, setReason] = useState("");
 
-  // Fetch users on mount
   useEffect(() => {
+    // Get logged-in user ID safely on client
+    const userId = localStorage.getItem("userId");
+    setLoggedInUserId(userId);
+
     const loadUsers = async () => {
       try {
-        const data = await fetchUsers();
+        const data = await fetchUsers(); // no token required
         setUsers(data);
       } catch (error) {
-        console.error(error);
+        console.error("Error fetching users:", error);
         toast({
           title: "Error",
           description: "Failed to fetch users",
@@ -41,8 +45,9 @@ const AdminUsers = () => {
         });
       }
     };
+
     loadUsers();
-  }, []);
+  }, [toast]);
 
   const filteredUsers = users.filter(
     user =>
@@ -50,100 +55,51 @@ const AdminUsers = () => {
       user.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // ---------------- Status Change ----------------
   const handleStatusChange = (user: User) => {
     setSelectedUser(user);
     setStatusDialogOpen(true);
   };
 
-const confirmStatusChange = async () => {
-  if (!selectedUser) return;
-
-  try {
-    const newIsActive = !selectedUser.isActive;
-
-    // Call backend to update status with reason
-    const updatedUser = await updateUserStatus(
-      selectedUser.id,
-      newIsActive,
-      reason
-    );
-
-    // Update frontend state
-    setUsers(prev =>
-      prev.map(u =>
-        u.id === selectedUser.id
-          ? { ...u, isActive: updatedUser.isActive, statusReason: updatedUser.statusReason }
-          : u
-      )
-    );
-
-    // Show toast
-    toast({
-      title: "Status Updated",
-      description: `User ${updatedUser.name} has been ${updatedUser.isActive ? "activated" : "suspended"}${updatedUser.statusReason ? `. Reason: ${updatedUser.statusReason}` : ''}`,
-    });
-  } catch (error) {
-    console.error(error);
-    toast({
-      title: "Error",
-      description: "Failed to update user status",
-      variant: "destructive",
-    });
-  } finally {
-    // Reset dialog state
-    setStatusDialogOpen(false);
-    setSelectedUser(null);
-    setReason("");
-  }
-};
-
-
-  const closeDialog = () => {
-    setStatusDialogOpen(false);
-    setSelectedUser(null);
-    setReason("");
-  };
-
-  // ---------------- Role Change ----------------
   const handleRoleChange = (user: User) => {
     setSelectedUserForRole(user);
     setRoleDialogOpen(true);
   };
 
-  const confirmRoleChange = async () => {
-    if (!selectedUserForRole) return;
-
+  const confirmStatusChange = async () => {
+    if (!selectedUser) return;
     try {
-      const newRole = selectedUserForRole.role === "user" ? "admin" : "user";
-      await updateUserRole(selectedUserForRole.id, newRole);
-
-      setUsers(prev =>
-        prev.map(u => (u.id === selectedUserForRole.id ? { ...u, role: newRole } : u))
-      );
-
+      const newIsActive = !selectedUser.isActive;
+      const updatedUser = await updateUserStatus(selectedUser.id, newIsActive, reason);
+      setUsers(prev => prev.map(u => (u.id === selectedUser.id ? { ...u, ...updatedUser } : u)));
       toast({
-        title: "Role Updated",
-        description: `User ${selectedUserForRole.name}'s role has been changed to ${newRole}${reason ? `. Reason: ${reason}` : ''}`,
+        title: "Status Updated",
+        description: `User ${updatedUser.name} has been ${updatedUser.isActive ? "activated" : "suspended"}${updatedUser.statusReason ? `. Reason: ${updatedUser.statusReason}` : ''}`,
       });
     } catch (error) {
       console.error(error);
-      toast({
-        title: "Error",
-        description: "Failed to update user role",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to update status", variant: "destructive" });
+    } finally {
+      setStatusDialogOpen(false);
+      setSelectedUser(null);
+      setReason("");
     }
-
-    setRoleDialogOpen(false);
-    setSelectedUserForRole(null);
-    setReason("");
   };
 
-  const closeRoleDialog = () => {
-    setRoleDialogOpen(false);
-    setSelectedUserForRole(null);
-    setReason("");
+  const confirmRoleChange = async () => {
+    if (!selectedUserForRole) return;
+    try {
+      const newRole = selectedUserForRole.role === "user" ? "admin" : "user";
+      const updatedUser = await updateUserRole(selectedUserForRole.id, newRole);
+      setUsers(prev => prev.map(u => (u.id === selectedUserForRole.id ? { ...u, role: newRole } : u)));
+      toast({ title: "Role Updated", description: `User ${selectedUserForRole.name}'s role changed to ${newRole}` });
+    } catch (error) {
+      console.error(error);
+      toast({ title: "Error", description: "Failed to update role", variant: "destructive" });
+    } finally {
+      setRoleDialogOpen(false);
+      setSelectedUserForRole(null);
+      setReason("");
+    }
   };
 
   return (
@@ -170,6 +126,7 @@ const confirmStatusChange = async () => {
               </div>
             </div>
           </CardHeader>
+
           <CardContent>
             <Table>
               <TableHeader>
@@ -179,36 +136,38 @@ const confirmStatusChange = async () => {
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
-                  {/* <TableHead>Last Login</TableHead> */}
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredUsers.map(user => (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell>{user.name}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>
                       <Badge variant={user.role === "admin" ? "default" : "secondary"}>{user.role}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={user.isActive ? "default" : "destructive"}>
-                        {user.isActive ? "active" : "suspended"}
-                      </Badge>
+                      <Badge variant={user.isActive ? "default" : "destructive"}>{user.isActive ? "active" : "suspended"}</Badge>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{format(new Date(user.createdAt), 'yyyy-MM-dd')}</TableCell>
-                    {/* <TableCell className="text-sm text-muted-foreground">{user.lastLogin}</TableCell> */}
+                    <TableCell>{format(new Date(user.createdAt), "yyyy-MM-dd")}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleRoleChange(user)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={String(user.id) === String(loggedInUserId)} 
+                          onClick={() => handleRoleChange(user)}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleStatusChange(user)}>
-                          {user.isActive ? (
-                            <Lock className="h-4 w-4 text-destructive" />
-                          ) : (
-                            <Unlock className="h-4 w-4 text-success" />
-                          )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={String(user.id) === String(loggedInUserId)} 
+                          onClick={() => handleStatusChange(user)}
+                        >
+                          {user.isActive ? <Lock className="h-4 w-4 text-destructive" /> : <Unlock className="h-4 w-4 text-success" />}
                         </Button>
                       </div>
                     </TableCell>
@@ -225,8 +184,7 @@ const confirmStatusChange = async () => {
             <DialogHeader>
               <DialogTitle>{selectedUser?.isActive ? "Suspend" : "Activate"} User</DialogTitle>
               <DialogDescription>
-                You are about to {selectedUser?.isActive ? "suspend" : "activate"} {selectedUser?.name}.
-                Please provide a reason for this action.
+                You are about to {selectedUser?.isActive ? "suspend" : "activate"} {selectedUser?.name}. Please provide a reason for this action.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -242,11 +200,8 @@ const confirmStatusChange = async () => {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={closeDialog}>Cancel</Button>
-              <Button
-                onClick={confirmStatusChange}
-                variant={selectedUser?.isActive ? "destructive" : "default"}
-              >
+              <Button variant="outline" onClick={() => { setStatusDialogOpen(false); setSelectedUser(null); setReason(""); }}>Cancel</Button>
+              <Button onClick={confirmStatusChange} variant={selectedUser?.isActive ? "destructive" : "default"}>
                 Confirm {selectedUser?.isActive ? "Suspension" : "Activation"}
               </Button>
             </DialogFooter>
@@ -260,11 +215,10 @@ const confirmStatusChange = async () => {
               <DialogTitle>Change User Role</DialogTitle>
               <DialogDescription>
                 You are about to change {selectedUserForRole?.name}'s role from {selectedUserForRole?.role} to {selectedUserForRole?.role === "user" ? "admin" : "user"}.
-                Please provide a reason for this action.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button variant="outline" onClick={closeRoleDialog}>Cancel</Button>
+              <Button variant="outline" onClick={() => { setRoleDialogOpen(false); setSelectedUserForRole(null); setReason(""); }}>Cancel</Button>
               <Button onClick={confirmRoleChange}>Confirm Role Change</Button>
             </DialogFooter>
           </DialogContent>

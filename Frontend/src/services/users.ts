@@ -1,3 +1,4 @@
+import { getAuthHeaders } from "./authService";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
 export interface User {
   id: string;
@@ -10,7 +11,10 @@ export interface User {
   lastLogin: string;
 }
 export async function fetchUsers(): Promise<User[]> {
-    const res = await fetch(`${API_BASE_URL}/api/users`);
+    const res = await fetch(`${API_BASE_URL}/api/users`,{
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
     if (!res.ok) throw new Error("Failed to fetch users");
     return res.json();
 }
@@ -18,7 +22,7 @@ export async function fetchUsers(): Promise<User[]> {
 export async function updateUserStatus(userId: string, isActive: boolean, statusReason: string) {
   const res = await fetch(`${API_BASE_URL}/api/users/${userId}/status`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers:getAuthHeaders(),
     body: JSON.stringify({ isActive, statusReason }),
   });
 
@@ -33,7 +37,7 @@ export async function updateUserStatus(userId: string, isActive: boolean, status
 export async function updateUserRole(userId: string, role: "user" | "admin") {
     const res = await fetch(`${API_BASE_URL}/api/users/${userId}/role`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers:getAuthHeaders(),
         body: JSON.stringify({ role }),
     });
     if (!res.ok) throw new Error("Failed to update user role");

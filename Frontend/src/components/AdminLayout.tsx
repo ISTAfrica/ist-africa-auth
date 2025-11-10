@@ -30,6 +30,7 @@ import {
 import { Button } from '@/components/ui/button';
 import Logo from './Logo';
 import { cn } from '@/lib/utils'; // For conditional classes
+import { Toaster } from './ui/sonner';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -134,6 +135,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
           </header>
           <div className="flex-1 p-6 bg-background overflow-auto">{children}</div>
         </main>
+        <Toaster position="top-right" />
       </div>
     </SidebarProvider>
   );

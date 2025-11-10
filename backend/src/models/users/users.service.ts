@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { User } from './entities/user.entity';
@@ -58,15 +59,21 @@ export class UsersService {
     });
   }
 
-  /**
-   * Change user's role (admin/user)
-   */
-async updateUserRole(userId: number, role: "user" | "admin"): Promise<User> {
+  async updateUserRole(
+  userId: number,
+  role: 'user' | 'admin',
+  loggedInUserId: number,
+): Promise<User> {
+  if (userId === loggedInUserId) {
+    throw new BadRequestException('You cannot update your own role.');
+  }
+
   const user = await this.findOne(userId);
 
-  if (role === "admin") {
-    user.isActive = false; 
-    user.statusReason = "New admin account - disabled by default";
+  // When changing another user to admin, disable account by default
+  if (role === 'admin') {
+    user.isActive = false;
+    user.statusReason = 'New admin account - disabled by default';
   }
 
   user.role = role;
@@ -75,12 +82,16 @@ async updateUserRole(userId: number, role: "user" | "admin"): Promise<User> {
   return user;
 }
 
-
-  async toggleUserStatus(
+async toggleUserStatus(
   userId: number,
   isActive: boolean,
+  loggedInUserId: number,
   statusReason?: string,
 ): Promise<User> {
+  if (userId === loggedInUserId) {
+    throw new BadRequestException('You cannot change your own account status.');
+  }
+
   const user = await this.findOne(userId);
 
   if (user.isActive === isActive) {
@@ -90,7 +101,7 @@ async updateUserRole(userId: number, role: "user" | "admin"): Promise<User> {
   }
 
   user.isActive = isActive;
-  user.statusReason = statusReason || 'No reason provided'; // <-- save reason
+  user.statusReason = statusReason || 'No reason provided';
   await user.save();
 
   // Send email notifications
@@ -98,7 +109,7 @@ async updateUserRole(userId: number, role: "user" | "admin"): Promise<User> {
     await this.emailService.sendAccountDisabledEmail(
       user.name,
       user.email,
-      user.statusReason || 'No reason provided',
+      user.statusReason,
     );
   } else {
     await this.emailService.sendAccountReactivatedEmail(user.name, user.email);
@@ -106,5 +117,4 @@ async updateUserRole(userId: number, role: "user" | "admin"): Promise<User> {
 
   return user;
 }
-
 }
