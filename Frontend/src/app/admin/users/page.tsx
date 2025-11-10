@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Search, Edit, Lock, Unlock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { fetchUsers, updateUserStatus, updateUserRole, User } from "@/services/users";
+import { format } from "date-fns/format";
 
 const AdminUsers = () => {
   const { toast } = useToast();
@@ -195,7 +196,7 @@ const confirmStatusChange = async () => {
                         {user.isActive ? "active" : "suspended"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{user.createdAt}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{format(new Date(user.createdAt), 'yyyy-MM-dd')}</TableCell>
                     {/* <TableCell className="text-sm text-muted-foreground">{user.lastLogin}</TableCell> */}
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
