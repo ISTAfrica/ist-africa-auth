@@ -1,43 +1,44 @@
-import { Test, TestingModule } from '@nestjs/testing'; 
-import { UsersService } from './users.service';
+import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/sequelize';
+import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
+import { EmailService } from '../../email/email.service';
 import { CreateUserDto } from './dto/create-user.dto';
 
-// Mock email service
+// Mock User data
+const mockUserList = [
+  { id: 1, name: 'Alice', email: 'alice@example.com', password: 'hashed1', role: 'user', isActive: true },
+  { id: 2, name: 'Bob', email: 'bob@example.com', password: 'hashed2', role: 'user', isActive: true },
+];
+
+const mockCreateUserDto: CreateUserDto = {
+  name: 'Charlie',
+  email: 'charlie@example.com',
+  password: 'testpassword123',
+  role: 'user',
+};
+
+// Mocked Sequelize model
+const mockUserModel = {
+  create: jest.fn().mockResolvedValue({ id: 3, ...mockCreateUserDto }),
+  findAll: jest.fn().mockResolvedValue(mockUserList),
+  findByPk: jest.fn((id: number) =>
+    Promise.resolve(mockUserList.find(u => u.id === id) || null)
+  ),
+  findOne: jest.fn((options) => 
+    Promise.resolve(mockUserList.find(u => u.email === options.where.email) || null)
+  ),
+};
+
+// Mock EmailService
 const mockEmailService = {
   sendAccountDisabledEmail: jest.fn(),
   sendAccountReactivatedEmail: jest.fn(),
 };
 
-// Mock user data
-const mockUserInstance = {
-  id: 1,
-  email: 'test@example.com',
-  name: 'Test User',
-  password: 'hashedpassword',
-  toJSON: () => ({ id: 1, email: 'test@example.com', name: 'Test User' }),
-};
-
-const mockUserArray = [mockUserInstance.toJSON()];
-
-const mockCreateUserDto: CreateUserDto = {
-  email: 'new@example.com',
-  name: 'New User',
-  password: 'securepassword',
-  role: 'user',
-};
-
-const mockUserModel = {
-  create: jest.fn().mockResolvedValue(mockUserInstance),
-  findAll: jest.fn().mockResolvedValue(mockUserArray),
-  findByPk: jest.fn().mockResolvedValue(mockUserInstance),
-  findOne: jest.fn().mockResolvedValue(mockUserInstance),
-};
-
 describe('UsersService', () => {
   let service: UsersService;
-  let model: typeof User;
+  let userModel: typeof User;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -48,14 +49,14 @@ describe('UsersService', () => {
           useValue: mockUserModel,
         },
         {
-          provide: 'EmailService',
+          provide: EmailService,
           useValue: mockEmailService,
         },
       ],
     }).compile();
 
     service = module.get<UsersService>(UsersService);
-    model = module.get<typeof User>(getModelToken(User));
+    userModel = module.get<typeof User>(getModelToken(User));
   });
 
   it('should be defined', () => {
@@ -63,43 +64,49 @@ describe('UsersService', () => {
   });
 
   describe('create', () => {
-    it('should call userModel.create with correct DTO data and return the user', async () => {
-      await service.create(mockCreateUserDto);
-      expect(model.create).toHaveBeenCalledWith(mockCreateUserDto);
-      expect(model.create).toHaveBeenCalledTimes(1);
+    it('should create a new user', async () => {
+      const result = await service.create(mockCreateUserDto);
+      expect(userModel.create).toHaveBeenCalledWith(mockCreateUserDto);
+      expect(result).toEqual({ id: 3, ...mockCreateUserDto });
     });
   });
 
   describe('findAll', () => {
-    it('should call findAll and exclude the password attribute', async () => {
+    it('should return all users', async () => {
       const result = await service.findAll();
-      expect(model.findAll).toHaveBeenCalledWith({
-        attributes: { exclude: ['password'] },
-      });
-      expect(result).toEqual(mockUserArray);
+      expect(userModel.findAll).toHaveBeenCalled();
+      expect(result).toEqual(mockUserList);
     });
   });
 
   describe('findOne', () => {
-    it('should return a user when a valid ID is passed', async () => {
+    it('should return a user by id', async () => {
       const result = await service.findOne(1);
-      expect(model.findByPk).toHaveBeenCalledWith(1, {
-        attributes: { exclude: ['password'] },
+      expect(userModel.findByPk).toHaveBeenCalledWith(1, {
+        attributes: { exclude: ['password'], include: ['role'] },
       });
-      expect(result).toEqual(mockUserInstance);
+      expect(result).toEqual(mockUserList[0]);
     });
 
-    it('should call findOne with the correct email where clause', async () => {
-      const testEmail = 'test@example.com';
-      await service.findByEmail(testEmail);
-      expect(model.findOne).toHaveBeenCalledWith({
-        where: { email: testEmail },
+    it('should throw NotFoundException if user not found', async () => {
+      jest.spyOn(userModel, 'findByPk').mockResolvedValueOnce(null);
+      await expect(service.findOne(999)).rejects.toThrow('User with ID 999 not found');
+    });
+  });
+
+  describe('findByEmail', () => {
+    it('should return a user by email', async () => {
+      const result = await service.findByEmail('alice@example.com');
+      expect(userModel.findOne).toHaveBeenCalledWith({
+        where: { email: 'alice@example.com' },
+        attributes: { exclude: ['password'], include: ['role'] },
       });
+      expect(result).toEqual(mockUserList[0]);
     });
 
-    it('should return null if user is not found by email', async () => {
-      mockUserModel.findOne.mockResolvedValueOnce(null);
-      const result = await service.findByEmail('nonexistent@test.com');
+    it('should return null if email not found', async () => {
+      jest.spyOn(userModel, 'findOne').mockResolvedValueOnce(null);
+      const result = await service.findByEmail('notfound@example.com');
       expect(result).toBeNull();
     });
   });
