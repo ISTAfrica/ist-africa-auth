@@ -178,7 +178,7 @@ const confirmStatusChange = async () => {
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
-                  <TableHead>Last Login</TableHead>
+                  {/* <TableHead>Last Login</TableHead> */}
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -196,7 +196,7 @@ const confirmStatusChange = async () => {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{user.createdAt}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{user.lastLogin}</TableCell>
+                    {/* <TableCell className="text-sm text-muted-foreground">{user.lastLogin}</TableCell> */}
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button variant="ghost" size="icon" onClick={() => handleRoleChange(user)}>
