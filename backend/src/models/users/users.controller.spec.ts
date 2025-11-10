@@ -3,10 +3,14 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 
-// Mock data
 const mockUserList = [
-  { id: 1, name: 'Alice', email: 'alice@example.com', role: 'user' },
-  { id: 2, name: 'Bob', email: 'bob@example.com', role: 'user' },
+  {
+    id: 1,
+    name: 'Alice',
+    email: 'alice@example.com',
+    password: 'hashedpassword1',
+  },
+  { id: 2, name: 'Bob', email: 'bob@example.com', password: 'hashedpassword2' },
 ];
 
 const mockCreateUserDto: CreateUserDto = {
@@ -16,40 +20,42 @@ const mockCreateUserDto: CreateUserDto = {
   role: 'user',
 };
 
-const mockCreatedUser = { id: 3, ...mockCreateUserDto };
+const mockCreatedUser = {
+  id: 3,
+  ...mockCreateUserDto,
+};
 
-// Mock UsersService
-class MockUsersService {
-  findAll() {
-    return Promise.resolve(mockUserList);
-  }
-
-  findOne(id: number) {
-    return Promise.resolve(mockUserList.find((u) => u.id === id) || null);
-  }
-
-  create(dto: CreateUserDto) {
-    return Promise.resolve(mockCreatedUser);
-  }
-}
+const mockUsersService = {
+  findAll: jest.fn(),
+  findOne: jest.fn(),
+  create: jest.fn(),
+};
 
 describe('UsersController', () => {
   let controller: UsersController;
-  let service: MockUsersService;
+  let service: typeof mockUsersService;
 
   beforeEach(async () => {
+    jest.clearAllMocks();
+
+    mockUsersService.findAll.mockResolvedValue(mockUserList);
+    mockUsersService.findOne.mockImplementation((id: number) =>
+      Promise.resolve(mockUserList.find((u) => u.id === id) || null),
+    );
+    mockUsersService.create.mockResolvedValue(mockCreatedUser);
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UsersController],
       providers: [
         {
           provide: UsersService,
-          useClass: MockUsersService,
+          useValue: mockUsersService,
         },
       ],
     }).compile();
 
     controller = module.get<UsersController>(UsersController);
-    service = module.get(UsersService) as unknown as MockUsersService;
+    service = module.get(UsersService) as unknown as typeof mockUsersService;
   });
 
   it('should be defined', () => {
@@ -59,6 +65,7 @@ describe('UsersController', () => {
   describe('create', () => {
     it('should call usersService.create and return the new user object', async () => {
       const result = await controller.create(mockCreateUserDto);
+
       expect(service.create).toHaveBeenCalledWith(mockCreateUserDto);
       expect(result).toEqual(mockCreatedUser);
     });
@@ -67,6 +74,7 @@ describe('UsersController', () => {
   describe('findAll', () => {
     it('should call usersService.findAll and return a list of users', async () => {
       const result = await controller.findAll();
+
       expect(service.findAll).toHaveBeenCalled();
       expect(result).toEqual(mockUserList);
     });
@@ -75,15 +83,21 @@ describe('UsersController', () => {
   describe('findOne', () => {
     it('should call usersService.findOne with the parsed ID and return a single user', async () => {
       const idToFind = '1';
+
       const result = await controller.findOne(idToFind);
+
       expect(service.findOne).toHaveBeenCalledWith(+idToFind);
       expect(result).toEqual(mockUserList.find((u) => u.id === 1));
     });
 
-    it('should return null if the user is not found', async () => {
-      jest.spyOn(service, 'findOne').mockResolvedValueOnce(null);
-      const result = await controller.findOne('999');
-      expect(service.findOne).toHaveBeenCalledWith(999);
+    it('should return null or undefined if the user is not found', async () => {
+      const nonExistentId = '999';
+
+      service.findOne.mockResolvedValueOnce(null);
+
+      const result = await controller.findOne(nonExistentId);
+
+      expect(service.findOne).toHaveBeenCalledWith(+nonExistentId);
       expect(result).toBeNull();
     });
   });
