@@ -18,7 +18,6 @@ const mockCreateUserDto: CreateUserDto = {
   email: 'new@example.com',
   name: 'New User',
   password: 'securepassword',
-  role: 'user',
 };
 
 const mockUserModel = {
