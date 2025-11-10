@@ -44,7 +44,7 @@ export class EmailService {
     }
   }
 
-  // Password reset email template
+  // Password reset email 
   private getPasswordResetTemplate(name: string, resetUrl: string): string {
     return `
       <!DOCTYPE html>
@@ -71,7 +71,7 @@ export class EmailService {
       <body>
           <div class="container">
               <div class="header">
-                  <h1>🔐 Password Reset Request</h1>
+                  <h1> Password Reset Request</h1>
               </div>
               <div class="content">
                   <h2>Hello ${name},</h2>
@@ -86,7 +86,7 @@ export class EmailService {
                   <p style="font-size: 13px; word-break: break-all; background-color: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6;">${resetUrl}</p>
                   
                   <div class="warning-box">
-                      <p><strong>⏰ This link will expire in 1 hour.</strong></p>
+                      <p><strong> This link will expire in 1 hour.</strong></p>
                   </div>
                   
                   <p style="margin-top: 30px;">If you didn't request this password reset, you can safely ignore this email. Your password will remain unchanged.</p>

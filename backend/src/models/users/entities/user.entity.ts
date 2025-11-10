@@ -87,4 +87,12 @@ export class User extends Model {
     defaultValue: false,
   })
   declare isDefaultAdmin: boolean;
+  
+  @Column({
+  type: DataType.TEXT,
+  allowNull: true,
+  comment: 'Reason for disabling or reactivating the user account',
+})
+declare statusReason: string | null;
+
 }
