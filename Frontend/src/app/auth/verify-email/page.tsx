@@ -9,6 +9,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { verifyOtp, resendOtp } from '@/services/authService';
+import { jwtDecode } from 'jwt-decode';
+
+interface DecodedToken {
+  sub: string;
+  role: 'user' | 'admin';
+  iat?: number;
+  exp?: number;
+}
 
 export default function VerifyEmailPage() {
   const router = useRouter();
@@ -42,6 +50,12 @@ export default function VerifyEmailPage() {
       localStorage.setItem('accessToken', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
       localStorage.removeItem('pendingEmail');
+
+      // Store userId from token's 'sub' field (subject)
+      const decodedToken = jwtDecode<DecodedToken>(accessToken);
+      if (decodedToken.sub) {
+        localStorage.setItem('userId', decodedToken.sub);
+      }
 
       setSuccess('Verification successful! Redirecting to dashboard...');
       setTimeout(() => router.push('/dashboard'), 2000);

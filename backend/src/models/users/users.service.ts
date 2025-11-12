@@ -73,7 +73,7 @@ export class UsersService {
   // When changing another user to admin, disable account by default
   if (role === 'admin') {
     user.isActive = false;
-    user.statusReason = 'New admin account - disabled by default';
+    user.statusReason = 'New admin account - inactive by default';
   }
 
   user.role = role;
@@ -96,7 +96,7 @@ async toggleUserStatus(
 
   if (user.isActive === isActive) {
     throw new BadRequestException(
-      `User is already ${isActive ? 'active' : 'disabled'}`,
+      `User is already ${isActive ? 'active' : 'inactive'}`,
     );
   }
 

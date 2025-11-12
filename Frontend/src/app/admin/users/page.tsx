@@ -56,11 +56,29 @@ const AdminUsers = () => {
   );
 
   const handleStatusChange = (user: User) => {
+    // Prevent changing status for own account
+    if (String(user.id) === String(loggedInUserId)) {
+      toast({
+        title: "Action Not Allowed",
+        description: "You cannot change your own account status.",
+        variant: "destructive",
+      });
+      return;
+    }
     setSelectedUser(user);
     setStatusDialogOpen(true);
   };
 
   const handleRoleChange = (user: User) => {
+    // Prevent changing role for own account
+    if (String(user.id) === String(loggedInUserId)) {
+      toast({
+        title: "Action Not Allowed",
+        description: "You cannot change your own role.",
+        variant: "destructive",
+      });
+      return;
+    }
     setSelectedUserForRole(user);
     setRoleDialogOpen(true);
   };
@@ -73,11 +91,12 @@ const AdminUsers = () => {
       setUsers(prev => prev.map(u => (u.id === selectedUser.id ? { ...u, ...updatedUser } : u)));
       toast({
         title: "Status Updated",
-        description: `User ${updatedUser.name} has been ${updatedUser.isActive ? "activated" : "suspended"}${updatedUser.statusReason ? `. Reason: ${updatedUser.statusReason}` : ''}`,
+        description: `User ${updatedUser.name} has been ${updatedUser.isActive ? "activated" : "deactivated"}${updatedUser.statusReason ? `. Reason: ${updatedUser.statusReason}` : ''}`,
       });
     } catch (error) {
       console.error(error);
-      toast({ title: "Error", description: "Failed to update status", variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : "Failed to update status";
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     } finally {
       setStatusDialogOpen(false);
       setSelectedUser(null);
@@ -94,7 +113,8 @@ const AdminUsers = () => {
       toast({ title: "Role Updated", description: `User ${selectedUserForRole.name}'s role changed to ${newRole}` });
     } catch (error) {
       console.error(error);
-      toast({ title: "Error", description: "Failed to update role", variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : "Failed to update role";
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     } finally {
       setRoleDialogOpen(false);
       setSelectedUserForRole(null);
@@ -140,39 +160,55 @@ const AdminUsers = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.map(user => (
-                  <TableRow key={user.id}>
-                    <TableCell>{user.name}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>
-                      <Badge variant={user.role === "admin" ? "default" : "secondary"}>{user.role}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={user.isActive ? "default" : "destructive"}>{user.isActive ? "active" : "suspended"}</Badge>
-                    </TableCell>
-                    <TableCell>{format(new Date(user.createdAt), "yyyy-MM-dd")}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          disabled={String(user.id) === String(loggedInUserId)} 
-                          onClick={() => handleRoleChange(user)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          disabled={String(user.id) === String(loggedInUserId)} 
-                          onClick={() => handleStatusChange(user)}
-                        >
-                          {user.isActive ? <Lock className="h-4 w-4 text-destructive" /> : <Unlock className="h-4 w-4 text-success" />}
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filteredUsers.map(user => {
+                  const isCurrentUser = String(user.id) === String(loggedInUserId);
+                  return (
+                    <TableRow key={user.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {user.name}
+                          {isCurrentUser && (
+                            <Badge variant="outline" className="text-xs">
+                              You
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>
+                        <Badge variant={user.role === "admin" ? "default" : "secondary"}>{user.role}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={user.isActive ? "default" : "destructive"}>{user.isActive ? "active" : "inactive"}</Badge>
+                      </TableCell>
+                      <TableCell>{format(new Date(user.createdAt), "yyyy-MM-dd")}</TableCell>
+                      <TableCell className="text-right">
+                        {!isCurrentUser ? (
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleRoleChange(user)}
+                              title="Change role"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleStatusChange(user)}
+                              title={user.isActive ? "Deactivate user" : "Activate user"}
+                            >
+                              {user.isActive ? <Lock className="h-4 w-4 text-destructive" /> : <Unlock className="h-4 w-4 text-success" />}
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-muted-foreground italic">Cannot modify own account</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
@@ -182,9 +218,9 @@ const AdminUsers = () => {
         <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{selectedUser?.isActive ? "Suspend" : "Activate"} User</DialogTitle>
+              <DialogTitle>{selectedUser?.isActive ? "Deactivate" : "Activate"} User</DialogTitle>
               <DialogDescription>
-                You are about to {selectedUser?.isActive ? "suspend" : "activate"} {selectedUser?.name}. Please provide a reason for this action.
+                You are about to {selectedUser?.isActive ? "deactivate" : "activate"} {selectedUser?.name}. Please provide a reason for this action.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -202,7 +238,7 @@ const AdminUsers = () => {
             <DialogFooter>
               <Button variant="outline" onClick={() => { setStatusDialogOpen(false); setSelectedUser(null); setReason(""); }}>Cancel</Button>
               <Button onClick={confirmStatusChange} variant={selectedUser?.isActive ? "destructive" : "default"}>
-                Confirm {selectedUser?.isActive ? "Suspension" : "Activation"}
+                Confirm {selectedUser?.isActive ? "Deactivation" : "Activation"}
               </Button>
             </DialogFooter>
           </DialogContent>

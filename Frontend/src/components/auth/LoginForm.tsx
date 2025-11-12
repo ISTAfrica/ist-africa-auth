@@ -14,6 +14,13 @@ import { jwtDecode } from 'jwt-decode';
 
 import { forgotPassword } from '@/services/resetPasswordService'; // or whatever you named your file
 
+interface DecodedToken {
+  sub: string;
+  role: 'user' | 'admin';
+  iat?: number;
+  exp?: number;
+}
+
 interface LoginFormProps {
   forgotPasswordInitial: boolean;
 }
@@ -39,9 +46,11 @@ export default function LoginForm({ forgotPasswordInitial }: LoginFormProps) {
       localStorage.setItem('accessToken', data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);
 
-
       const decodedToken = jwtDecode<DecodedToken>(data.accessToken);
-      
+      // Store userId from token's 'sub' field (subject)
+      if (decodedToken.sub) {
+        localStorage.setItem('userId', decodedToken.sub);
+      }
 
       if (decodedToken.role === 'admin') {
         router.push('/admin/clients'); 

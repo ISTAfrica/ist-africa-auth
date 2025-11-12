@@ -27,9 +27,15 @@ export async function updateUserStatus(userId: string, isActive: boolean, status
   });
 
   if (!res.ok) {
-    const errorText = await res.text(); 
-    console.error("Update status failed:", errorText);
-    throw new Error("Failed to update user status");
+    try {
+      const errorData = await res.json();
+      throw new Error(errorData.message || "Failed to update user status");
+    } catch (e) {
+      if (e instanceof Error) {
+        throw e;
+      }
+      throw new Error("Failed to update user status");
+    }
   }
 
   return res.json();
@@ -40,6 +46,16 @@ export async function updateUserRole(userId: string, role: "user" | "admin") {
         headers:getAuthHeaders(),
         body: JSON.stringify({ role }),
     });
-    if (!res.ok) throw new Error("Failed to update user role");
+    if (!res.ok) {
+      try {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to update user role");
+      } catch (e) {
+        if (e instanceof Error) {
+          throw e;
+        }
+        throw new Error("Failed to update user role");
+      }
+    }
     return res.json();
 }
