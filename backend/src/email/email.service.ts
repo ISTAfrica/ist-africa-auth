@@ -15,7 +15,6 @@ export class EmailService {
         user: this.configService.get<string>('SMTP_USER'),
         pass: this.configService.get<string>('SMTP_PASS'),
       },
-
       tls: {
         rejectUnauthorized: false,
       },
@@ -35,6 +34,47 @@ export class EmailService {
       to: email,
       subject: 'Verify your email',
       html: html,
+    });
+  }
+
+  async sendAccountDisabledEmail(name: string, email: string, reason: string) {
+    const html = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+        <h2 style="color: #d32f2f;">Account Disabled</h2>
+        <p>Dear ${name},</p>
+        <p>Your account has been <strong>disabled</strong> for the following reason:</p>
+        <blockquote style="background: #f8d7da; padding: 12px; border-left: 4px solid #d32f2f;">
+          ${reason}
+        </blockquote>
+        <p>If you believe this was a mistake, please contact our support team.</p>
+        <p>— The IST Africa Admin Team</p>
+      </div>
+    `;
+
+    await this.transporter.sendMail({
+      from: `"IST Africa Auth" <${this.configService.get<string>('SMTP_USER')}>`,
+      to: email,
+      subject: 'Your Account Has Been Disabled',
+      html,
+    });
+  }
+
+  async sendAccountReactivatedEmail(name: string, email: string) {
+    const html = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+        <h2 style="color: #2e7d32;">Account Reactivated</h2>
+        <p>Dear ${name},</p>
+        <p>Good news! Your account has been <strong>reactivated</strong> and you can now log in again.</p>
+        <p>Welcome back! If you have any issues accessing your account, please contact our support team.</p>
+        <p>— The IST Africa Admin Team</p>
+      </div>
+    `;
+
+    await this.transporter.sendMail({
+      from: `"IST Africa Auth" <${this.configService.get<string>('SMTP_USER')}>`,
+      to: email,
+      subject: 'Your Account Has Been Reactivated',
+      html,
     });
   }
 

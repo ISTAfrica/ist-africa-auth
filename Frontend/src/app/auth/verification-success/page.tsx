@@ -1,6 +1,14 @@
 "use client";
 
 import { useEffect } from 'react';
+import { jwtDecode } from 'jwt-decode';
+
+interface DecodedToken {
+  sub: string;
+  role: 'user' | 'admin';
+  iat?: number;
+  exp?: number;
+}
 
 export default function VerificationSuccessPage() {
   useEffect(() => {
@@ -11,6 +19,12 @@ export default function VerificationSuccessPage() {
       try {
         localStorage.setItem('accessToken', accessToken);
         localStorage.setItem('refreshToken', refreshToken);
+        
+        // Store userId from token's 'sub' field (subject)
+        const decodedToken = jwtDecode<DecodedToken>(accessToken);
+        if (decodedToken.sub) {
+          localStorage.setItem('userId', decodedToken.sub);
+        }
       } catch {}
       const appBase = process.env.NEXT_PUBLIC_APP_BASE_URL?.replace(/\/$/, '') || '';
       window.location.replace(`${appBase}/dashboard` || '/dashboard');

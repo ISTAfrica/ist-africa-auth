@@ -68,12 +68,12 @@ export class User extends Model {
   })
   declare avatarUrl: string | null;
 
-  // @Column({
-  //   type: DataType.ENUM('ist_member', 'ext_member'),
-  //   allowNull: false,
-  //   defaultValue: 'ext_member',
-  // })
-  // declare membershipStatus: 'ist_member' | 'ext_member';
+  @Column({
+    type: DataType.ENUM('ist_member', 'ext_member'),
+    allowNull: false,
+    defaultValue: 'ext_member',
+  })
+  declare membershipStatus: 'ist_member' | 'ext_member';
 
   @Column({
     type: DataType.ENUM('user', 'admin'),
@@ -87,4 +87,12 @@ export class User extends Model {
     defaultValue: false,
   })
   declare isDefaultAdmin: boolean;
+  
+  @Column({
+  type: DataType.TEXT,
+  allowNull: true,
+  comment: 'Reason for disabling or reactivating the user account',
+})
+declare statusReason: string | null;
+
 }
