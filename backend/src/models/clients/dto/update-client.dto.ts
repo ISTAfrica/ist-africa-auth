@@ -11,51 +11,46 @@ import {
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class CreateClientDto {
+export class UpdateClientDto {
   @ApiProperty({
     example: 'IST Academy',
     description: 'The unique name of the client application.',
+    required: false,
   })
   @IsString()
   @IsNotEmpty()
   @MinLength(3)
-  name: string;
+  @IsOptional()
+  name?: string;
 
   @ApiProperty({
     example: 'Learning management system for IST Africa',
     description: 'A brief description of the client application.',
+    required: false,
   })
   @IsString()
   @IsOptional()
   description?: string;
 
-<<<<<<< HEAD
-  @ApiProperty({ example: 'http://localhost:3001/callback', description: 'The secure HTTP callback URL for the OAuth2 flow.' })
-  @IsUrl({ require_protocol: true, protocols: ['http', 'https'], require_tld: false, }) 
-  redirect_uri: string;
-
-  @ApiProperty({ example: ['http://localhost:3001'], description: 'An array of allowed origins for CORS.' })
-=======
   @ApiProperty({
     example: 'http://academy.ist.africa/callback',
     description: 'The secure HTTP callback URL for the OAuth2 flow.',
+    required: false,
   })
   @IsUrl({ require_protocol: true, protocols: ['http'] })
   @Matches(/^http:\/\//, { message: 'Redirect URI must be HTTP' })
-  redirect_uri: string;
+  @IsOptional()
+  redirect_uri?: string;
 
   @ApiProperty({
     example: ['https://academy.ist.africa', 'https://app.academy.ist.africa'],
     description: 'An array of allowed origins for CORS.',
+    required: false,
   })
->>>>>>> e6be49cb (Client App crud operations)
   @IsArray()
   @ArrayNotEmpty()
   @ArrayUnique()
-  @IsUrl({ 
-    require_protocol: true,
-    protocols: ['http', 'https'],
-    require_tld: false,
-  }, { each: true })
-  allowed_origins: string[];
+  @IsUrl({ require_protocol: true }, { each: true })
+  @IsOptional()
+  allowed_origins?: string[];
 }
