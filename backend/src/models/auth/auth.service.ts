@@ -4,19 +4,22 @@ import {
   UnauthorizedException,
   ConflictException,
   InternalServerErrorException,
+  BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { User } from '../users/entities/user.entity';
 import { RefreshToken } from '../users/entities/refresh-token.entity';
 import { hash, compare } from 'bcryptjs';
-import { randomUUID, randomInt } from 'crypto';
+import { randomUUID, randomInt, randomBytes } from 'crypto';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { AuthenticateUserDto } from './dto/authenticate-user.dto';
 import { EmailService } from '../../email/email.service';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
 import { ConfigService } from '@nestjs/config';
+import { Client } from '../clients/entities/client.entity';
+import { AuthorizationCode } from './entities/authorization-code.entity';
 
 @Injectable()
 export class AuthService {
@@ -25,6 +28,8 @@ export class AuthService {
     private readonly userModel: typeof User,
     @InjectModel(RefreshToken)
     private readonly refreshTokenModel: typeof RefreshToken,
+    @InjectModel(Client) private readonly clientModel: typeof Client,
+    @InjectModel(AuthorizationCode) private readonly authCodeModel: typeof AuthorizationCode,
     private readonly configService: ConfigService,
     private emailService: EmailService,
   ) {}
@@ -154,17 +159,48 @@ export class AuthService {
 
   // -------------------- Authenticate --------------------
   async authenticate(authenticateDto: AuthenticateUserDto) {
-    const { email, password } = authenticateDto;
+    const { email, password, client_id, redirect_uri } = authenticateDto;
+
     const user = await this.userModel.findOne({ where: { email } });
-
-    if (!user) throw new NotFoundException('User not found');
-    if (!user.isVerified)
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (!user.isVerified) {
       throw new ForbiddenException('Please verify your email before logging in.');
-
+    }
     const isPasswordValid = await compare(password, user.password);
-    if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
-    return this.issueTokens(user.id, user.role);
+    if (client_id && redirect_uri) {
+      console.log(`[AuthService] Detected OAuth2 Authorization Code flow for client: ${client_id}`);
+      
+      const client = await this.clientModel.findOne({ where: { client_id } });
+      if (!client) {
+        throw new BadRequestException('Unauthorized client: This application is not registered.');
+      }
+      if (client.redirect_uri !== redirect_uri) {
+        throw new BadRequestException('Invalid redirect URI: The provided redirect URI does not match the one registered for this client.');
+      }
+
+      const code = randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+      await this.authCodeModel.create({
+        code,
+        expiresAt,
+        userId: user.id,
+        clientId: client.id,
+      });
+      
+      return { code, redirect_uri };
+    }
+    
+    else {
+      console.log(`[AuthService] Detected Direct Login (Password Grant) flow for user: ${email}`);
+      return this.issueTokens(user.id, user.role);
+    }
   }
 
   // -------------------- Resend OTP --------------------
