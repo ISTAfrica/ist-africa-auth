@@ -39,6 +39,7 @@ import {
   AlertCircle,
   Copy,
   CheckCircle,
+  X,
 } from "lucide-react";
 
 import {
@@ -65,7 +66,10 @@ export default function AdminClientsPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [redirectUri, setRedirectUri] = useState("");
-  const [allowedOrigins, setAllowedOrigins] = useState("");
+  
+  const [allowedOrigins, setAllowedOrigins] = useState<string[]>([]);
+  const [originInput, setOriginInput] = useState("");
+
   const [newClient, setNewClient] = useState<NewClientResponse | null>(null);
 
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -86,9 +90,9 @@ export default function AdminClientsPage() {
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editRedirectUri, setEditRedirectUri] = useState("");
-  const [editAllowedOrigins, setEditAllowedOrigins] = useState("");
+  const [editAllowedOrigins, setEditAllowedOrigins] = useState<string[]>([]);
+  const [editOriginInput, setEditOriginInput] = useState("");
 
-  // Success states
   const [updateSuccess, setUpdateSuccess] = useState(false);
   const [deleteSuccess, setDeleteSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
@@ -108,7 +112,6 @@ export default function AdminClientsPage() {
     loadClients();
   }, []);
 
-  // Auto-hide success messages after 5 seconds
   useEffect(() => {
     if (updateSuccess || deleteSuccess) {
       const timer = setTimeout(() => {
@@ -119,6 +122,34 @@ export default function AdminClientsPage() {
       return () => clearTimeout(timer);
     }
   }, [updateSuccess, deleteSuccess]);
+
+  const handleAddOrigin = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && originInput.trim()) {
+      e.preventDefault();
+      if (!allowedOrigins.includes(originInput.trim())) {
+        setAllowedOrigins([...allowedOrigins, originInput.trim()]);
+      }
+      setOriginInput("");
+    }
+  };
+
+  const handleRemoveOrigin = (indexToRemove: number) => {
+    setAllowedOrigins(allowedOrigins.filter((_, index) => index !== indexToRemove));
+  };
+
+  const handleAddEditOrigin = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && editOriginInput.trim()) {
+      e.preventDefault();
+      if (!editAllowedOrigins.includes(editOriginInput.trim())) {
+        setEditAllowedOrigins([...editAllowedOrigins, editOriginInput.trim()]);
+      }
+      setEditOriginInput("");
+    }
+  };
+
+  const handleRemoveEditOrigin = (indexToRemove: number) => {
+    setEditAllowedOrigins(editAllowedOrigins.filter((_, index) => index !== indexToRemove));
+  };
 
   const handleView = async (client: Client) => {
     setViewDialogOpen(true);
@@ -146,10 +177,9 @@ export default function AdminClientsPage() {
     setEditDescription(client.description || "");
     setEditRedirectUri(client.redirect_uri || "");
     setEditAllowedOrigins(
-      Array.isArray(client.allowed_origins)
-        ? client.allowed_origins.join(", ")
-        : ""
+      Array.isArray(client.allowed_origins) ? client.allowed_origins : []
     );
+    setEditOriginInput("");
 
     setIsLoadingEdit(false);
   };
@@ -166,10 +196,7 @@ export default function AdminClientsPage() {
         name: editName,
         description: editDescription,
         redirect_uri: editRedirectUri,
-        allowed_origins: editAllowedOrigins
-          .split(",")
-          .map((origin) => origin.trim())
-          .filter(Boolean),
+        allowed_origins: editAllowedOrigins.filter(Boolean),
       };
 
       await updateClient(clientToEdit.id, payload);
@@ -220,7 +247,6 @@ export default function AdminClientsPage() {
       setDeleteDialogOpen(false);
       setClientToDelete(null);
 
-      // Show success message
       setSuccessMessage(`Client "${deletedClientName}" has been deleted successfully!`);
       setDeleteSuccess(true);
     } catch (error: any) {
@@ -244,10 +270,7 @@ export default function AdminClientsPage() {
         name,
         description,
         redirect_uri: redirectUri,
-        allowed_origins: allowedOrigins
-          .split(",")
-          .map((origin) => origin.trim())
-          .filter(Boolean),
+        allowed_origins: allowedOrigins.filter(Boolean),
       };
 
       const result = await createClient(payload);
@@ -264,7 +287,8 @@ export default function AdminClientsPage() {
     setName("");
     setDescription("");
     setRedirectUri("");
-    setAllowedOrigins("");
+    setAllowedOrigins([]);
+    setOriginInput("");
     setFormError("");
     setNewClient(null);
     setIsDialogOpen(false);
@@ -366,12 +390,36 @@ export default function AdminClientsPage() {
           </div>
           <div className="space-y-2">
             <Label>Allowed Origins</Label>
-            <Input
-              value={allowedOrigins}
-              onChange={(e) => setAllowedOrigins(e.target.value)}
-              placeholder="https://example.com, https://app.com"
-              required
-            />
+            <div className="min-h-[42px] px-3 py-2 border border-input rounded-md focus-within:ring-2 focus-within:ring-ring bg-background">
+              <div className="flex flex-wrap gap-2 items-center">
+                {allowedOrigins.map((origin, index) => (
+                  <div
+                    key={index}
+                    className="inline-flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded text-sm"
+                  >
+                    <span>{origin}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveOrigin(index)}
+                      className="hover:bg-primary/20 rounded p-0.5 transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+                <input
+                  type="text"
+                  value={originInput}
+                  onChange={(e) => setOriginInput(e.target.value)}
+                  onKeyDown={handleAddOrigin}
+                  placeholder={allowedOrigins.length === 0 ? "Enter origin and press Enter" : ""}
+                  className="flex-1 min-w-[120px] outline-none bg-transparent text-sm"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Press Enter to add each origin
+            </p>
           </div>
           <Button type="submit" disabled={isSubmitting} className="w-full">
             {isSubmitting && <Loader2 className="animate-spin mr-2" />}
@@ -405,7 +453,6 @@ export default function AdminClientsPage() {
           </Dialog>
         </div>
 
-        {/* SUCCESS MESSAGES */}
         {updateSuccess && (
           <Alert className="border-green-600 bg-green-50 dark:bg-green-950/30">
             <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-500" />
@@ -652,12 +699,36 @@ export default function AdminClientsPage() {
 
               <div className="space-y-2">
                 <Label>Allowed Origins</Label>
-                <Input
-                  value={editAllowedOrigins}
-                  onChange={(e) => setEditAllowedOrigins(e.target.value)}
-                  placeholder="https://example.com, https://app.com"
-                  required
-                />
+                <div className="min-h-[42px] px-3 py-2 border border-input rounded-md focus-within:ring-2 focus-within:ring-ring bg-background">
+                  <div className="flex flex-wrap gap-2 items-center">
+                    {editAllowedOrigins.map((origin, index) => (
+                      <div
+                        key={index}
+                        className="inline-flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded text-sm"
+                      >
+                        <span>{origin}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveEditOrigin(index)}
+                          className="hover:bg-primary/20 rounded p-0.5 transition-colors"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                    <input
+                      type="text"
+                      value={editOriginInput}
+                      onChange={(e) => setEditOriginInput(e.target.value)}
+                      onKeyDown={handleAddEditOrigin}
+                      placeholder={editAllowedOrigins.length === 0 ? "Enter origin and press Enter" : ""}
+                      className="flex-1 min-w-[120px] outline-none bg-transparent text-sm"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Press Enter to add each origin
+                </p>
               </div>
 
               <div className="flex justify-end gap-2 pt-4">
