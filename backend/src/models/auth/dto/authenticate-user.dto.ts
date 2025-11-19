@@ -16,4 +16,8 @@ export class AuthenticateUserDto {
   @IsUrl({require_tld: false}, { message: 'Redirect URI must be a valid URL' }) 
   @IsOptional()
   redirect_uri?: string;
+
+  @IsString()
+  @IsOptional()
+  state?: string;
 }

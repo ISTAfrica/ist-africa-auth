@@ -159,50 +159,62 @@ export class AuthService {
 
   // -------------------- Authenticate --------------------
   async authenticate(authenticateDto: AuthenticateUserDto) {
-    const { email, password, client_id, redirect_uri } = authenticateDto;
+  const { email, password, client_id, redirect_uri, state } = authenticateDto;
 
-    const user = await this.userModel.findOne({ where: { email } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-    if (!user.isVerified) {
-      throw new ForbiddenException('Please verify your email before logging in.');
-    }
-    const isPasswordValid = await compare(password, user.password);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    if (client_id && redirect_uri) {
-      console.log(`[AuthService] Detected OAuth2 Authorization Code flow for client: ${client_id}`);
-      
-      const client = await this.clientModel.findOne({ where: { client_id } });
-      if (!client) {
-        throw new BadRequestException('Unauthorized client: This application is not registered.');
-      }
-      if (client.redirect_uri !== redirect_uri) {
-        throw new BadRequestException('Invalid redirect URI: The provided redirect URI does not match the one registered for this client.');
-      }
-
-      const code = randomBytes(32).toString('hex');
-      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
-      await this.authCodeModel.create({
-        code,
-        expiresAt,
-        userId: user.id,
-        clientId: client.id,
-      });
-      
-      return { code, redirect_uri };
-    }
-    
-    else {
-      console.log(`[AuthService] Detected Direct Login (Password Grant) flow for user: ${email}`);
-      return this.issueTokens(user.id, user.role);
-    }
+  const user = await this.userModel.findOne({ where: { email } });
+  if (!user) {
+    throw new NotFoundException('User not found');
+  }
+  if (!user.isVerified) {
+    throw new ForbiddenException('Please verify your email before logging in.');
+  }
+  const isPasswordValid = await compare(password, user.password);
+  if (!isPasswordValid) {
+    throw new UnauthorizedException('Invalid credentials');
   }
 
+  if (client_id && redirect_uri) {
+    console.log(`[AuthService] Detected OAuth2 Authorization Code flow for client: ${client_id}`);
+    
+    const client = await this.clientModel.findOne({ where: { client_id } });
+    if (!client) {
+      throw new BadRequestException('Unauthorized client: This application is not registered.');
+    }
+    if (client.redirect_uri !== redirect_uri) {
+      throw new BadRequestException('Invalid redirect URI: The provided redirect URI does not match the one registered for this client.');
+    }
+
+    const code = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    await this.authCodeModel.create({
+      code,
+      expiresAt,
+      userId: user.id,
+      clientId: client.id,
+      // You might also want to store the original redirect_uri here for later validation
+    });
+    
+    const iaaFrontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
+    
+    // Construct the URL to our own frontend messenger page
+    const finalRedirectUri = new URL(`${iaaFrontendUrl}/auth/callback`);
+    finalRedirectUri.searchParams.append('code', code);
+    if (state) {
+      finalRedirectUri.searchParams.append('state', state);
+    }
+    
+    // The key change is here: we return the URL to our OWN callback page.
+    return {
+      redirect_uri: finalRedirectUri.toString(),
+    };
+  }
+  
+  else {
+    console.log(`[AuthService] Detected Direct Login (Password Grant) flow for user: ${email}`);
+    return this.issueTokens(user.id, user.role);
+  }
+}
   // -------------------- Resend OTP --------------------
   async resendOtp(resendOtpDto: ResendOtpDto) {
     const { email } = resendOtpDto;
