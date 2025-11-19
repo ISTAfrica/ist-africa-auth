@@ -38,7 +38,6 @@ export class AuthController {
     return this.authService.authenticate(authenticateDto);
   }
 
-
   @Get('jwks')
   getJwks() {
     return this.authService.getJwks();
