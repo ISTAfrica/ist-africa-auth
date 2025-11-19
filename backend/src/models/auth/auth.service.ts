@@ -19,6 +19,9 @@ import { ResendOtpDto } from './dto/resend-otp.dto';
 import { ConfigService } from '@nestjs/config';
 import { Client } from '../clients/entities/client.entity';
 import { ClientCredentialsDto } from './dto/client-credentials.dto';
+import { JwtTokenIssuer } from '../../utils/token';
+import { JwtTokenIssuerImpl } from '../../utils/implementation/jwt-token.issuer';
+import { ClientAppToken } from './entities/client-app-token.entity';
 
 @Injectable()
 export class AuthService {
@@ -42,6 +45,8 @@ export class AuthService {
       }
     | undefined;
 
+  private readonly jwtTokenIssuer: JwtTokenIssuer;
+
   constructor(
     @InjectModel(User)
     private readonly userModel: typeof User,
@@ -49,10 +54,16 @@ export class AuthService {
     private readonly refreshTokenModel: typeof RefreshToken,
     @InjectModel(Client)
     private readonly clientModel: typeof Client,
+    @InjectModel(ClientAppToken)
+    private readonly clientAppTokenModel: typeof ClientAppToken,
     private readonly configService: ConfigService,
     private emailService: EmailService,
   ) {
     this.initializeEnvAuthCode();
+    this.jwtTokenIssuer = new JwtTokenIssuerImpl(
+      this.configService,
+      this.refreshTokenModel,
+    );
   }
 
   private initializeEnvAuthCode() {
@@ -214,11 +225,18 @@ export class AuthService {
       { where: { id: user.id } },
     );
 
-    const { accessToken, refreshToken } = await this.issueTokens(user.id, user.role);
+    const tokens = await this.jwtTokenIssuer.issueTokens({
+      email: user.email,
+      password: user.password,
+      userId: user.id,
+      role: user.role,
+      name: user.name,
+    });
+
     return {
       message: 'Email verified successfully.',
-      accessToken,
-      refreshToken,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
     };
   }
 
@@ -234,7 +252,13 @@ export class AuthService {
     const isPasswordValid = await compare(password, user.password);
     if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
 
-    return this.issueTokens(user.id, user.role);
+    return this.jwtTokenIssuer.issueTokens({
+      email: user.email,
+      password: authenticateDto.password,
+      userId: user.id,
+      role: user.role,
+      name: user.name,
+    });
   }
 
   // -------------------- Resend OTP --------------------
@@ -267,7 +291,13 @@ export class AuthService {
 
     await this.userModel.update({ isVerified: true, verificationToken: null }, { where: { id: user.id } });
 
-    return this.issueTokens(user.id, user.role);
+    return this.jwtTokenIssuer.issueTokens({
+      email: user.email,
+      password: user.password,
+      userId: user.id,
+      role: user.role,
+      name: user.name,
+    });
   }
 
   // -------------------- JWKS --------------------
@@ -287,10 +317,10 @@ export class AuthService {
 
   // -------------------- Refresh Tokens --------------------
   async refreshTokens(refreshToken: string) {
-    const tokens = await this.refreshTokenModel.findAll();
+    const storedTokens = await this.refreshTokenModel.findAll();
     let matched: RefreshToken | null = null;
 
-    for (const t of tokens) {
+    for (const t of storedTokens) {
       const match = await compare(refreshToken, t.hashedToken);
       if (match) {
         matched = t;
@@ -305,7 +335,13 @@ export class AuthService {
 
     await this.refreshTokenModel.destroy({ where: { id: matched.id } });
 
-    return this.issueTokens(user.id, user.role);
+    return this.jwtTokenIssuer.issueTokens({
+      email: user.email,
+      password: user.password,
+      userId: user.id,
+      role: user.role,
+      name: user.name,
+    });
   }
 
   // -------------------- Auth Code Token Exchange --------------------
@@ -369,95 +405,42 @@ export class AuthService {
     }
 
     // 4. Generate access and refresh tokens
-    const { accessToken, refreshToken, expiresIn } =
-      await this.issueClientTokens(user, clientIdentifier);
+    const tokenPair = await this.jwtTokenIssuer.issueTokens({
+      email: user.email,
+      password: user.password,
+      userId: user.id,
+      role: user.role,
+      name: user.name,
+      auth_code: code,
+      client_id: clientIdentifier,
+      client_secret,
+    });
+
+    const saltRoundsEnv =
+      this.configService.get<string>('BCRYPT_SALT_ROUNDS') ?? '12';
+    const saltRounds = Number.isNaN(Number(saltRoundsEnv))
+      ? 12
+      : Number(saltRoundsEnv);
+    const hashedClientSecret = await hash(client_secret, saltRounds);
+
+    await this.clientAppTokenModel.create({
+      userId: user.id,
+      clientId: clientIdentifier,
+      hashedClientSecret,
+      accessToken: tokenPair.accessToken,
+      refreshToken: tokenPair.refreshToken,
+      accessTokenIssuedAt: new Date(),
+      refreshTokenIssuedAt: new Date(),
+    });
 
     // 5. Mark auth code as used
     authCode.used = true;
 
     return {
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      expires_in: expiresIn,
+      access_token: tokenPair.accessToken,
+      refresh_token: tokenPair.refreshToken,
       token_type: 'Bearer',
     };
   }
 
-  // -------------------- Token Helper --------------------
-  private async issueTokens(userId: number, role: 'user' | 'admin') {
-    try {
-      const { SignJWT, importPKCS8 } = await import('jose');
-      const privateKeyPem = process.env.JWT_PRIVATE_KEY!.replace(/\\n/g, '\n');
-      const privateKey = await importPKCS8(privateKeyPem, 'RS256');
-      const keyId = process.env.JWT_KEY_ID!;
-
-      const accessToken = await new SignJWT({ role })
-        .setProtectedHeader({ alg: 'RS256', kid: keyId })
-        .setIssuer('https://auth.ist.africa')
-        .setAudience('iaa-admin-portal')
-        .setSubject(userId.toString())
-        .setIssuedAt()
-        .setExpirationTime('1h')
-        .sign(privateKey);
-
-      const refreshToken = randomUUID();
-      const hashedRefresh = await hash(refreshToken, 12);
-      const now = new Date();
-      const ttl = Number(this.configService.get('REFRESH_TOKEN_TTL_DAYS') ?? 30);
-      const expiresAt = new Date(now);
-      expiresAt.setDate(now.getDate() + ttl);
-
-      await this.refreshTokenModel.create({ hashedToken: hashedRefresh, userId, expiresAt });
-
-      return { accessToken, refreshToken };
-    } catch (error) {
-      console.error('Token Generation Error:', error);
-      throw new InternalServerErrorException('Could not generate tokens');
-    }
-  }
-
-  private async issueClientTokens(user: User, clientId: string) {
-    try {
-      const { SignJWT, importPKCS8 } = await import('jose');
-      const privateKeyPem = process.env.JWT_PRIVATE_KEY!.replace(/\\n/g, '\n');
-      const privateKey = await importPKCS8(privateKeyPem, 'RS256');
-      const keyId = process.env.JWT_KEY_ID!;
-
-      const expiresInSeconds = 3600; // 1 hour
-
-      const accessToken = await new SignJWT({
-        sub: user.id.toString(),
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        client_id: clientId,
-      })
-        .setProtectedHeader({ alg: 'RS256', kid: keyId })
-        .setIssuer('https://auth.ist.africa')
-        .setAudience(clientId)
-        .setSubject(user.id.toString())
-        .setIssuedAt()
-        .setExpirationTime(`${expiresInSeconds}s`)
-        .sign(privateKey);
-
-      const refreshToken = randomUUID();
-      const hashedRefresh = await hash(refreshToken, 12);
-      const now = new Date();
-      const ttl =
-        Number(this.configService.get('REFRESH_TOKEN_TTL_DAYS') ?? 30);
-      const expiresAt = new Date(now);
-      expiresAt.setDate(now.getDate() + ttl);
-
-      await this.refreshTokenModel.create({
-        hashedToken: hashedRefresh,
-        userId: user.id,
-        expiresAt,
-      });
-
-      return { accessToken, refreshToken, expiresIn: expiresInSeconds };
-    } catch (error) {
-      console.error('Token Generation Error:', error);
-      throw new InternalServerErrorException('Could not generate tokens');
-    }
-  }
 }
