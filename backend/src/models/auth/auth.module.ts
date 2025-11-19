@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { AuthController } from './auth.controller';
-import { CallbackController } from './callback.controller';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { AuthService } from './auth.service';
 import { EmailModule } from '../../email/email.module';
@@ -10,7 +9,6 @@ import { Client } from '../clients/entities/client.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { Client } from '../clients/entities/client.entity'; 
 import { AuthorizationCode } from './entities/authorization-code.entity';
 
 @Module({
