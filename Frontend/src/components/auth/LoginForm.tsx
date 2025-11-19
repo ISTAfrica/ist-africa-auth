@@ -72,16 +72,20 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
     const payload = {
       email,
       password,
-      ...(isOauthFlow && { client_id: clientIdFromUrl, redirect_uri: redirectUriFromUrl }),
+      ...(isOauthFlow && { client_id: clientIdFromUrl, redirect_uri: redirectUriFromUrl, state: stateFromUrl}),
     };
 
     try {
       const data = await authenticateUser(payload);
 
-      if (data.code) {
-        const finalRedirectUrl = `${data.redirect_uri}?code=${data.code}${stateFromUrl ? `&state=${stateFromUrl}` : ''}`;
-        window.location.href = finalRedirectUrl;
+      // --- THIS IS THE UPDATED LOGIC ---
+      if (data.redirect_uri) {
+        // OAuth2 Flow: The backend returned the full URL for our messenger page.
+        // Redirect the popup to that URL.
+        window.location.href = data.redirect_uri;
+
       } else if (data.accessToken) {
+        // Direct Login Flow: The backend returned tokens.
         localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('refreshToken', data.refreshToken);
 

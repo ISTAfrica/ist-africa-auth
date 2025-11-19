@@ -69,7 +69,6 @@ export const getClientPublicInfo = async (clientId: string): Promise<ClientPubli
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    // Use a more specific error message
     throw new Error(errorData.message || 'Application not found or is invalid');
   }
 
