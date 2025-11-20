@@ -19,20 +19,86 @@ import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
 import { ConfigService } from '@nestjs/config';
 import { Client } from '../clients/entities/client.entity';
-import { AuthorizationCode } from './entities/authorization-code.entity';
+import { ClientCredentialsDto } from './dto/client-credentials.dto';
 
 @Injectable()
 export class AuthService {
+  // Temporary in-memory auth code store until auth_codes table is implemented
+  private authCodes: {
+    code: string;
+    userId: number;
+    clientId: string;
+    expiresAt: Date;
+    used: boolean;
+    isEnvBacked?: boolean;
+  }[] = [];
+
+  private envAuthConfig:
+    | {
+        code: string;
+        clientId: string;
+        clientSecret: string;
+        userId: number;
+        ttlMinutes: number;
+      }
+    | undefined;
+
   constructor(
     @InjectModel(User)
     private readonly userModel: typeof User,
     @InjectModel(RefreshToken)
     private readonly refreshTokenModel: typeof RefreshToken,
-    @InjectModel(Client) private readonly clientModel: typeof Client,
-    @InjectModel(AuthorizationCode) private readonly authCodeModel: typeof AuthorizationCode,
+    @InjectModel(Client)
+    private readonly clientModel: typeof Client,
     private readonly configService: ConfigService,
     private emailService: EmailService,
-  ) {}
+  ) {
+    this.initializeEnvAuthCode();
+  }
+
+  private initializeEnvAuthCode() {
+    const code = this.configService.get<string>('DUMMY_AUTH_CODE');
+    const clientId = this.configService.get<string>('DUMMY_AUTH_CLIENT_ID');
+    const clientSecret = this.configService.get<string>(
+      'DUMMY_AUTH_CLIENT_SECRET',
+    );
+    const userIdRaw = this.configService.get<string>('DUMMY_AUTH_USER_ID');
+    const ttlRaw = this.configService.get<string>(
+      'DUMMY_AUTH_CODE_TTL_MINUTES',
+    );
+
+    const userId = userIdRaw ? Number(userIdRaw) : undefined;
+    const ttlMinutes = ttlRaw ? Number(ttlRaw) : 10;
+
+    if (
+      !code ||
+      !clientId ||
+      !clientSecret ||
+      userId === undefined ||
+      Number.isNaN(userId)
+    ) {
+      return;
+    }
+
+    this.envAuthConfig = {
+      code,
+      clientId,
+      clientSecret,
+      userId,
+      ttlMinutes: Number.isNaN(ttlMinutes) ? 10 : ttlMinutes,
+    };
+
+    this.authCodes.push({
+      code,
+      clientId,
+      userId,
+      expiresAt: new Date(
+        Date.now() + this.envAuthConfig.ttlMinutes * 60 * 1000,
+      ),
+      used: false,
+      isEnvBacked: true,
+    });
+  }
 
   // -------------------- OTP Utility --------------------
   private async generateAndSaveOtp(userId: number): Promise<string> {
@@ -122,7 +188,12 @@ export class AuthService {
 
     return {
       message: `User role updated to ${newRole}`,
-      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
     };
   }
 
@@ -136,7 +207,9 @@ export class AuthService {
     }
 
     if (new Date() > user.otpExpiresAt) {
-      throw new UnauthorizedException('OTP has expired. Please request a new one.');
+      throw new UnauthorizedException(
+        'OTP has expired. Please request a new one.',
+      );
     }
 
     const isOtpValid = await compare(otp, user.otp);
@@ -149,7 +222,10 @@ export class AuthService {
       { where: { id: user.id } },
     );
 
-    const { accessToken, refreshToken } = await this.issueTokens(user.id, user.role);
+    const { accessToken, refreshToken } = await this.issueTokens(
+      user.id,
+      user.role,
+    );
     return {
       message: 'Email verified successfully.',
       accessToken,
@@ -158,63 +234,74 @@ export class AuthService {
   }
 
   // -------------------- Authenticate --------------------
-async authenticate(authenticateDto: AuthenticateUserDto) {
-  const { email, password, client_id, redirect_uri, state } = authenticateDto;
+  async authenticate(authenticateDto: AuthenticateUserDto) {
+    const { email, password, client_id, redirect_uri, state } = authenticateDto;
 
-  const user = await this.userModel.findOne({ where: { email } });
-  if (!user) {
-    throw new NotFoundException('User not found');
-  }
-  if (!user.isVerified) {
-    throw new ForbiddenException('Please verify your email before logging in.');
-  }
-  const isPasswordValid = await compare(password, user.password);
-  if (!isPasswordValid) {
-    throw new UnauthorizedException('Invalid credentials');
-  }
-
-  if (client_id && redirect_uri) {
-    console.log(`[AuthService] Detected OAuth2 Authorization Code flow for client: ${client_id}`);
-    
-    const client = await this.clientModel.findOne({ where: { client_id } });
-    if (!client) {
-      throw new BadRequestException('Unauthorized client: This application is not registered.');
+    const user = await this.userModel.findOne({ where: { email } });
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
-    if (client.redirect_uri !== redirect_uri) {
-      throw new BadRequestException('Invalid redirect URI: The provided redirect URI does not match the one registered for this client.');
+    if (!user.isVerified) {
+      throw new ForbiddenException(
+        'Please verify your email before logging in.',
+      );
+    }
+    const isPasswordValid = await compare(password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid credentials');
     }
 
-    const code = randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    if (client_id && redirect_uri) {
+      console.log(
+        `[AuthService] Detected OAuth2 Authorization Code flow for client: ${client_id}`,
+      );
 
-    await this.authCodeModel.create({
-      code,
-      expiresAt,
-      userId: user.id,
-      clientId: client.id,
-      // You might also want to store the original redirect_uri here for later validation
-    });
-    
-    const iaaFrontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
-    
-    // Construct the URL to our own frontend messenger page
-    const finalRedirectUri = new URL(`${iaaFrontendUrl}/auth/callback`);
-    finalRedirectUri.searchParams.append('code', code);
-    if (state) {
-      finalRedirectUri.searchParams.append('state', state);
+      const client = await this.clientModel.findOne({ where: { client_id } });
+      if (!client) {
+        throw new BadRequestException(
+          'Unauthorized client: This application is not registered.',
+        );
+      }
+      if (client.redirect_uri !== redirect_uri) {
+        throw new BadRequestException(
+          'Invalid redirect URI: The provided redirect URI does not match the one registered for this client.',
+        );
+      }
+
+      const code = randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+      await this.authCodeModel.create({
+        code,
+        expiresAt,
+        userId: user.id,
+        clientId: client.id,
+        // You might also want to store the original redirect_uri here for later validation
+      });
+
+      const iaaFrontendUrl = this.configService.get<string>(
+        'FRONTEND_URL',
+        'http://localhost:3000',
+      );
+
+      // Construct the URL to our own frontend messenger page
+      const finalRedirectUri = new URL(`${iaaFrontendUrl}/auth/callback`);
+      finalRedirectUri.searchParams.append('code', code);
+      if (state) {
+        finalRedirectUri.searchParams.append('state', state);
+      }
+
+      // The key change is here: we return the URL to our OWN callback page.
+      return {
+        redirect_uri: finalRedirectUri.toString(),
+      };
+    } else {
+      console.log(
+        `[AuthService] Detected Direct Login (Password Grant) flow for user: ${email}`,
+      );
+      return this.issueTokens(user.id, user.role);
     }
-    
-    // The key change is here: we return the URL to our OWN callback page.
-    return {
-      redirect_uri: finalRedirectUri.toString(),
-    };
   }
-  
-  else {
-    console.log(`[AuthService] Detected Direct Login (Password Grant) flow for user: ${email}`);
-    return this.issueTokens(user.id, user.role);
-  }
-}
 
   // -------------------- Resend OTP --------------------
   async resendOtp(resendOtpDto: ResendOtpDto) {
@@ -234,17 +321,27 @@ async authenticate(authenticateDto: AuthenticateUserDto) {
 
     const verifyUrl = `${verifyUrlBase.replace(/\/$/, '')}/api/auth/verify-email?token=${user.verificationToken}`;
     const otp = await this.generateAndSaveOtp(user.id);
-    await this.emailService.sendVerificationEmail(user.name || 'User', user.email, verifyUrl, otp);
+    await this.emailService.sendVerificationEmail(
+      user.name || 'User',
+      user.email,
+      verifyUrl,
+      otp,
+    );
 
     return { message: 'Verification link sent to your email.' };
   }
 
   // -------------------- Verify Email --------------------
   async verifyEmail(token: string) {
-    const user = await this.userModel.findOne({ where: { verificationToken: token } });
+    const user = await this.userModel.findOne({
+      where: { verificationToken: token },
+    });
     if (!user) throw new NotFoundException('Invalid verification token.');
 
-    await this.userModel.update({ isVerified: true, verificationToken: null }, { where: { id: user.id } });
+    await this.userModel.update(
+      { isVerified: true, verificationToken: null },
+      { where: { id: user.id } },
+    );
 
     return this.issueTokens(user.id, user.role);
   }
@@ -277,7 +374,8 @@ async authenticate(authenticateDto: AuthenticateUserDto) {
       }
     }
 
-    if (!matched) throw new UnauthorizedException('Invalid or expired refresh token.');
+    if (!matched)
+      throw new UnauthorizedException('Invalid or expired refresh token.');
 
     const user = await this.userModel.findByPk(matched.userId);
     if (!user) throw new NotFoundException('User not found for this token.');
@@ -285,6 +383,83 @@ async authenticate(authenticateDto: AuthenticateUserDto) {
     await this.refreshTokenModel.destroy({ where: { id: matched.id } });
 
     return this.issueTokens(user.id, user.role);
+  }
+
+  // -------------------- Auth Code Token Exchange --------------------
+  async exchangeAuthCode(code: string, credentials: ClientCredentialsDto) {
+    const { client_id, client_secret } = credentials;
+
+    // 1. Validate client credentials
+    const client = await this.clientModel.findOne({
+      where: { client_id },
+    });
+
+    let clientIdentifier: string | null = null;
+
+    if (client) {
+      const isClientSecretValid = await compare(
+        client_secret,
+        client.client_secret,
+      );
+      if (!isClientSecretValid) {
+        throw new UnauthorizedException('Invalid client credentials');
+      }
+      clientIdentifier = client.client_id;
+    } else if (
+      this.envAuthConfig &&
+      this.envAuthConfig.clientId === client_id &&
+      this.envAuthConfig.clientSecret === client_secret
+    ) {
+      clientIdentifier = this.envAuthConfig.clientId;
+    } else {
+      throw new UnauthorizedException('Invalid client credentials');
+    }
+
+    // 2. Validate authorization code (dummy in-memory implementation)
+    const authCode = this.authCodes.find((c) => c.code === code);
+    if (!authCode) {
+      throw new UnauthorizedException('Invalid authorization code');
+    }
+
+    if (authCode.used) {
+      throw new UnauthorizedException('Authorization code already used');
+    }
+
+    if (!clientIdentifier) {
+      throw new UnauthorizedException('Invalid client credentials');
+    }
+
+    if (clientIdentifier !== authCode.clientId) {
+      throw new UnauthorizedException(
+        'Authorization code does not belong to this client',
+      );
+    }
+
+    if (authCode.expiresAt.getTime() <= Date.now()) {
+      throw new UnauthorizedException('Authorization code has expired');
+    }
+
+    // 3. Retrieve linked user
+    const user = await this.userModel.findByPk(authCode.userId);
+    if (!user) {
+      throw new NotFoundException(
+        'User linked to authorization code not found',
+      );
+    }
+
+    // 4. Generate access and refresh tokens
+    const { accessToken, refreshToken, expiresIn } =
+      await this.issueClientTokens(user, clientIdentifier);
+
+    // 5. Mark auth code as used
+    authCode.used = true;
+
+    return {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      expires_in: expiresIn,
+      token_type: 'Bearer',
+    };
   }
 
   // -------------------- Token Helper --------------------
@@ -307,13 +482,65 @@ async authenticate(authenticateDto: AuthenticateUserDto) {
       const refreshToken = randomUUID();
       const hashedRefresh = await hash(refreshToken, 12);
       const now = new Date();
-      const ttl = Number(this.configService.get('REFRESH_TOKEN_TTL_DAYS') ?? 30);
+      const ttl = Number(
+        this.configService.get('REFRESH_TOKEN_TTL_DAYS') ?? 30,
+      );
       const expiresAt = new Date(now);
       expiresAt.setDate(now.getDate() + ttl);
 
-      await this.refreshTokenModel.create({ hashedToken: hashedRefresh, userId, expiresAt });
+      await this.refreshTokenModel.create({
+        hashedToken: hashedRefresh,
+        userId,
+        expiresAt,
+      });
 
       return { accessToken, refreshToken };
+    } catch (error) {
+      console.error('Token Generation Error:', error);
+      throw new InternalServerErrorException('Could not generate tokens');
+    }
+  }
+
+  private async issueClientTokens(user: User, clientId: string) {
+    try {
+      const { SignJWT, importPKCS8 } = await import('jose');
+      const privateKeyPem = process.env.JWT_PRIVATE_KEY!.replace(/\\n/g, '\n');
+      const privateKey = await importPKCS8(privateKeyPem, 'RS256');
+      const keyId = process.env.JWT_KEY_ID!;
+
+      const expiresInSeconds = 3600; // 1 hour
+
+      const accessToken = await new SignJWT({
+        sub: user.id.toString(),
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        client_id: clientId,
+      })
+        .setProtectedHeader({ alg: 'RS256', kid: keyId })
+        .setIssuer('https://auth.ist.africa')
+        .setAudience(clientId)
+        .setSubject(user.id.toString())
+        .setIssuedAt()
+        .setExpirationTime(`${expiresInSeconds}s`)
+        .sign(privateKey);
+
+      const refreshToken = randomUUID();
+      const hashedRefresh = await hash(refreshToken, 12);
+      const now = new Date();
+      const ttl = Number(
+        this.configService.get('REFRESH_TOKEN_TTL_DAYS') ?? 30,
+      );
+      const expiresAt = new Date(now);
+      expiresAt.setDate(now.getDate() + ttl);
+
+      await this.refreshTokenModel.create({
+        hashedToken: hashedRefresh,
+        userId: user.id,
+        expiresAt,
+      });
+
+      return { accessToken, refreshToken, expiresIn: expiresInSeconds };
     } catch (error) {
       console.error('Token Generation Error:', error);
       throw new InternalServerErrorException('Could not generate tokens');

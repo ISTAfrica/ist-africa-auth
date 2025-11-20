@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthController } from './auth.controller';
+import { CallbackController } from './callback.controller';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { AuthService } from './auth.service';
 import { EmailModule } from '../../email/email.module';
@@ -12,8 +13,12 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { AuthorizationCode } from './entities/authorization-code.entity';
 
 @Module({
-  imports: [SequelizeModule.forFeature([User, RefreshToken,  AuthorizationCode, Client]), EmailModule, PassportModule.register({ defaultStrategy: 'jwt' }),],
-  controllers: [AuthController],
+  imports: [
+    SequelizeModule.forFeature([User, RefreshToken, Client]),
+    EmailModule,
+    PassportModule.register({ defaultStrategy: 'jwt' }),
+  ],
+  controllers: [AuthController, CallbackController],
   providers: [AuthService, JwtStrategy, JwtAuthGuard],
   exports: [JwtAuthGuard, AuthService, PassportModule],
 })

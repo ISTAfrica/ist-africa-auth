@@ -104,10 +104,6 @@ export class ClientsController {
     status: 404,
     description: 'Not Found. Client with the specified ID does not exist.',
   })
-  // @ApiResponse({
-  //   status: 409,
-  //   description: 'Conflict. Client name already exists.',
-  // })
   update(
     @Param('id') id: string,
     @Body(new ValidationPipe()) updateClientDto: UpdateClientDto,
