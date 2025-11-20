@@ -14,6 +14,18 @@ export class ClientsService {
     private readonly configService: ConfigService,
   ) {}
 
+  async findPublicInfo(clientId: string): Promise<{ name: string; description: string }> {
+    const client = await this.clientModel.findOne({
+      where: { client_id: clientId },
+      attributes: ['name', 'description'], // Only return public, non-sensitive info
+    });
+
+    if (!client) {
+      throw new NotFoundException('Client not found');
+    }
+    return client.toJSON();
+  }
+
   
 
   async create(createClientDto: CreateClientDto) {

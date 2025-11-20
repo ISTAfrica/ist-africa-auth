@@ -18,6 +18,11 @@ export interface NewClientResponse extends Client {
   client_secret: string;
 }
 
+export interface ClientPublicInfo {
+  name: string;
+  description: string;
+}
+
 interface CreateClientPayload {
   name: string;
   description: string;
@@ -49,6 +54,22 @@ export const createClient = async (payload: CreateClientPayload): Promise<NewCli
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.message || 'Failed to create client');
+  }
+
+  return response.json();
+};
+
+export const getClientPublicInfo = async (clientId: string): Promise<ClientPublicInfo> => {
+  const response = await fetch(`${API_BASE_URL}/api/clients/public/${clientId}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Application not found or is invalid');
   }
 
   return response.json();
