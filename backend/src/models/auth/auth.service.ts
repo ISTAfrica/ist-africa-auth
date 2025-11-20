@@ -19,86 +19,21 @@ import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
 import { ConfigService } from '@nestjs/config';
 import { Client } from '../clients/entities/client.entity';
-import { ClientCredentialsDto } from './dto/client-credentials.dto';
+import { AuthorizationCode } from './entities/authorization-code.entity';
 
 @Injectable()
 export class AuthService {
-  // Temporary in-memory auth code store until auth_codes table is implemented
-  private authCodes: {
-    code: string;
-    userId: number;
-    clientId: string;
-    expiresAt: Date;
-    used: boolean;
-    isEnvBacked?: boolean;
-  }[] = [];
-
-  private envAuthConfig:
-    | {
-        code: string;
-        clientId: string;
-        clientSecret: string;
-        userId: number;
-        ttlMinutes: number;
-      }
-    | undefined;
-
   constructor(
     @InjectModel(User)
     private readonly userModel: typeof User,
     @InjectModel(RefreshToken)
     private readonly refreshTokenModel: typeof RefreshToken,
-    @InjectModel(Client)
-    private readonly clientModel: typeof Client,
+    @InjectModel(Client) private readonly clientModel: typeof Client,
+    @InjectModel(AuthorizationCode)
+    private readonly authCodeModel: typeof AuthorizationCode,
     private readonly configService: ConfigService,
     private emailService: EmailService,
-  ) {
-    this.initializeEnvAuthCode();
-  }
-
-  private initializeEnvAuthCode() {
-    const code = this.configService.get<string>('DUMMY_AUTH_CODE');
-    const clientId = this.configService.get<string>('DUMMY_AUTH_CLIENT_ID');
-    const clientSecret = this.configService.get<string>(
-      'DUMMY_AUTH_CLIENT_SECRET',
-    );
-    const userIdRaw = this.configService.get<string>('DUMMY_AUTH_USER_ID');
-    const ttlRaw = this.configService.get<string>(
-      'DUMMY_AUTH_CODE_TTL_MINUTES',
-    );
-
-    const userId = userIdRaw ? Number(userIdRaw) : undefined;
-    const ttlMinutes = ttlRaw ? Number(ttlRaw) : 10;
-
-    if (
-      !code ||
-      !clientId ||
-      !clientSecret ||
-      userId === undefined ||
-      Number.isNaN(userId)
-    ) {
-      return;
-    }
-
-    this.envAuthConfig = {
-      code,
-      clientId,
-      clientSecret,
-      userId,
-      ttlMinutes: Number.isNaN(ttlMinutes) ? 10 : ttlMinutes,
-    };
-
-    this.authCodes.push({
-      code,
-      clientId,
-      userId,
-      expiresAt: new Date(
-        Date.now() + this.envAuthConfig.ttlMinutes * 60 * 1000,
-      ),
-      used: false,
-      isEnvBacked: true,
-    });
-  }
+  ) {}
 
   // -------------------- OTP Utility --------------------
   private async generateAndSaveOtp(userId: number): Promise<string> {
@@ -385,83 +320,6 @@ export class AuthService {
     return this.issueTokens(user.id, user.role);
   }
 
-  // -------------------- Auth Code Token Exchange --------------------
-  async exchangeAuthCode(code: string, credentials: ClientCredentialsDto) {
-    const { client_id, client_secret } = credentials;
-
-    // 1. Validate client credentials
-    const client = await this.clientModel.findOne({
-      where: { client_id },
-    });
-
-    let clientIdentifier: string | null = null;
-
-    if (client) {
-      const isClientSecretValid = await compare(
-        client_secret,
-        client.client_secret,
-      );
-      if (!isClientSecretValid) {
-        throw new UnauthorizedException('Invalid client credentials');
-      }
-      clientIdentifier = client.client_id;
-    } else if (
-      this.envAuthConfig &&
-      this.envAuthConfig.clientId === client_id &&
-      this.envAuthConfig.clientSecret === client_secret
-    ) {
-      clientIdentifier = this.envAuthConfig.clientId;
-    } else {
-      throw new UnauthorizedException('Invalid client credentials');
-    }
-
-    // 2. Validate authorization code (dummy in-memory implementation)
-    const authCode = this.authCodes.find((c) => c.code === code);
-    if (!authCode) {
-      throw new UnauthorizedException('Invalid authorization code');
-    }
-
-    if (authCode.used) {
-      throw new UnauthorizedException('Authorization code already used');
-    }
-
-    if (!clientIdentifier) {
-      throw new UnauthorizedException('Invalid client credentials');
-    }
-
-    if (clientIdentifier !== authCode.clientId) {
-      throw new UnauthorizedException(
-        'Authorization code does not belong to this client',
-      );
-    }
-
-    if (authCode.expiresAt.getTime() <= Date.now()) {
-      throw new UnauthorizedException('Authorization code has expired');
-    }
-
-    // 3. Retrieve linked user
-    const user = await this.userModel.findByPk(authCode.userId);
-    if (!user) {
-      throw new NotFoundException(
-        'User linked to authorization code not found',
-      );
-    }
-
-    // 4. Generate access and refresh tokens
-    const { accessToken, refreshToken, expiresIn } =
-      await this.issueClientTokens(user, clientIdentifier);
-
-    // 5. Mark auth code as used
-    authCode.used = true;
-
-    return {
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      expires_in: expiresIn,
-      token_type: 'Bearer',
-    };
-  }
-
   // -------------------- Token Helper --------------------
   private async issueTokens(userId: number, role: 'user' | 'admin') {
     try {
@@ -495,52 +353,6 @@ export class AuthService {
       });
 
       return { accessToken, refreshToken };
-    } catch (error) {
-      console.error('Token Generation Error:', error);
-      throw new InternalServerErrorException('Could not generate tokens');
-    }
-  }
-
-  private async issueClientTokens(user: User, clientId: string) {
-    try {
-      const { SignJWT, importPKCS8 } = await import('jose');
-      const privateKeyPem = process.env.JWT_PRIVATE_KEY!.replace(/\\n/g, '\n');
-      const privateKey = await importPKCS8(privateKeyPem, 'RS256');
-      const keyId = process.env.JWT_KEY_ID!;
-
-      const expiresInSeconds = 3600; // 1 hour
-
-      const accessToken = await new SignJWT({
-        sub: user.id.toString(),
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        client_id: clientId,
-      })
-        .setProtectedHeader({ alg: 'RS256', kid: keyId })
-        .setIssuer('https://auth.ist.africa')
-        .setAudience(clientId)
-        .setSubject(user.id.toString())
-        .setIssuedAt()
-        .setExpirationTime(`${expiresInSeconds}s`)
-        .sign(privateKey);
-
-      const refreshToken = randomUUID();
-      const hashedRefresh = await hash(refreshToken, 12);
-      const now = new Date();
-      const ttl = Number(
-        this.configService.get('REFRESH_TOKEN_TTL_DAYS') ?? 30,
-      );
-      const expiresAt = new Date(now);
-      expiresAt.setDate(now.getDate() + ttl);
-
-      await this.refreshTokenModel.create({
-        hashedToken: hashedRefresh,
-        userId: user.id,
-        expiresAt,
-      });
-
-      return { accessToken, refreshToken, expiresIn: expiresInSeconds };
     } catch (error) {
       console.error('Token Generation Error:', error);
       throw new InternalServerErrorException('Could not generate tokens');
