@@ -1,13 +1,10 @@
 import {
   IsString,
-  IsNotEmpty,
   IsUrl,
   IsArray,
-  ArrayNotEmpty,
   ArrayUnique,
   IsOptional,
   MinLength,
-  Matches,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -18,9 +15,8 @@ export class UpdateClientDto {
     required: false,
   })
   @IsString()
-  @IsNotEmpty()
-  @MinLength(3)
   @IsOptional()
+  @MinLength(3)
   name?: string;
 
   @ApiProperty({
@@ -33,24 +29,33 @@ export class UpdateClientDto {
   description?: string;
 
   @ApiProperty({
-    example: 'http://academy.ist.africa/callback',
+    example: 'http://localhost:3001/callback',
     description: 'The secure HTTP callback URL for the OAuth2 flow.',
     required: false,
   })
-  @IsUrl({ require_protocol: true, protocols: ['http'] })
-  @Matches(/^http:\/\//, { message: 'Redirect URI must be HTTP' })
+  @IsUrl({
+    require_protocol: true,
+    protocols: ['http', 'https'],
+    require_tld: false,
+  })
   @IsOptional()
   redirect_uri?: string;
 
   @ApiProperty({
-    example: ['https://academy.ist.africa', 'https://app.academy.ist.africa'],
+    example: ['http://localhost:3001'],
     description: 'An array of allowed origins for CORS.',
     required: false,
   })
   @IsArray()
-  @ArrayNotEmpty()
   @ArrayUnique()
-  @IsUrl({ require_protocol: true }, { each: true })
+  @IsUrl(
+    {
+      require_protocol: true,
+      protocols: ['http', 'https'],
+      require_tld: false,
+    },
+    { each: true },
+  )
   @IsOptional()
   allowed_origins?: string[];
 }

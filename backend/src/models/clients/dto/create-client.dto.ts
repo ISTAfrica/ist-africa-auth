@@ -7,7 +7,6 @@ import {
   ArrayUnique,
   IsOptional,
   MinLength,
-  Matches,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -30,15 +29,18 @@ export class CreateClientDto {
   description?: string;
 
   @ApiProperty({
-    example: 'http://academy.ist.africa/callback',
+    example: 'http://localhost:3001/callback',
     description: 'The secure HTTP callback URL for the OAuth2 flow.',
   })
-  @IsUrl({ require_protocol: true, protocols: ['http'] })
-  @Matches(/^http:\/\//, { message: 'Redirect URI must be HTTP' })
+  @IsUrl({
+    require_protocol: true,
+    protocols: ['http', 'https'],
+    require_tld: false,
+  })
   redirect_uri: string;
 
   @ApiProperty({
-    example: ['https://academy.ist.africa', 'https://app.academy.ist.africa'],
+    example: ['http://localhost:3001'],
     description: 'An array of allowed origins for CORS.',
   })
   @IsArray()
