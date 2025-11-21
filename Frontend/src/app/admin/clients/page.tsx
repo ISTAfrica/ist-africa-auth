@@ -1,110 +1,40 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { format } from "date-fns";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Eye,
-  Loader2,
-  AlertCircle,
-  Copy,
-  CheckCircle,
-  X,
-} from "lucide-react";
-
-import {
-  Client,
-  NewClientResponse,
-  getClients,
-  createClient,
-  getClientById,
-  updateClient,
-  deleteClient,
-} from "@/services/clientsService";
-
-import AdminLayout from "@/components/AdminLayout";
+import { useState, useEffect } from 'react';
+import { format } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Plus, Edit, Trash2, Eye, EyeOff, Loader2, AlertCircle, Copy } from 'lucide-react';
+import { Client, NewClientResponse, getClients, createClient } from '@/services/clientsService';
+import AdminLayout from '@/components/AdminLayout'; 
 
 export default function AdminClientsPage() {
-  const router = useRouter();
-
   const [clients, setClients] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [fetchError, setFetchError] = useState("");
+  const [fetchError, setFetchError] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formError, setFormError] = useState("");
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [redirectUri, setRedirectUri] = useState("");
-  
-  const [allowedOrigins, setAllowedOrigins] = useState<string[]>([]);
-  const [originInput, setOriginInput] = useState("");
-
+  const [formError, setFormError] = useState('');
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [redirectUri, setRedirectUri] = useState('');
+  const [allowedOrigins, setAllowedOrigins] = useState('');
   const [newClient, setNewClient] = useState<NewClientResponse | null>(null);
-
-  const [viewDialogOpen, setViewDialogOpen] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [isLoadingClient, setIsLoadingClient] = useState(false);
-  const [clientError, setClientError] = useState("");
-
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [clientToEdit, setClientToEdit] = useState<Client | null>(null);
-  const [isLoadingEdit, setIsLoadingEdit] = useState(false);
-  const [isSavingEdit, setIsSavingEdit] = useState(false);
-  const [editError, setEditError] = useState("");
-
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
-  const [isDeletingClient, setIsDeletingClient] = useState(false);
-
-  const [editName, setEditName] = useState("");
-  const [editDescription, setEditDescription] = useState("");
-  const [editRedirectUri, setEditRedirectUri] = useState("");
-  const [editAllowedOrigins, setEditAllowedOrigins] = useState<string[]>([]);
-  const [editOriginInput, setEditOriginInput] = useState("");
-
-  const [updateSuccess, setUpdateSuccess] = useState(false);
-  const [deleteSuccess, setDeleteSuccess] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
+  const [showSecret, setShowSecret] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const loadClients = async () => {
       try {
-        setFetchError("");
+        setFetchError('');
         const data = await getClients();
         setClients(data);
       } catch (error: any) {
-        setFetchError(error.message || "An unexpected error occurred.");
+        setFetchError(error.message || 'An unexpected error occurred.');
       } finally {
         setIsLoading(false);
       }
@@ -112,170 +42,21 @@ export default function AdminClientsPage() {
     loadClients();
   }, []);
 
-  useEffect(() => {
-    if (updateSuccess || deleteSuccess) {
-      const timer = setTimeout(() => {
-        setUpdateSuccess(false);
-        setDeleteSuccess(false);
-        setSuccessMessage("");
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [updateSuccess, deleteSuccess]);
-
-  const handleAddOrigin = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && originInput.trim()) {
-      e.preventDefault();
-      if (!allowedOrigins.includes(originInput.trim())) {
-        setAllowedOrigins([...allowedOrigins, originInput.trim()]);
-      }
-      setOriginInput("");
-    }
-  };
-
-  const handleRemoveOrigin = (indexToRemove: number) => {
-    setAllowedOrigins(allowedOrigins.filter((_, index) => index !== indexToRemove));
-  };
-
-  const handleAddEditOrigin = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && editOriginInput.trim()) {
-      e.preventDefault();
-      if (!editAllowedOrigins.includes(editOriginInput.trim())) {
-        setEditAllowedOrigins([...editAllowedOrigins, editOriginInput.trim()]);
-      }
-      setEditOriginInput("");
-    }
-  };
-
-  const handleRemoveEditOrigin = (indexToRemove: number) => {
-    setEditAllowedOrigins(editAllowedOrigins.filter((_, index) => index !== indexToRemove));
-  };
-
-  const handleView = async (client: Client) => {
-    setViewDialogOpen(true);
-    setIsLoadingClient(true);
-    setClientError("");
-    setSelectedClient(null);
-
-    try {
-      const fullClientData = await getClientById(client.id);
-      setSelectedClient(fullClientData);
-    } catch (error: any) {
-      setClientError(error.message || "Failed to load client details");
-    } finally {
-      setIsLoadingClient(false);
-    }
-  };
-
-  const handleEdit = async (client: Client) => {
-    setEditDialogOpen(true);
-    setEditError("");
-
-    setClientToEdit(client);
-
-    setEditName(client.name || "");
-    setEditDescription(client.description || "");
-    setEditRedirectUri(client.redirect_uri || "");
-    setEditAllowedOrigins(
-      Array.isArray(client.allowed_origins) ? client.allowed_origins : []
-    );
-    setEditOriginInput("");
-
-    setIsLoadingEdit(false);
-  };
-
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!clientToEdit) return;
-
-    setIsSavingEdit(true);
-    setEditError("");
-
-    try {
-      const payload = {
-        name: editName,
-        description: editDescription,
-        redirect_uri: editRedirectUri,
-        allowed_origins: editAllowedOrigins.filter(Boolean),
-      };
-
-      await updateClient(clientToEdit.id, payload);
-
-      setClients((prev) =>
-        prev.map((c) => (c.id === clientToEdit.id ? { ...c, ...payload } : c))
-      );
-
-      setEditDialogOpen(false);
-      setClientToEdit(null);
-      
-      // Show success message
-      setSuccessMessage(`Client "${editName}" has been updated successfully!`);
-      setUpdateSuccess(true);
-    } catch (error: any) {
-      setEditError(error.message || "Failed to update client");
-    } finally {
-      setIsSavingEdit(false);
-    }
-  };
-
-  const handleDelete = (client: Client) => {
-    console.log("Deleting client with ID:", client.id);
-    setClientToDelete(client);
-    setDeleteDialogOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!clientToDelete) return;
-
-    console.log("🔵 Full client object:", clientToDelete);
-    console.log("🔵 clientToDelete.id:", clientToDelete.id);
-    console.log("🔵 clientToDelete.client_id:", clientToDelete.client_id);
-
-    setIsDeletingClient(true);
-
-    try {
-      const clientIdToDelete =
-        clientToDelete.client_id || clientToDelete.id.replace("client:", "");
-
-      console.log("🔵 Sending to API:", clientIdToDelete);
-
-      await deleteClient(clientIdToDelete);
-
-      setClients((prev) => prev.filter((c) => c.id !== clientToDelete.id));
-
-      const deletedClientName = clientToDelete.name;
-      setDeleteDialogOpen(false);
-      setClientToDelete(null);
-
-      setSuccessMessage(`Client "${deletedClientName}" has been deleted successfully!`);
-      setDeleteSuccess(true);
-    } catch (error: any) {
-      console.error("Delete error:", error);
-      setDeleteDialogOpen(false);
-      setClientToDelete(null);
-
-      alert(error.message || "Failed to delete client");
-    } finally {
-      setIsDeletingClient(false);
-    }
-  };
-
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setFormError("");
+    setFormError('');
 
     try {
       const payload = {
         name,
         description,
         redirect_uri: redirectUri,
-        allowed_origins: allowedOrigins.filter(Boolean),
+        allowed_origins: allowedOrigins.split(',').map(origin => origin.trim()).filter(Boolean),
       };
-
       const result = await createClient(payload);
-      setNewClient(result);
-      setClients((prev) => [...prev, result]);
+      setNewClient(result); 
+      setClients(prev => [...prev, result]); 
     } catch (error: any) {
       setFormError(error.message);
     } finally {
@@ -284,16 +65,15 @@ export default function AdminClientsPage() {
   };
 
   const resetForm = () => {
-    setName("");
-    setDescription("");
-    setRedirectUri("");
-    setAllowedOrigins([]);
-    setOriginInput("");
-    setFormError("");
+    setName('');
+    setDescription('');
+    setRedirectUri('');
+    setAllowedOrigins('');
+    setFormError('');
     setNewClient(null);
     setIsDialogOpen(false);
   };
-
+  
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
   };
@@ -303,52 +83,28 @@ export default function AdminClientsPage() {
       return (
         <>
           <DialogHeader>
-            <DialogTitle className="text-green-600">
-              Client Created Successfully!
-            </DialogTitle>
+            <DialogTitle className="text-green-600">Client Created Successfully!</DialogTitle>
             <DialogDescription>
-              Copy the Client ID & Secret now — you won't see the secret again.
+              Please copy the Client ID and Client Secret. You will not be able to see the secret again.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
               <Label>Client ID</Label>
               <div className="flex items-center gap-2">
-                <Input
-                  readOnly
-                  value={newClient.client_id}
-                  className="font-mono"
-                />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => copyToClipboard(newClient.client_id)}
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
+                <Input readOnly value={newClient.client_id} className="font-mono"/>
+                <Button variant="outline" size="icon" onClick={() => copyToClipboard(newClient.client_id)}><Copy className="h-4 w-4"/></Button>
               </div>
             </div>
             <div>
               <Label>Client Secret</Label>
               <div className="flex items-center gap-2">
-                <Input
-                  readOnly
-                  value={newClient.client_secret}
-                  className="font-mono"
-                />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => copyToClipboard(newClient.client_secret)}
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
+                <Input readOnly value={newClient.client_secret} className="font-mono"/>
+                <Button variant="outline" size="icon" onClick={() => copyToClipboard(newClient.client_secret)}><Copy className="h-4 w-4"/></Button>
               </div>
             </div>
           </div>
-          <Button onClick={resetForm} className="w-full">
-            Done
-          </Button>
+          <Button onClick={resetForm} className="w-full">Done</Button>
         </>
       );
     }
@@ -357,73 +113,30 @@ export default function AdminClientsPage() {
       <>
         <DialogHeader>
           <DialogTitle>Register New Client</DialogTitle>
+          <DialogDescription>Create a new OAuth2 client application.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleCreateClient} className="space-y-4 py-4">
-          {formError && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{formError}</AlertDescription>
-            </Alert>
-          )}
+          {formError && <Alert variant="destructive"><AlertCircle className="h-4 w-4"/><AlertDescription>{formError}</AlertDescription></Alert>}
           <div className="space-y-2">
-            <Label>Application Name</Label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
+            <Label htmlFor="client-name">Application Name</Label>
+            <Input id="client-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="My Awesome App" required />
           </div>
           <div className="space-y-2">
-            <Label>Description</Label>
-            <Input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
+            <Label htmlFor="description">Description</Label>
+            <Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="A short description of the app" />
           </div>
           <div className="space-y-2">
-            <Label>Redirect URI</Label>
-            <Input
-              value={redirectUri}
-              onChange={(e) => setRedirectUri(e.target.value)}
-              required
-            />
+            <Label htmlFor="redirect-uri">Redirect URI</Label>
+            <Input id="redirect-uri" type="url" value={redirectUri} onChange={(e) => setRedirectUri(e.target.value)} placeholder="https://app.example.com/callback" required />
           </div>
           <div className="space-y-2">
-            <Label>Allowed Origins</Label>
-            <div className="min-h-[42px] px-3 py-2 border border-input rounded-md focus-within:ring-2 focus-within:ring-ring bg-background">
-              <div className="flex flex-wrap gap-2 items-center">
-                {allowedOrigins.map((origin, index) => (
-                  <div
-                    key={index}
-                    className="inline-flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded text-sm"
-                  >
-                    <span>{origin}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveOrigin(index)}
-                      className="hover:bg-primary/20 rounded p-0.5 transition-colors"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-                <input
-                  type="text"
-                  value={originInput}
-                  onChange={(e) => setOriginInput(e.target.value)}
-                  onKeyDown={handleAddOrigin}
-                  placeholder={allowedOrigins.length === 0 ? "Enter origin and press Enter" : ""}
-                  className="flex-1 min-w-[120px] outline-none bg-transparent text-sm"
-                />
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Press Enter to add each origin
-            </p>
+            <Label htmlFor="allowed-origins">Allowed Origins</Label>
+            <Input id="allowed-origins" value={allowedOrigins} onChange={(e) => setAllowedOrigins(e.target.value)} placeholder="https://app.example.com, https://www.example.com" required />
+            <p className="text-xs text-muted-foreground">Comma-separated list of URLs.</p>
           </div>
-          <Button type="submit" disabled={isSubmitting} className="w-full">
-            {isSubmitting && <Loader2 className="animate-spin mr-2" />}
-            {isSubmitting ? "Creating..." : "Create Client"}
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {isSubmitting ? <Loader2 className="animate-spin mr-2"/> : null}
+            {isSubmitting ? 'Creating...' : 'Create Client'}
           </Button>
         </form>
       </>
@@ -433,13 +146,10 @@ export default function AdminClientsPage() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        {/* HEADER */}
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-bold">Client Management</h2>
-            <p className="text-muted-foreground">
-              Manage OAuth2 client applications
-            </p>
+            <h2 className="text-3xl font-bold text-foreground">Client Management</h2>
+            <p className="text-muted-foreground">Manage OAuth2 client applications</p>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -453,38 +163,16 @@ export default function AdminClientsPage() {
           </Dialog>
         </div>
 
-        {updateSuccess && (
-          <Alert className="border-green-600 bg-green-50 dark:bg-green-950/30">
-            <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-500" />
-            <AlertDescription className="text-green-800 dark:text-green-200">
-              {successMessage}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {deleteSuccess && (
-          <Alert className="border-green-600 bg-green-50 dark:bg-green-950/30">
-            <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-500" />
-            <AlertDescription className="text-green-800 dark:text-green-200">
-              {successMessage}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* TABLE */}
         <Card>
           <CardHeader>
             <CardTitle>Registered Clients</CardTitle>
+            <CardDescription>View and manage your OAuth client applications.</CardDescription>
           </CardHeader>
-
           <CardContent>
-            {isLoading && (
-              <div className="text-center p-8">
-                <Loader2 className="animate-spin h-8 w-8 mx-auto" />
-              </div>
-            )}
-
-            {!isLoading && !fetchError && (
+            {isLoading && <div className="text-center p-8"><Loader2 className="animate-spin h-8 w-8 mx-auto"/></div>}
+            {fetchError && <Alert variant="destructive"><AlertCircle className="h-4 w-4"/><AlertDescription>{fetchError}</AlertDescription></Alert>}
+            {!isLoading && !fetchError && clients.length === 0 && <p className="text-center text-muted-foreground p-8">No clients registered yet.</p>}
+            {!isLoading && !fetchError && clients.length > 0 && (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -495,39 +183,19 @@ export default function AdminClientsPage() {
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
-
                 <TableBody>
                   {clients.map((client) => (
                     <TableRow key={client.id}>
-                      <TableCell>{client.name}</TableCell>
-                      <TableCell>{client.client_id}</TableCell>
-                      <TableCell>{client.redirect_uri}</TableCell>
-                      <TableCell>
-                        {format(new Date(client.created_at), "yyyy-MM-dd")}
+                      <TableCell className="font-medium">{client.name}</TableCell>
+                      <TableCell className="font-mono text-sm">{client.client_id}</TableCell>
+                      <TableCell className="text-sm">{client.redirect_uri}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {format(new Date(client.created_at), 'yyyy-MM-dd')}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(client)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleView(client)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(client)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                          <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -538,254 +206,6 @@ export default function AdminClientsPage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* VIEW CLIENT DIALOG */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Client Details</DialogTitle>
-            <DialogDescription>
-              View complete information for this OAuth2 client
-            </DialogDescription>
-          </DialogHeader>
-
-          {isLoadingClient && (
-            <div className="flex justify-center py-8">
-              <Loader2 className="animate-spin h-8 w-8" />
-            </div>
-          )}
-
-          {clientError && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{clientError}</AlertDescription>
-            </Alert>
-          )}
-
-          {selectedClient && !isLoadingClient && (
-            <div className="space-y-4 py-4">
-              <div>
-                <Label className="text-sm font-semibold">Name</Label>
-                <p className="text-sm mt-1">{selectedClient.name}</p>
-              </div>
-
-              <div>
-                <Label className="text-sm font-semibold">Description</Label>
-                <p className="text-sm mt-1">
-                  {selectedClient.description || "No description"}
-                </p>
-              </div>
-
-              <div>
-                <Label className="text-sm font-semibold">Client ID</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <code className="text-sm flex-1 p-2 border rounded">
-                    {selectedClient.client_id}
-                  </code>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => copyToClipboard(selectedClient.client_id)}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-sm font-semibold">Redirect URI</Label>
-                <p className="text-sm mt-1 font-mono">
-                  {selectedClient.redirect_uri}
-                </p>
-              </div>
-
-              <div>
-                <Label className="text-sm font-semibold">Allowed Origins</Label>
-                <div className="mt-1 space-y-1">
-                  {selectedClient.allowed_origins?.map((origin, index) => (
-                    <p key={index} className="text-sm font-mono">
-                      {origin}
-                    </p>
-                  )) || <p className="text-sm">None</p>}
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-sm font-semibold">Created At</Label>
-                <p className="text-sm mt-1">
-                  {format(new Date(selectedClient.created_at), "PPpp")}
-                </p>
-              </div>
-
-              {selectedClient.updated_at && (
-                <div>
-                  <Label className="text-sm font-semibold">Updated At</Label>
-                  <p className="text-sm mt-1">
-                    {format(new Date(selectedClient.updated_at), "PPpp")}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" onClick={() => setViewDialogOpen(false)}>
-              Close
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* EDIT CLIENT DIALOG */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Edit Client</DialogTitle>
-            <DialogDescription>
-              Update the client information below
-            </DialogDescription>
-          </DialogHeader>
-
-          {isLoadingEdit && (
-            <div className="flex justify-center py-8">
-              <Loader2 className="animate-spin h-8 w-8" />
-            </div>
-          )}
-
-          {editError && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{editError}</AlertDescription>
-            </Alert>
-          )}
-
-          {clientToEdit && !isLoadingEdit && (
-            <form onSubmit={handleSaveEdit} className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>Application Name</Label>
-                <Input
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Input
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Client ID (Read-only)</Label>
-                <Input
-                  value={clientToEdit.client_id}
-                  readOnly
-                  disabled
-                  className="font-mono bg-muted"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Redirect URI</Label>
-                <Input
-                  value={editRedirectUri}
-                  onChange={(e) => setEditRedirectUri(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Allowed Origins</Label>
-                <div className="min-h-[42px] px-3 py-2 border border-input rounded-md focus-within:ring-2 focus-within:ring-ring bg-background">
-                  <div className="flex flex-wrap gap-2 items-center">
-                    {editAllowedOrigins.map((origin, index) => (
-                      <div
-                        key={index}
-                        className="inline-flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded text-sm"
-                      >
-                        <span>{origin}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveEditOrigin(index)}
-                          className="hover:bg-primary/20 rounded p-0.5 transition-colors"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ))}
-                    <input
-                      type="text"
-                      value={editOriginInput}
-                      onChange={(e) => setEditOriginInput(e.target.value)}
-                      onKeyDown={handleAddEditOrigin}
-                      placeholder={editAllowedOrigins.length === 0 ? "Enter origin and press Enter" : ""}
-                      className="flex-1 min-w-[120px] outline-none bg-transparent text-sm"
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Press Enter to add each origin
-                </p>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setEditDialogOpen(false)}
-                  disabled={isSavingEdit}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSavingEdit}>
-                  {isSavingEdit && (
-                    <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                  )}
-                  {isSavingEdit ? "Saving..." : "Save Changes"}
-                </Button>
-              </div>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* DELETE CLIENT DIALOG */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete Client</DialogTitle>
-            <DialogDescription>
-              {clientToDelete
-                ? `You are about to delete "${clientToDelete.name}". This action cannot be undone.`
-                : ""}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex justify-end gap-3 pt-4">
-            <Button
-              variant="outline"
-              onClick={() => setDeleteDialogOpen(false)}
-              disabled={isDeletingClient}
-            >
-              Cancel
-            </Button>
-
-            <Button
-              variant="destructive"
-              onClick={confirmDelete}
-              disabled={isDeletingClient}
-            >
-              {isDeletingClient && (
-                <Loader2 className="animate-spin mr-2 h-4 w-4" />
-              )}
-              {isDeletingClient ? "Deleting..." : "Confirm Delete"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </AdminLayout>
   );
 }
