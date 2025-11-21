@@ -1,18 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AlertCircle, Loader2, Linkedin } from 'lucide-react';
+import { AlertCircle, Loader2, Linkedin, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
+import { jwtDecode } from 'jwt-decode';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { authenticateUser,  } from '@/services/authService';
-import { jwtDecode } from 'jwt-decode';
-
-import { forgotPassword } from '@/services/resetPasswordService'; // or whatever you named your file
+import { authenticateUser } from '@/services/authService';
+import { forgotPassword } from '@/services/resetPasswordService';
+import { getClientPublicInfo } from '@/services/clientsService';
 
 interface DecodedToken {
   sub: string;
@@ -21,14 +21,18 @@ interface DecodedToken {
   exp?: number;
 }
 
-interface LoginFormProps {
-  forgotPasswordInitial: boolean;
+interface ClientInfo {
+  name: string;
+  description?: string;
 }
 
-export default function LoginForm({ forgotPasswordInitial }: LoginFormProps) {
+interface LoginFormProps {
+  forgotPasswordInitial?: boolean;
+}
+
+export default function LoginForm({ forgotPasswordInitial = false }: LoginFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isForgotPassword = searchParams.get('forgot') === 'true' || forgotPasswordInitial;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,35 +40,75 @@ export default function LoginForm({ forgotPasswordInitial }: LoginFormProps) {
   const [error, setError] = useState('');
   const [resetSent, setResetSent] = useState(false);
 
+  const [clientInfo, setClientInfo] = useState<ClientInfo | null>(null);
+  const [isOauthFlow, setIsOauthFlow] = useState(false);
+
+  const clientIdFromUrl = searchParams.get('client_id');
+  const redirectUriFromUrl = searchParams.get('redirect_uri');
+  const stateFromUrl = searchParams.get('state');
+  const isForgotPassword = searchParams.get('forgot') === 'true' || forgotPasswordInitial;
+
+  useEffect(() => {
+    if (clientIdFromUrl) {
+      setIsOauthFlow(true);
+      setError('');
+      const fetchClientInfo = async () => {
+        try {
+          const data = await getClientPublicInfo(clientIdFromUrl);
+          setClientInfo(data);
+        } catch (err) {
+          setError('The application you are trying to log into is not registered or is invalid.');
+        }
+      };
+      fetchClientInfo();
+    }
+  }, [clientIdFromUrl]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
+    const payload = {
+      email,
+      password,
+      ...(isOauthFlow && { client_id: clientIdFromUrl, redirect_uri: redirectUriFromUrl, state: stateFromUrl}),
+    };
+
     try {
-      const data = await authenticateUser({ email, password });
-      localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('refreshToken', data.refreshToken);
+      const data = await authenticateUser(payload);
 
-      const decodedToken = jwtDecode<DecodedToken>(data.accessToken);
-      // Store userId from token's 'sub' field (subject)
-      if (decodedToken.sub) {
-        localStorage.setItem('userId', decodedToken.sub);
-      }
+      // --- THIS IS THE UPDATED LOGIC ---
+      if (data.redirect_uri) {
+        // OAuth2 Flow: The backend returned the full URL for our messenger page.
+        // Redirect the popup to that URL.
+        window.location.href = data.redirect_uri;
 
-      if (decodedToken.role === 'admin') {
-        router.push('/admin/clients'); 
+      } else if (data.accessToken) {
+        // Direct Login Flow: The backend returned tokens.
+        localStorage.setItem('accessToken', data.accessToken);
+        localStorage.setItem('refreshToken', data.refreshToken);
+
+        const decodedToken = jwtDecode<DecodedToken>(data.accessToken);
+        if (decodedToken.sub) {
+          localStorage.setItem('userId', decodedToken.sub);
+        }
+
+        if (decodedToken.role === 'admin') {
+          router.push('/admin/clients');
+        } else {
+          router.push('/dashboard');
+        }
       } else {
-        router.push('/dashboard'); 
+        throw new Error('Invalid response from authentication server.');
       }
-
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
       } else {
         setError('An unknown error occurred');
       }
-      setLoading(false); 
+      setLoading(false);
     }
   };
 
@@ -72,20 +116,12 @@ export default function LoginForm({ forgotPasswordInitial }: LoginFormProps) {
     e.preventDefault();
     setError('');
     setLoading(true);
-    
-    console.log('🔥 handlePasswordReset called with email:', email);
-    
     try {
-      const result = await forgotPassword({ email });
-      console.log('✅ Password reset successful:', result);
+      await forgotPassword({ email });
       setResetSent(true);
     } catch (err: unknown) {
-      console.error('❌ Password reset error:', err);
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('An unknown error occurred');
-      }
+      if (err instanceof Error) setError(err.message);
+      else setError('An unknown error occurred');
     } finally {
       setLoading(false);
     }
@@ -94,27 +130,37 @@ export default function LoginForm({ forgotPasswordInitial }: LoginFormProps) {
   const title = isForgotPassword ? 'Reset Password' : 'Welcome Back';
   const subtitle = isForgotPassword ? 'Enter your email to receive a password reset link' : 'Sign in to access your account';
 
-
   return (
     <>
       <div className="mb-6 text-center">
-        <h2 className="text-2xl font-bold text-foreground mb-1">{isForgotPassword ? 'IAA' : title}</h2>
-        <p className="text-muted-foreground">{isForgotPassword ? subtitle : 'Sign in with your IAA credentials'}</p>
+        <h2 className="text-2xl font-bold text-foreground mb-1">{isOauthFlow ? 'Sign in to continue' : title}</h2>
+        <p className="text-muted-foreground">{isOauthFlow ? 'Please log in to your IST Africa account.' : 'Sign in with your IAA credentials'}</p>
       </div>
+
+      {isOauthFlow && (
+        <div className="mb-6">
+          {clientInfo ? (
+            <div className="p-4 border rounded-lg bg-muted/50 text-center">
+              <ShieldCheck className="h-8 w-8 text-primary mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">You are granting access to:</p>
+              <p className="font-semibold text-foreground">{clientInfo.name}</p>
+            </div>
+          ) : (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error || 'Loading application info...'}</AlertDescription>
+            </Alert>
+          )}
+        </div>
+      )}
 
       {isForgotPassword ? (
         resetSent ? (
           <div className="space-y-4">
             <Alert className="border-green-500 bg-green-500/10 text-green-700">
-              <AlertDescription>
-                Password reset link has been sent to your email address.
-              </AlertDescription>
+              <AlertDescription>Password reset link has been sent to your email address.</AlertDescription>
             </Alert>
-            <Button
-              onClick={() => router.push('/auth/login')}
-              variant="outline"
-              className="w-full"
-            >
+            <Button onClick={() => router.push('/auth/login')} variant="outline" className="w-full">
               Back to Login
             </Button>
           </div>
@@ -128,10 +174,7 @@ export default function LoginForm({ forgotPasswordInitial }: LoginFormProps) {
             )}
             <div className="space-y-2">
               <Label htmlFor="reset-email">Email Address</Label>
-              <Input
-                id="reset-email" type="email" placeholder="you@example.com"
-                value={email} onChange={(e) => setEmail(e.target.value)} required
-              />
+              <Input id="reset-email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? <Loader2 className="animate-spin" /> : 'Send Reset Link'}
@@ -143,66 +186,49 @@ export default function LoginForm({ forgotPasswordInitial }: LoginFormProps) {
         )
       ) : (
         <form onSubmit={handleLogin} className="space-y-4">
-          {error && (
+          {!isOauthFlow && error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="email">Email Address</Label>
-            <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" placeholder="Enter your password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-          </div>
+          <fieldset disabled={loading || (isOauthFlow && !clientInfo)}>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email Address</Label>
+              <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input id="password" type="password" placeholder="Enter your password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            </div>
+          </fieldset>
 
           <div className="text-right">
-            <button
-              type="button"
-              onClick={() => router.push('/auth/login?forgot=true')}
-              className="text-sm font-medium text-primary hover:underline focus:outline-none"
-            >
+            <button type="button" onClick={() => router.push('/auth/login?forgot=true')} className="text-sm font-medium text-primary hover:underline focus:outline-none">
               Forgot your password?
             </button>
           </div>
 
-          <Button type="submit" className="w-full font-semibold" disabled={loading}>
+          <Button type="submit" className="w-full font-semibold" disabled={loading || (isOauthFlow && !clientInfo)}>
             {loading ? <Loader2 className="animate-spin" /> : 'Sign In'}
           </Button>
 
           <div className="relative my-4">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">
-                Or continue with
-              </span>
-            </div>
+            <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+            <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">Or continue with</span></div>
           </div>
 
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full font-semibold bg-linkedin text-white hover:bg-linkedin/90 border-linkedin"
-          >
+          <Button type="button" variant="outline" className="w-full font-semibold bg-linkedin text-white hover:bg-linkedin/90 border-linkedin">
             <Linkedin className="mr-2 h-4 w-4" />
             Continue with LinkedIn
           </Button>
 
           <p className="text-center text-sm text-muted-foreground pt-4">
-          Don’t have an account?{' '}
-          <Link href="/auth/signup" className="font-medium text-primary hover:underline">
-            Sign up
-          </Link>
-        </p>
-
-          <p className="text-center text-xs text-muted-foreground pt-4">
-            Secured by IST Africa Auth
+            Don’t have an account?{' '}
+            <Link href="/auth/signup" className="font-medium text-primary hover:underline">
+              Sign up
+            </Link>
           </p>
         </form>
       )}

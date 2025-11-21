@@ -7,11 +7,18 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 @ApiTags('Clients')
 @ApiBearerAuth() 
 @Controller('api/clients')
-@UseGuards(AdminGuard)
 export class ClientsController {
   constructor(private readonly clientsService: ClientsService) {}
 
+  @Get('public/:clientId') // This makes it a public sub-route
+  @ApiOperation({ summary: "Get a client's public information by its Client ID" })
+  findPublicInfo(@Param('clientId') clientId: string) {
+    // We will add the corresponding service method next
+    return this.clientsService.findPublicInfo(clientId);
+  }
+
   @Post()
+  @UseGuards(AdminGuard)
   @HttpCode(201)
   @ApiOperation({ summary: 'Register a new client application' })
   @ApiResponse({ status: 201, description: 'The client has been successfully created.' })
@@ -22,6 +29,7 @@ export class ClientsController {
   }
 
   @Get()
+  @UseGuards(AdminGuard)
   @ApiOperation({ summary: 'Get all registered client applications' })
   @ApiResponse({ status: 200, description: 'A list of all clients.' })
   @ApiResponse({ status: 403, description: 'Forbidden. Admin privileges required.' })
@@ -30,6 +38,7 @@ export class ClientsController {
   }
 
   @Delete(':id')
+  @UseGuards(AdminGuard)
   @HttpCode(HttpStatus.NO_CONTENT) 
   @ApiOperation({ summary: 'Delete a client application by ID' })
   @ApiResponse({ status: 204, description: 'The client has been successfully deleted.' })
