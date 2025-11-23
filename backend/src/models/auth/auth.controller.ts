@@ -19,6 +19,9 @@ import { AuthenticateUserDto } from './dto/authenticate-user.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { AuthGuard } from '@nestjs/passport';
+import { Res } from '@nestjs/common';
+import type { Request, Response } from 'express';
 
 @Controller('api/auth')
 // @UseGuards(JwtAuthGuard)
@@ -37,7 +40,6 @@ export class AuthController {
   ) {
     return this.authService.authenticate(authenticateDto);
   }
-
 
   @Get('jwks')
   getJwks() {
@@ -86,9 +88,38 @@ export class AuthController {
   ) {
     console.log('Request user:', req.user);
     const id = Number(userId);
-    
+
     const callerRole = req.user?.role || req.user?.role;
-    
+
     return this.authService.updateUserRole(callerRole, id, role);
+  }
+  @Get('linkedin')
+  @UseGuards(AuthGuard('linkedin'))
+  linkedinLogin() {
+    // Initiates LinkedIn OAuth flow - guard handles redirect
+  }
+
+  @Get('linkedin/callback')
+  @UseGuards(AuthGuard('linkedin'))
+  async linkedinCallback(
+    @Req() req: Request & { user?: any },
+    @Res() res: Response,
+  ) {
+    // Direct LinkedIn login - generate tokens
+    const { accessToken, refreshToken } = await this.authService.linkedinLogin(
+      req.user,
+    );
+
+    const frontendUrl = (
+      process.env.FRONTEND_URL ||
+      process.env.NEXT_PUBLIC_FRONTEND_URL ||
+      'http://localhost:3000'
+    ).replace(/\/$/, '');
+
+    const redirectUrl = `${frontendUrl}/auth/linkedin/callback?accessToken=${encodeURIComponent(
+      accessToken,
+    )}&refreshToken=${encodeURIComponent(refreshToken)}`;
+
+    return res.redirect(redirectUrl);
   }
 }
