@@ -27,26 +27,6 @@ import { AuthorizationCode } from './entities/authorization-code.entity';
 
 @Injectable()
 export class AuthService {
-  // Temporary in-memory auth code store until auth_codes table is implemented
-  private authCodes: {
-    code: string;
-    userId: number;
-    clientId: string;
-    expiresAt: Date;
-    used: boolean;
-    isEnvBacked?: boolean;
-  }[] = [];
-
-  private envAuthConfig:
-    | {
-        code: string;
-        clientId: string;
-        clientSecret: string;
-        userId: number;
-        ttlMinutes: number;
-      }
-    | undefined;
-
   private readonly jwtTokenIssuer: JwtTokenIssuer;
 
   constructor(
@@ -63,55 +43,10 @@ export class AuthService {
     private readonly configService: ConfigService,
     private emailService: EmailService,
   ) {
-    this.initializeEnvAuthCode();
     this.jwtTokenIssuer = new JwtTokenIssuerImpl(
       this.configService,
       this.refreshTokenModel,
     );
-  }
-
-  private initializeEnvAuthCode() {
-    const code = this.configService.get<string>('DUMMY_AUTH_CODE');
-    const clientId = this.configService.get<string>('DUMMY_AUTH_CLIENT_ID');
-    const clientSecret = this.configService.get<string>(
-      'DUMMY_AUTH_CLIENT_SECRET',
-    );
-    const userIdRaw = this.configService.get<string>('DUMMY_AUTH_USER_ID');
-    const ttlRaw = this.configService.get<string>(
-      'DUMMY_AUTH_CODE_TTL_MINUTES',
-    );
-
-    const userId = userIdRaw ? Number(userIdRaw) : undefined;
-    const ttlMinutes = ttlRaw ? Number(ttlRaw) : 10;
-
-    if (
-      !code ||
-      !clientId ||
-      !clientSecret ||
-      userId === undefined ||
-      Number.isNaN(userId)
-    ) {
-      return;
-    }
-
-    this.envAuthConfig = {
-      code,
-      clientId,
-      clientSecret,
-      userId,
-      ttlMinutes: Number.isNaN(ttlMinutes) ? 10 : ttlMinutes,
-    };
-
-    this.authCodes.push({
-      code,
-      clientId,
-      userId,
-      expiresAt: new Date(
-        Date.now() + this.envAuthConfig.ttlMinutes * 60 * 1000,
-      ),
-      used: false,
-      isEnvBacked: true,
-    });
   }
 
   // -------------------- OTP Utility --------------------
@@ -262,13 +197,25 @@ export class AuthService {
 
     if (client_id && redirect_uri) {
       console.log(`[AuthService] Detected OAuth2 Authorization Code flow for client: ${client_id}`);
+      console.log(`[AuthService] Redirect URI provided: ${redirect_uri}`);
       
       const client = await this.clientModel.findOne({ where: { client_id } });
       if (!client) {
+        console.error(`[AuthService] Client not found in database: ${client_id}`);
         throw new BadRequestException('Unauthorized client: This application is not registered.');
       }
+      
+      console.log(`[AuthService] Client found: ${client.name} (ID: ${client.id})`);
+      console.log(`[AuthService] Registered redirect URI: ${client.redirect_uri}`);
+      
       if (client.redirect_uri !== redirect_uri) {
-        throw new BadRequestException('Invalid redirect URI: The provided redirect URI does not match the one registered for this client.');
+        console.error(`[AuthService] Redirect URI mismatch. Expected: ${client.redirect_uri}, Got: ${redirect_uri}`);
+        throw new BadRequestException(`Invalid redirect URI: The provided redirect URI does not match the one registered for this client. Expected: ${client.redirect_uri}, Got: ${redirect_uri}`);
+      }
+      
+      if (client.status !== 'active') {
+        console.error(`[AuthService] Client is not active. Status: ${client.status}`);
+        throw new BadRequestException('Client application is not active.');
       }
 
       // Generate authorization code and persist in DB (AuthorizationCode model)
@@ -403,58 +350,48 @@ export class AuthService {
       where: { client_id },
     });
 
-    let clientIdentifier: string | null = null;
-
-    if (client) {
-      const isClientSecretValid = await compare(
-        client_secret,
-        client.client_secret,
-      );
-      if (!isClientSecretValid) {
-        throw new UnauthorizedException('Invalid client credentials');
-      }
-      clientIdentifier = client.client_id;
-    } else if (
-      this.envAuthConfig &&
-      this.envAuthConfig.clientId === client_id &&
-      this.envAuthConfig.clientSecret === client_secret
-    ) {
-      clientIdentifier = this.envAuthConfig.clientId;
-    } else {
+    if (!client) {
       throw new UnauthorizedException('Invalid client credentials');
     }
 
-    // 2. Validate authorization code (dummy in-memory implementation)
-    const authCode = this.authCodes.find((c) => c.code === code);
+    const isClientSecretValid = await compare(
+      client_secret,
+      client.client_secret,
+    );
+    if (!isClientSecretValid) {
+      throw new UnauthorizedException('Invalid client credentials');
+    }
+
+    // 2. Validate authorization code from database
+    const authCode = await this.authCodeModel.findOne({
+      where: { code },
+    });
+
     if (!authCode) {
       throw new UnauthorizedException('Invalid authorization code');
     }
 
-    if (authCode.used) {
-      throw new UnauthorizedException('Authorization code already used');
+    // 3. Check if authorization code has expired
+    if (authCode.expiresAt.getTime() <= Date.now()) {
+      // Delete expired code
+      await this.authCodeModel.destroy({ where: { code } });
+      throw new UnauthorizedException('Authorization code has expired');
     }
 
-    if (!clientIdentifier) {
-      throw new UnauthorizedException('Invalid client credentials');
-    }
-
-    if (clientIdentifier !== authCode.clientId) {
+    // 4. Verify the authorization code belongs to the requesting client
+    if (authCode.clientId !== client.id) {
       throw new UnauthorizedException(
         'Authorization code does not belong to this client',
       );
     }
 
-    if (authCode.expiresAt.getTime() <= Date.now()) {
-      throw new UnauthorizedException('Authorization code has expired');
-    }
-
-    // 3. Retrieve linked user
+    // 5. Retrieve linked user
     const user = await this.userModel.findByPk(authCode.userId);
     if (!user) {
       throw new NotFoundException('User linked to authorization code not found');
     }
 
-    // 4. Generate access and refresh tokens
+    // 6. Generate access and refresh tokens using .env variables for expiry time
     const tokenPair = await this.jwtTokenIssuer.issueTokens({
       email: user.email,
       password: user.password,
@@ -462,7 +399,7 @@ export class AuthService {
       role: user.role,
       name: user.name,
       auth_code: code,
-      client_id: clientIdentifier,
+      client_id: client.client_id,
       client_secret,
     });
 
@@ -475,7 +412,7 @@ export class AuthService {
 
     await this.clientAppTokenModel.create({
       userId: user.id,
-      clientId: clientIdentifier,
+      clientId: client.client_id,
       hashedClientSecret,
       accessToken: tokenPair.accessToken,
       refreshToken: tokenPair.refreshToken,
@@ -483,8 +420,8 @@ export class AuthService {
       refreshTokenIssuedAt: new Date(),
     });
 
-    // 5. Mark auth code as used
-    authCode.used = true;
+    // 7. Delete authorization code after successful exchange (prevents reuse)
+    await this.authCodeModel.destroy({ where: { code } });
 
     return {
       access_token: tokenPair.accessToken,
