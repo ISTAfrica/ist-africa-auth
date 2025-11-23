@@ -4,13 +4,14 @@ import {
   UnauthorizedException,
   ConflictException,
   InternalServerErrorException,
+  BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { User } from '../users/entities/user.entity';
 import { RefreshToken } from '../users/entities/refresh-token.entity';
 import { hash, compare } from 'bcryptjs';
-import { randomUUID, randomInt } from 'crypto';
+import { randomUUID, randomInt, randomBytes } from 'crypto';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { AuthenticateUserDto } from './dto/authenticate-user.dto';
 import { EmailService } from '../../email/email.service';
@@ -22,6 +23,7 @@ import { ClientCredentialsDto } from './dto/client-credentials.dto';
 import { JwtTokenIssuer } from '../../utils/token';
 import { JwtTokenIssuerImpl } from '../../utils/implementation/jwt-token.issuer';
 import { ClientAppToken } from './entities/client-app-token.entity';
+import { AuthorizationCode } from './entities/authorization-code.entity';
 
 @Injectable()
 export class AuthService {
@@ -56,6 +58,8 @@ export class AuthService {
     private readonly clientModel: typeof Client,
     @InjectModel(ClientAppToken)
     private readonly clientAppTokenModel: typeof ClientAppToken,
+    @InjectModel(AuthorizationCode)
+    private readonly authCodeModel: typeof AuthorizationCode,
     private readonly configService: ConfigService,
     private emailService: EmailService,
   ) {
@@ -242,23 +246,69 @@ export class AuthService {
 
   // -------------------- Authenticate --------------------
   async authenticate(authenticateDto: AuthenticateUserDto) {
-    const { email, password } = authenticateDto;
+    const { email, password, client_id, redirect_uri, state } = authenticateDto;
+
     const user = await this.userModel.findOne({ where: { email } });
-
-    if (!user) throw new NotFoundException('User not found');
-    if (!user.isVerified)
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (!user.isVerified) {
       throw new ForbiddenException('Please verify your email before logging in.');
-
+    }
     const isPasswordValid = await compare(password, user.password);
-    if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
-    return this.jwtTokenIssuer.issueTokens({
-      email: user.email,
-      password: authenticateDto.password,
-      userId: user.id,
-      role: user.role,
-      name: user.name,
-    });
+    if (client_id && redirect_uri) {
+      console.log(`[AuthService] Detected OAuth2 Authorization Code flow for client: ${client_id}`);
+      
+      const client = await this.clientModel.findOne({ where: { client_id } });
+      if (!client) {
+        throw new BadRequestException('Unauthorized client: This application is not registered.');
+      }
+      if (client.redirect_uri !== redirect_uri) {
+        throw new BadRequestException('Invalid redirect URI: The provided redirect URI does not match the one registered for this client.');
+      }
+
+      // Generate authorization code and persist in DB (AuthorizationCode model)
+      const code = randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+      await this.authCodeModel.create({
+        code,
+        expiresAt,
+        userId: user.id,
+        clientId: client.id,
+        // optionally store redirect_uri here for later validation
+      });
+      
+      const iaaFrontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
+      
+      // Construct the URL to our own frontend messenger page (callback)
+      const finalRedirectUri = new URL(`${iaaFrontendUrl}/auth/callback`);
+      finalRedirectUri.searchParams.append('code', code);
+      if (state) {
+        finalRedirectUri.searchParams.append('state', state);
+      }
+      
+      // Return redirect URL (client should be redirected to our frontend which will complete the OAuth exchange)
+      return {
+        redirect_uri: finalRedirectUri.toString(),
+      };
+    }
+    
+    else {
+      console.log(`[AuthService] Detected Direct Login (Password Grant) flow for user: ${email}`);
+      // Issue tokens directly for password grant / direct login
+      return this.jwtTokenIssuer.issueTokens({
+        email: user.email,
+        password: user.password,
+        userId: user.id,
+        role: user.role,
+        name: user.name,
+      });
+    }
   }
 
   // -------------------- Resend OTP --------------------
@@ -420,7 +470,7 @@ export class AuthService {
       this.configService.get<string>('BCRYPT_SALT_ROUNDS') ?? '12';
     const saltRounds = Number.isNaN(Number(saltRoundsEnv))
       ? 12
-      : Number(saltRoundsEnv);
+      : Number(Number(saltRoundsEnv));
     const hashedClientSecret = await hash(client_secret, saltRounds);
 
     await this.clientAppTokenModel.create({
@@ -442,5 +492,4 @@ export class AuthService {
       token_type: 'Bearer',
     };
   }
-
 }
