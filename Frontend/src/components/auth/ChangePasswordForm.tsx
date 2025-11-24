@@ -58,7 +58,7 @@ export default function ChangePasswordForm() {
       setConfirmPassword('');
       
       setTimeout(() => {
-        router.push('/dashboard');
+        router.push('/user/settings');
       }, 2000);
     } catch (err: unknown) {
       if (err instanceof Error) {
