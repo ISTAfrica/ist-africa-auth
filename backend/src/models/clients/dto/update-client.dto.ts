@@ -1,28 +1,28 @@
 import {
   IsString,
-  IsNotEmpty,
   IsUrl,
   IsArray,
-  ArrayNotEmpty,
   ArrayUnique,
   IsOptional,
   MinLength,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class CreateClientDto {
+export class UpdateClientDto {
   @ApiProperty({
     example: 'IST Academy',
     description: 'The unique name of the client application.',
+    required: false,
   })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   @MinLength(3)
-  name: string;
+  name?: string;
 
   @ApiProperty({
     example: 'Learning management system for IST Africa',
     description: 'A brief description of the client application.',
+    required: false,
   })
   @IsString()
   @IsOptional()
@@ -31,20 +31,22 @@ export class CreateClientDto {
   @ApiProperty({
     example: 'http://localhost:3001/callback',
     description: 'The secure HTTP callback URL for the OAuth2 flow.',
+    required: false,
   })
   @IsUrl({
     require_protocol: true,
     protocols: ['http', 'https'],
     require_tld: false,
   })
-  redirect_uri: string;
+  @IsOptional()
+  redirect_uri?: string;
 
   @ApiProperty({
     example: ['http://localhost:3001'],
     description: 'An array of allowed origins for CORS.',
+    required: false,
   })
   @IsArray()
-  @ArrayNotEmpty()
   @ArrayUnique()
   @IsUrl(
     {
@@ -54,5 +56,6 @@ export class CreateClientDto {
     },
     { each: true },
   )
-  allowed_origins: string[];
+  @IsOptional()
+  allowed_origins?: string[];
 }
