@@ -414,7 +414,9 @@ https://auth.ist.africa/api
 {
   "sub": "user:73bde923",
   "email": "alice@ist.africa",
-  "user_type": "ist_member"
+  "name":"Alice",
+  "role":"user",
+  "mebership": "ist_member"
 }
 ```
 
