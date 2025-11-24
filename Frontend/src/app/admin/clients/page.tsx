@@ -304,7 +304,7 @@ export default function AdminClientsPage() {
  }
  };
 
- const handleRegenerateSecret = async (clientId: string) => {
+ const handleRegenerateClientSecret = async (clientId: string) => {
  setIsRegenerating(true);
  setRegenerateError("");
 
@@ -318,7 +318,7 @@ export default function AdminClientsPage() {
  setClients((prev) =>
  prev.map((c) =>
  c.id === clientId
- ? { ...c, updated_at: new Date().toISOString() } // Assuming the regenerate API accepts/returns the main ID
+ ? { ...c, updated_at: new Date().toISOString() } 
  : c
  )
  );
@@ -684,7 +684,7 @@ export default function AdminClientsPage() {
  <Button
  onClick={() =>
  selectedClientForRegen &&
- handleRegenerateSecret(selectedClientForRegen.id)
+ handleRegenerateClientSecret(selectedClientForRegen.id)
  }
  disabled={isRegenerating}
  >
