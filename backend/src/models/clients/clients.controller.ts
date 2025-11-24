@@ -105,6 +105,10 @@ export class ClientsController {
     status: 404,
     description: 'Not Found. Client with the specified ID does not exist.',
   })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict. Client name already exists.',
+  })
   update(
     @Param('id') id: string,
     @Body(new ValidationPipe()) updateClientDto: UpdateClientDto,
@@ -133,7 +137,7 @@ export class ClientsController {
 
   @Delete(':id')
   @UseGuards(AdminGuard)
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a client application by ID' })
   @ApiResponse({
     status: 200,
