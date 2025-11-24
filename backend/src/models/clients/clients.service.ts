@@ -25,7 +25,7 @@ export class ClientsService {
   ): Promise<{ name: string; description: string }> {
     const client = await this.clientModel.findOne({
       where: { client_id: clientId },
-      attributes: ['name', 'description'], // Only return public, non-sensitive info
+      attributes: ['name', 'description'],
     });
 
     if (!client) {
@@ -91,6 +91,33 @@ export class ClientsService {
     return client;
   }
 
+  async regenerateSecret(id: string) {
+    const client = await this.clientModel.findByPk(id);
+
+    if (!client) {
+      throw new NotFoundException(`Client with ID "${id}" not found`);
+    }
+
+    const rawClientSecret = randomBytes(32).toString('hex');
+
+    const saltRoundsEnv = this.configService.get<string>('BCRYPT_SALT_ROUNDS');
+    const saltRounds = Number.isNaN(Number(saltRoundsEnv))
+      ? 12
+      : Number(saltRoundsEnv);
+    const hashedSecret = await hash(rawClientSecret, saltRounds);
+
+    await client.update({
+      client_secret: hashedSecret,
+    });
+
+    const clientResponse = client.toJSON();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    clientResponse.client_secret = rawClientSecret;
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return clientResponse;
+  }
+
   async update(
     id: string,
     updateClientDto: UpdateClientDto,
@@ -122,16 +149,23 @@ export class ClientsService {
     });
 
     if (!updatedClient) {
-      throw new NotFoundException(`Client with ID "${id}" not found`);
+      throw new NotFoundException(
+        `Client with ID "${id}" not found after update`,
+      );
     }
 
     return updatedClient;
   }
 
   async remove(id: string): Promise<{ message: string }> {
-    const client = await this.clientModel.findOne({ where: { client_id: id } }); // FIND THIS LINE
+    const searchField = id.startsWith('client:') ? 'id' : 'client_id';
+
+    const client = await this.clientModel.findOne({
+      where: { [searchField]: id },
+    });
+
     if (!client) {
-      throw new NotFoundException(`Client with ID "${id}" not found`);
+      throw new NotFoundException(`Client with identifier "${id}" not found`);
     }
 
     const clientName = client.name;

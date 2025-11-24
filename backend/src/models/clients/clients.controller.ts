@@ -34,7 +34,6 @@ export class ClientsController {
     summary: "Get a client's public information by its Client ID",
   })
   findPublicInfo(@Param('clientId') clientId: string) {
-    // We will add the corresponding service method next
     return this.clientsService.findPublicInfo(clientId);
   }
 
@@ -71,6 +70,7 @@ export class ClientsController {
   }
 
   @Get(':id')
+  @UseGuards(AdminGuard)
   @ApiOperation({ summary: 'Get a client application by ID' })
   @ApiParam({ name: 'id', description: 'Client ID' })
   @ApiResponse({
@@ -90,6 +90,7 @@ export class ClientsController {
   }
 
   @Put(':id')
+  @UseGuards(AdminGuard)
   @ApiOperation({ summary: 'Update a client application by ID' })
   @ApiParam({ name: 'id', description: 'Client ID' })
   @ApiResponse({
@@ -110,15 +111,41 @@ export class ClientsController {
   ) {
     return this.clientsService.update(id, updateClientDto);
   }
+  @Post(':id/regenerate-secret')
+  @UseGuards(AdminGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Regenerate client secret when compromised' })
+  @ApiResponse({
+    status: 200,
+    description: 'The client secret has been successfully regenerated.',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden. Admin privileges required.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Not Found. Client with the specified ID does not exist.',
+  })
+  regenerateSecret(@Param('id') id: string) {
+    return this.clientsService.regenerateSecret(id);
+  }
 
   @Delete(':id')
   @UseGuards(AdminGuard)
-  @HttpCode(HttpStatus.NO_CONTENT)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete a client application by ID' })
   @ApiResponse({
     status: 200,
     description: 'The client has been successfully deleted.',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden. Admin privileges required.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Not Found. Client with the specified ID does not exist.',
   })
   remove(@Param('id') id: string) {
     return this.clientsService.remove(id);
