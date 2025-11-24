@@ -1,18 +1,43 @@
-'use client';
+"use client";
 
 import { useState, useEffect } from "react";
 import AdminLayout from "@/components/AdminLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Search, Edit, Lock, Unlock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { fetchUsers, updateUserStatus, updateUserRole, User } from "@/services/users";
+import {
+  fetchUsers,
+  updateUserStatus,
+  updateUserRole,
+  User,
+} from "@/services/users";
 import { format } from "date-fns";
 
 const AdminUsers = () => {
@@ -24,7 +49,9 @@ const AdminUsers = () => {
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [selectedUserForRole, setSelectedUserForRole] = useState<User | null>(null);
+  const [selectedUserForRole, setSelectedUserForRole] = useState<User | null>(
+    null
+  );
   const [reason, setReason] = useState("");
 
   useEffect(() => {
@@ -50,7 +77,7 @@ const AdminUsers = () => {
   }, [toast]);
 
   const filteredUsers = users.filter(
-    user =>
+    (user) =>
       user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -87,16 +114,35 @@ const AdminUsers = () => {
     if (!selectedUser) return;
     try {
       const newIsActive = !selectedUser.isActive;
-      const updatedUser = await updateUserStatus(selectedUser.id, newIsActive, reason);
-      setUsers(prev => prev.map(u => (u.id === selectedUser.id ? { ...u, ...updatedUser } : u)));
+      const updatedUser = await updateUserStatus(
+        selectedUser.id,
+        newIsActive,
+        reason
+      );
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === selectedUser.id ? { ...u, ...updatedUser } : u
+        )
+      );
       toast({
         title: "Status Updated",
-        description: `User ${updatedUser.name} has been ${updatedUser.isActive ? "activated" : "deactivated"}${updatedUser.statusReason ? `. Reason: ${updatedUser.statusReason}` : ''}`,
+        description: `User ${updatedUser.name} has been ${
+          updatedUser.isActive ? "activated" : "deactivated"
+        }${
+          updatedUser.statusReason
+            ? `. Reason: ${updatedUser.statusReason}`
+            : ""
+        }`,
       });
     } catch (error) {
       console.error(error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to update status";
-      toast({ title: "Error", description: errorMessage, variant: "destructive" });
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to update status";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setStatusDialogOpen(false);
       setSelectedUser(null);
@@ -109,12 +155,24 @@ const AdminUsers = () => {
     try {
       const newRole = selectedUserForRole.role === "user" ? "admin" : "user";
       const updatedUser = await updateUserRole(selectedUserForRole.id, newRole);
-      setUsers(prev => prev.map(u => (u.id === selectedUserForRole.id ? { ...u, role: newRole } : u)));
-      toast({ title: "Role Updated", description: `User ${selectedUserForRole.name}'s role changed to ${newRole}` });
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === selectedUserForRole.id ? { ...u, role: newRole } : u
+        )
+      );
+      toast({
+        title: "Role Updated",
+        description: `User ${selectedUserForRole.name}'s role changed to ${newRole}`,
+      });
     } catch (error) {
       console.error(error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to update role";
-      toast({ title: "Error", description: errorMessage, variant: "destructive" });
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to update role";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setRoleDialogOpen(false);
       setSelectedUserForRole(null);
@@ -126,21 +184,27 @@ const AdminUsers = () => {
     <AdminLayout>
       <div className="space-y-6">
         <div>
-          <h2 className="text-3xl font-bold text-foreground">User Management</h2>
-          <p className="text-muted-foreground">Manage and monitor user accounts</p>
+          <h2 className="text-3xl font-bold text-foreground">
+            User Management
+          </h2>
+          <p className="text-muted-foreground">
+            Manage and monitor user accounts
+          </p>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle>User Directory</CardTitle>
-            <CardDescription>Search and manage all registered users</CardDescription>
+            <CardDescription>
+              Search and manage all registered users
+            </CardDescription>
             <div className="flex items-center gap-2 mt-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search by email or name..."
                   value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
                 />
               </div>
@@ -160,8 +224,9 @@ const AdminUsers = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.map(user => {
-                  const isCurrentUser = String(user.id) === String(loggedInUserId);
+                {filteredUsers.map((user) => {
+                  const isCurrentUser =
+                    String(user.id) === String(loggedInUserId);
                   return (
                     <TableRow key={user.id}>
                       <TableCell>
@@ -176,12 +241,24 @@ const AdminUsers = () => {
                       </TableCell>
                       <TableCell>{user.email}</TableCell>
                       <TableCell>
-                        <Badge variant={user.role === "admin" ? "default" : "secondary"}>{user.role}</Badge>
+                        <Badge
+                          variant={
+                            user.role === "admin" ? "default" : "secondary"
+                          }
+                        >
+                          {user.role}
+                        </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={user.isActive ? "default" : "destructive"}>{user.isActive ? "active" : "inactive"}</Badge>
+                        <Badge
+                          variant={user.isActive ? "default" : "destructive"}
+                        >
+                          {user.isActive ? "active" : "inactive"}
+                        </Badge>
                       </TableCell>
-                      <TableCell>{format(new Date(user.createdAt), "yyyy-MM-dd")}</TableCell>
+                      <TableCell>
+                        {format(new Date(user.createdAt), "yyyy-MM-dd")}
+                      </TableCell>
                       <TableCell className="text-right">
                         {!isCurrentUser ? (
                           <div className="flex justify-end gap-2">
@@ -193,17 +270,28 @@ const AdminUsers = () => {
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
+
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => handleStatusChange(user)}
-                              title={user.isActive ? "Deactivate user" : "Activate user"}
+                              title={
+                                user.isActive
+                                  ? "Deactivate user"
+                                  : "Activate user"
+                              }
                             >
-                              {user.isActive ? <Lock className="h-4 w-4 text-destructive" /> : <Unlock className="h-4 w-4 text-success" />}
+                              {user.isActive ? (
+                                <Lock className="h-4 w-4 text-destructive" />
+                              ) : (
+                                <Unlock className="h-4 w-4 text-success" />
+                              )}
                             </Button>
                           </div>
                         ) : (
-                          <span className="text-sm text-muted-foreground italic">Cannot modify own account</span>
+                          <span className="text-sm text-muted-foreground italic">
+                            Cannot modify own account
+                          </span>
                         )}
                       </TableCell>
                     </TableRow>
@@ -218,9 +306,13 @@ const AdminUsers = () => {
         <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{selectedUser?.isActive ? "Deactivate" : "Activate"} User</DialogTitle>
+              <DialogTitle>
+                {selectedUser?.isActive ? "Deactivate" : "Activate"} User
+              </DialogTitle>
               <DialogDescription>
-                You are about to {selectedUser?.isActive ? "deactivate" : "activate"} {selectedUser?.name}. Please provide a reason for this action.
+                You are about to{" "}
+                {selectedUser?.isActive ? "deactivate" : "activate"}{" "}
+                {selectedUser?.name}. Please provide a reason for this action.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -230,14 +322,26 @@ const AdminUsers = () => {
                   id="reason"
                   placeholder="Enter the reason for this action..."
                   value={reason}
-                  onChange={e => setReason(e.target.value)}
+                  onChange={(e) => setReason(e.target.value)}
                   className="min-h-[100px]"
                 />
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => { setStatusDialogOpen(false); setSelectedUser(null); setReason(""); }}>Cancel</Button>
-              <Button onClick={confirmStatusChange} variant={selectedUser?.isActive ? "destructive" : "default"}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setStatusDialogOpen(false);
+                  setSelectedUser(null);
+                  setReason("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmStatusChange}
+                variant={selectedUser?.isActive ? "destructive" : "default"}
+              >
                 Confirm {selectedUser?.isActive ? "Deactivation" : "Activation"}
               </Button>
             </DialogFooter>
@@ -250,11 +354,22 @@ const AdminUsers = () => {
             <DialogHeader>
               <DialogTitle>Change User Role</DialogTitle>
               <DialogDescription>
-                You are about to change {selectedUserForRole?.name}'s role from {selectedUserForRole?.role} to {selectedUserForRole?.role === "user" ? "admin" : "user"}.
+                You are about to change {selectedUserForRole?.name}'s role from{" "}
+                {selectedUserForRole?.role} to{" "}
+                {selectedUserForRole?.role === "user" ? "admin" : "user"}.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button variant="outline" onClick={() => { setRoleDialogOpen(false); setSelectedUserForRole(null); setReason(""); }}>Cancel</Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setRoleDialogOpen(false);
+                  setSelectedUserForRole(null);
+                  setReason("");
+                }}
+              >
+                Cancel
+              </Button>
               <Button onClick={confirmRoleChange}>Confirm Role Change</Button>
             </DialogFooter>
           </DialogContent>

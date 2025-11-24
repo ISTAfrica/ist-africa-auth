@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -24,7 +25,8 @@ import { RegisterUserDto } from './dto/register-user.dto';
 import { AuthenticateUserDto } from './dto/authenticate-user.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
-import { JwtAuthGuard } from './jwt-auth.guard'; // Assuming this is your custom guard
+import { JwtAuthGuard } from './jwt-auth.guard';
+import { ClientCredentialsDto } from './dto/client-credentials.dto';
 
 @Controller('api/auth')
 export class AuthController {
@@ -80,6 +82,19 @@ export class AuthController {
     @Body('refreshToken', new ValidationPipe()) refreshToken: string,
   ) {
     return this.authService.refreshTokens(refreshToken);
+  }
+
+  @Post('tokens')
+  @HttpCode(HttpStatus.OK)
+  async exchangeAuthCode(
+    @Query('code') code: string | undefined,
+    @Body(new ValidationPipe()) credentials: ClientCredentialsDto,
+  ) {
+    if (!code) {
+      throw new BadRequestException('Authorization code (code) is required');
+    }
+
+    return this.authService.exchangeAuthCode(code, credentials);
   }
 
   @UseGuards(JwtAuthGuard)
