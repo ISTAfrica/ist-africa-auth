@@ -76,6 +76,23 @@ export const createClient = async (
   return response.json();
 };
 
+export async function regenerateClientSecret(clientId: string): Promise<{
+  client_id: string;
+  client_secret: string;
+}> {
+  const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}/regenerate-secret`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to regenerate client secret");
+  }
+
+  return response.json();
+}
+
 export const getClientPublicInfo = async (
   clientId: string
 ): Promise<ClientPublicInfo> => {
