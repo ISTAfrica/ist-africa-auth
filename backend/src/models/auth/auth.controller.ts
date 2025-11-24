@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -19,6 +20,7 @@ import { AuthenticateUserDto } from './dto/authenticate-user.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { ClientCredentialsDto } from './dto/client-credentials.dto';
 
 @Controller('api/auth')
 // @UseGuards(JwtAuthGuard)
@@ -77,6 +79,20 @@ export class AuthController {
   ) {
     return this.authService.refreshTokens(refreshToken);
   }
+
+  @Post('tokens')
+  @HttpCode(HttpStatus.OK)
+  async exchangeAuthCode(
+    @Query('code') code: string | undefined,
+    @Body(new ValidationPipe()) credentials: ClientCredentialsDto,
+  ) {
+    if (!code) {
+      throw new BadRequestException('Authorization code (code) is required');
+    }
+
+    return this.authService.exchangeAuthCode(code, credentials);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Patch('users/:id/role')
   async updateRole(

@@ -13,7 +13,7 @@ import {
   tableName: 'clients',
   timestamps: true,
   createdAt: 'created_at',
-  updatedAt: false,  
+  updatedAt: false,
 })
 export class Client extends Model {
   @PrimaryKey
@@ -28,7 +28,7 @@ export class Client extends Model {
 
   @AllowNull(false)
   @Column(DataType.STRING)
-  declare client_secret: string; 
+  declare client_secret: string;
 
   @Unique
   @AllowNull(false)
