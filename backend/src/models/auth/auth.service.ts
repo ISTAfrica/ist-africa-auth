@@ -30,12 +30,10 @@ export class AuthService {
   private readonly jwtTokenIssuer: JwtTokenIssuer;
 
   constructor(
-    @InjectModel(User)
-    private readonly userModel: typeof User,
+    @InjectModel(User) private readonly userModel: typeof User,
     @InjectModel(RefreshToken)
     private readonly refreshTokenModel: typeof RefreshToken,
-    @InjectModel(Client)
-    private readonly clientModel: typeof Client,
+    @InjectModel(Client) private readonly clientModel: typeof Client,
     @InjectModel(ClientAppToken)
     private readonly clientAppTokenModel: typeof ClientAppToken,
     @InjectModel(AuthorizationCode)
@@ -137,7 +135,12 @@ export class AuthService {
 
     return {
       message: `User role updated to ${newRole}`,
-      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
     };
   }
 
@@ -151,7 +154,9 @@ export class AuthService {
     }
 
     if (new Date() > user.otpExpiresAt) {
-      throw new UnauthorizedException('OTP has expired. Please request a new one.');
+      throw new UnauthorizedException(
+        'OTP has expired. Please request a new one.',
+      );
     }
 
     const isOtpValid = await compare(otp, user.otp);
@@ -181,44 +186,43 @@ export class AuthService {
 
   // -------------------- Authenticate --------------------
   async authenticate(authenticateDto: AuthenticateUserDto) {
-    const { email, password, client_id, redirect_uri, state } = authenticateDto;
+    const { email, password, client_id, redirect_uri, state } =
+      authenticateDto;
 
     const user = await this.userModel.findOne({ where: { email } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+    if (!user) throw new NotFoundException('User not found');
     if (!user.isVerified) {
-      throw new ForbiddenException('Please verify your email before logging in.');
+      throw new ForbiddenException(
+        'Please verify your email before logging in.',
+      );
     }
+
     const isPasswordValid = await compare(password, user.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    // -------------------- OAuth2 Authorization Code Flow --------------------
     if (client_id && redirect_uri) {
-      console.log(`[AuthService] Detected OAuth2 Authorization Code flow for client: ${client_id}`);
-      console.log(`[AuthService] Redirect URI provided: ${redirect_uri}`);
-      
+      console.log(
+        `[AuthService] Detected OAuth2 Authorization Code flow for client: ${client_id}`,
+      );
+
       const client = await this.clientModel.findOne({ where: { client_id } });
       if (!client) {
-        console.error(`[AuthService] Client not found in database: ${client_id}`);
-        throw new BadRequestException('Unauthorized client: This application is not registered.');
+        throw new BadRequestException(
+          'Unauthorized client: This application is not registered.',
+        );
       }
-      
-      console.log(`[AuthService] Client found: ${client.name} (ID: ${client.id})`);
-      console.log(`[AuthService] Registered redirect URI: ${client.redirect_uri}`);
-      
       if (client.redirect_uri !== redirect_uri) {
-        console.error(`[AuthService] Redirect URI mismatch. Expected: ${client.redirect_uri}, Got: ${redirect_uri}`);
-        throw new BadRequestException(`Invalid redirect URI: The provided redirect URI does not match the one registered for this client. Expected: ${client.redirect_uri}, Got: ${redirect_uri}`);
+        throw new BadRequestException(
+          `Invalid redirect URI: Expected ${client.redirect_uri}, got: ${redirect_uri}`,
+        );
       }
-      
       if (client.status !== 'active') {
-        console.error(`[AuthService] Client is not active. Status: ${client.status}`);
         throw new BadRequestException('Client application is not active.');
       }
 
-      // Generate authorization code and persist in DB (AuthorizationCode model)
       const code = randomBytes(32).toString('hex');
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
@@ -227,35 +231,30 @@ export class AuthService {
         expiresAt,
         userId: user.id,
         clientId: client.id,
-        // optionally store redirect_uri here for later validation
       });
-      
-      const iaaFrontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
-      
-      // Construct the URL to our own frontend messenger page (callback)
+
+      const iaaFrontendUrl = this.configService.get<string>(
+        'FRONTEND_URL',
+        'http://localhost:3000',
+      );
+
       const finalRedirectUri = new URL(`${iaaFrontendUrl}/auth/callback`);
       finalRedirectUri.searchParams.append('code', code);
-      if (state) {
-        finalRedirectUri.searchParams.append('state', state);
-      }
-      
-      // Return redirect URL (client should be redirected to our frontend which will complete the OAuth exchange)
+      if (state) finalRedirectUri.searchParams.append('state', state);
+
       return {
         redirect_uri: finalRedirectUri.toString(),
       };
     }
-    
-    else {
-      console.log(`[AuthService] Detected Direct Login (Password Grant) flow for user: ${email}`);
-      // Issue tokens directly for password grant / direct login
-      return this.jwtTokenIssuer.issueTokens({
-        email: user.email,
-        password: user.password,
-        userId: user.id,
-        role: user.role,
-        name: user.name,
-      });
-    }
+
+    // -------------------- Direct Login (Password Grant) --------------------
+    return this.jwtTokenIssuer.issueTokens({
+      email: user.email,
+      password: user.password,
+      userId: user.id,
+      role: user.role,
+      name: user.name,
+    });
   }
 
   // -------------------- Resend OTP --------------------
@@ -268,25 +267,38 @@ export class AuthService {
       throw new ConflictException('This account is already verified.');
 
     const verifyUrlBase = this.configService.get<string>('BACKEND_URL');
-    if (!verifyUrlBase) {
+    if (!verifyUrlBase)
       throw new InternalServerErrorException(
-        'Configuration error: BACKEND_URL is not set in environment variables.',
+        'BACKEND_URL is not set in environment variables.',
       );
-    }
 
-    const verifyUrl = `${verifyUrlBase.replace(/\/$/, '')}/api/auth/verify-email?token=${user.verificationToken}`;
+    const verifyUrl = `${verifyUrlBase.replace(
+      /\/$/,
+      '',
+    )}/api/auth/verify-email?token=${user.verificationToken}`;
+
     const otp = await this.generateAndSaveOtp(user.id);
-    await this.emailService.sendVerificationEmail(user.name || 'User', user.email, verifyUrl, otp);
+    await this.emailService.sendVerificationEmail(
+      user.name || 'User',
+      user.email,
+      verifyUrl,
+      otp,
+    );
 
     return { message: 'Verification link sent to your email.' };
   }
 
   // -------------------- Verify Email --------------------
   async verifyEmail(token: string) {
-    const user = await this.userModel.findOne({ where: { verificationToken: token } });
+    const user = await this.userModel.findOne({
+      where: { verificationToken: token },
+    });
     if (!user) throw new NotFoundException('Invalid verification token.');
 
-    await this.userModel.update({ isVerified: true, verificationToken: null }, { where: { id: user.id } });
+    await this.userModel.update(
+      { isVerified: true, verificationToken: null },
+      { where: { id: user.id } },
+    );
 
     return this.jwtTokenIssuer.issueTokens({
       email: user.email,
@@ -325,7 +337,8 @@ export class AuthService {
       }
     }
 
-    if (!matched) throw new UnauthorizedException('Invalid or expired refresh token.');
+    if (!matched)
+      throw new UnauthorizedException('Invalid or expired refresh token.');
 
     const user = await this.userModel.findByPk(matched.userId);
     if (!user) throw new NotFoundException('User not found for this token.');
@@ -346,10 +359,7 @@ export class AuthService {
     const { client_id, client_secret } = credentials;
 
     // 1. Validate client credentials
-    const client = await this.clientModel.findOne({
-      where: { client_id },
-    });
-
+    const client = await this.clientModel.findOne({ where: { client_id } });
     if (!client) {
       throw new UnauthorizedException('Invalid client credentials');
     }
@@ -362,36 +372,32 @@ export class AuthService {
       throw new UnauthorizedException('Invalid client credentials');
     }
 
-    // 2. Validate authorization code from database
-    const authCode = await this.authCodeModel.findOne({
-      where: { code },
-    });
-
+    // 2. Validate authorization code
+    const authCode = await this.authCodeModel.findOne({ where: { code } });
     if (!authCode) {
       throw new UnauthorizedException('Invalid authorization code');
     }
 
-    // 3. Check if authorization code has expired
+    // 3. Check expiry
     if (authCode.expiresAt.getTime() <= Date.now()) {
-      // Delete expired code
       await this.authCodeModel.destroy({ where: { code } });
       throw new UnauthorizedException('Authorization code has expired');
     }
 
-    // 4. Verify the authorization code belongs to the requesting client
+    // 4. Validate client ownership
     if (authCode.clientId !== client.id) {
       throw new UnauthorizedException(
         'Authorization code does not belong to this client',
       );
     }
 
-    // 5. Retrieve linked user
+    // 5. Load user
     const user = await this.userModel.findByPk(authCode.userId);
     if (!user) {
       throw new NotFoundException('User linked to authorization code not found');
     }
 
-    // 6. Generate access and refresh tokens using .env variables for expiry time
+    // 6. Generate tokens
     const tokenPair = await this.jwtTokenIssuer.issueTokens({
       email: user.email,
       password: user.password,
@@ -403,11 +409,13 @@ export class AuthService {
       client_secret,
     });
 
+    // Hash client secret for storage
     const saltRoundsEnv =
       this.configService.get<string>('BCRYPT_SALT_ROUNDS') ?? '12';
     const saltRounds = Number.isNaN(Number(saltRoundsEnv))
       ? 12
-      : Number(Number(saltRoundsEnv));
+      : Number(saltRoundsEnv);
+
     const hashedClientSecret = await hash(client_secret, saltRounds);
 
     await this.clientAppTokenModel.create({
@@ -420,7 +428,7 @@ export class AuthService {
       refreshTokenIssuedAt: new Date(),
     });
 
-    // 7. Delete authorization code after successful exchange (prevents reuse)
+    // 7. Remove used authorization code
     await this.authCodeModel.destroy({ where: { code } });
 
     return {
