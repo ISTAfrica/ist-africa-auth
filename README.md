@@ -330,7 +330,7 @@ https://auth.ist.africa/api
 
 ---
 
-### `/auth/token`
+### `/auth/tokens`
 
 **Initiated by:** Client App backend
 **When:** Immediately after receiving the authorization code
