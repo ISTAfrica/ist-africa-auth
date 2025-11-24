@@ -77,9 +77,6 @@ export class ClientsService {
     });
   }
 
-  /**
-   * Retrieves a single client by its primary key (ID), excluding the secret.
-   */
   async findOne(id: string): Promise<Omit<Client, 'client_secret'>> {
     const client = await this.clientModel.findByPk(id, {
       attributes: {
@@ -94,7 +91,7 @@ export class ClientsService {
     return client;
   }
 
-  async regenerateSecret(id: string) {
+  async regenerateClientSecret(id: string) {
     const client = await this.clientModel.findByPk(id);
 
     if (!client) {
@@ -130,7 +127,6 @@ export class ClientsService {
     if (!client) {
       throw new NotFoundException(`Client with ID "${id}" not found`);
     }
-
     if (updateClientDto.name && updateClientDto.name !== client.name) {
       const existingClient = await this.clientModel.findOne({
         where: { name: updateClientDto.name },
@@ -144,7 +140,6 @@ export class ClientsService {
     }
 
     await client.update(updateClientDto);
-
     const updatedClient = await this.clientModel.findByPk(id, {
       attributes: {
         exclude: ['client_secret'],
@@ -152,69 +147,6 @@ export class ClientsService {
     });
 
     if (!updatedClient) {
-      throw new NotFoundException(`Client with ID "${id}" not found`);
-    }
-
-    return updatedClient;
-  }
-
-  async regenerateSecret(id: string) {
-    const client = await this.clientModel.findByPk(id);
-
-    if (!client) {
-      throw new NotFoundException(`Client with ID "${id}" not found`);
-    }
-
-    const rawClientSecret = randomBytes(32).toString('hex');
-
-    const saltRoundsEnv = this.configService.get<string>('BCRYPT_SALT_ROUNDS');
-    const saltRounds = Number.isNaN(Number(saltRoundsEnv))
-      ? 12
-      : Number(saltRoundsEnv);
-    const hashedSecret = await hash(rawClientSecret, saltRounds);
-
-    await client.update({
-      client_secret: hashedSecret,
-    });
-
-    const clientResponse = client.toJSON();
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    clientResponse.client_secret = rawClientSecret;
-
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return clientResponse;
-  }
-
-  async remove(id: string): Promise<{ message: string }> {
-    const client = await this.clientModel.findOne({ where: { client_id: id } });
-    if (!client) {
-      throw new NotFoundException(`Client with identifier "${id}" not found`);
-    }
-
-    // Check for name conflict only if the name is being updated
-    if (updateClientDto.name && updateClientDto.name !== client.name) {
-      const existingClient = await this.clientModel.findOne({
-        where: { name: updateClientDto.name },
-      });
-
-      if (existingClient) {
-        throw new ConflictException(
-          `Client with name '${updateClientDto.name}' already exists`,
-        );
-      }
-    }
-
-    await client.update(updateClientDto);
-
-    // Retrieve the updated client object excluding the secret
-    const updatedClient = await this.clientModel.findByPk(id, {
-      attributes: {
-        exclude: ['client_secret'],
-      },
-    });
-
-    if (!updatedClient) {
-      // Should ideally not happen if update succeeded
       throw new NotFoundException(
         `Client with ID "${id}" not found after update`,
       );
@@ -223,12 +155,7 @@ export class ClientsService {
     return updatedClient;
   }
 
-  /**
-   * Deletes a client by its unique ID (client:uuid) or client_id (hex string).
-   * Note: The logic below finds by `client_id`, which is often the public-facing ID.
-   */
   async remove(id: string): Promise<{ message: string }> {
-    // Determine whether the input ID is the internal 'id' or the public 'client_id'
     const searchField = id.startsWith('client:') ? 'id' : 'client_id';
 
     const client = await this.clientModel.findOne({

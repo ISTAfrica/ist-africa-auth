@@ -131,8 +131,8 @@ export class ClientsController {
     status: 404,
     description: 'Not Found. Client with the specified ID does not exist.',
   })
-  regenerateSecret(@Param('id') id: string) {
-    return this.clientsService.regenerateSecret(id);
+  regenerateClientSecret(@Param('id') id: string) {
+    return this.clientsService.regenerateClientSecret(id);
   }
 
   @Delete(':id')
