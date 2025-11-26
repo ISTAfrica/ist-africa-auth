@@ -106,7 +106,7 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
         if (decodedToken.role === 'admin') {
           router.push('/admin/clients');
         } else {
-          router.push('/dashboard');
+          router.push('/user');
         }
       } else {
         throw new Error('Invalid response from authentication server.');

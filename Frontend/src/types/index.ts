@@ -17,3 +17,11 @@ export interface VerifyOtpDto {
 export interface ResendOtpDto {
   email: string;
 }
+
+export interface UserProfile {
+  id: number;
+  name: string | null;
+  email: string;
+  createdAt: string;
+  avatarUrl?: string;
+}
