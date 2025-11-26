@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 import {
   Body,
   Controller,
@@ -13,20 +12,19 @@ import {
   Patch,
   Req,
   UseGuards,
-  Res, // Added to ensure correct import for @Res() decorator
+  Res, // Added from the LinkedIn branch
 } from '@nestjs/common';
-import type { Request, Response } from 'express';
-import { AuthGuard } from '@nestjs/passport'; // For Passport strategies (e.g., 'linkedin')
-
-// --- Local Imports ---
 import { AuthService } from './auth.service';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { AuthenticateUserDto } from './dto/authenticate-user.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
-import { JwtAuthGuard } from './jwt-auth.guard'; // Assuming this is your custom guard
+import { JwtAuthGuard } from './jwt-auth.guard'; // Kept common import
+import { AuthGuard } from '@nestjs/passport'; // Added from the LinkedIn branch
+import type { Request, Response } from 'express'; // Added from the LinkedIn branch
 
 @Controller('api/auth')
+// @UseGuards(JwtAuthGuard)
 export class AuthController {
   constructor(private authService: AuthService) {}
 
@@ -92,39 +90,24 @@ export class AuthController {
     console.log('Request user:', req.user);
     const id = Number(userId);
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     const callerRole = req.user?.role || req.user?.role;
 
     return this.authService.updateUserRole(callerRole, id, role);
   }
 
-  // --- LinkedIn OAuth Routes ---
-
   @Get('linkedin')
-  @UseGuards(AuthGuard('linkedin')) // Triggers the redirect to LinkedIn's login page
+  @UseGuards(AuthGuard('linkedin'))
   linkedinLogin() {
     // Initiates LinkedIn OAuth flow - guard handles redirect
   }
 
   @Get('linkedin/callback')
-  @UseGuards(AuthGuard('linkedin')) // Processes the code and runs the Strategy's validate() method
+  @UseGuards(AuthGuard('linkedin'))
   async linkedinCallback(
     @Req() req: Request & { user?: any },
     @Res() res: Response,
   ) {
-    // req.user contains the user object returned by the validate method in LinkedinStrategy
-    if (!req.user) {
-      const frontendUrl = (
-        process.env.FRONTEND_URL || 'http://localhost:3000'
-      ).replace(/\/$/, '');
-      // Handle failed login
-      return res.redirect(
-        `${frontendUrl}/auth/login?error=linkedin_login_failed`,
-      );
-    }
-
     // Direct LinkedIn login - generate tokens
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const { accessToken, refreshToken } = await this.authService.linkedinLogin(
       req.user,
     );
@@ -135,7 +118,6 @@ export class AuthController {
       'http://localhost:3000'
     ).replace(/\/$/, '');
 
-    // Redirect to the frontend dashboard with tokens as query parameters
     const redirectUrl = `${frontendUrl}/auth/linkedin/callback?accessToken=${encodeURIComponent(
       accessToken,
     )}&refreshToken=${encodeURIComponent(refreshToken)}`;

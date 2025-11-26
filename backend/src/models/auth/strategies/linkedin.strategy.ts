@@ -32,15 +32,7 @@ export class LinkedInStrategy extends PassportStrategy(Strategy, 'linkedin') {
       throw new Error('Failed to fetch LinkedIn user profile');
     }
 
-    interface LinkedInProfile {
-      sub: string;
-      email: string;
-      given_name: string;
-      family_name: string;
-      picture?: string;
-    }
-
-    const profile = (await response.json()) as LinkedInProfile;
+    const profile = await response.json();
 
     return {
       linkedinId: profile.sub,
