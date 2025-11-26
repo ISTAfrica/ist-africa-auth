@@ -11,6 +11,7 @@ import { AuthorizationCode } from './entities/authorization-code.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { JwksModule } from '../jwks/jwks.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     ]),
     EmailModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
+    JwksModule
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, JwtAuthGuard],
