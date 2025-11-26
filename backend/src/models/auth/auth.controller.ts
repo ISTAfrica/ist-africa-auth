@@ -97,9 +97,7 @@ export class AuthController {
 
   @Get('linkedin')
   @UseGuards(AuthGuard('linkedin'))
-  linkedinLogin() {
-    // Initiates LinkedIn OAuth flow - guard handles redirect
-  }
+  linkedinLogin() {}
 
   @Get('linkedin/callback')
   @UseGuards(AuthGuard('linkedin'))
