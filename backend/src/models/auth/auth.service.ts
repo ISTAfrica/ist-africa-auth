@@ -309,21 +309,7 @@ export class AuthService {
     });
   }
 
-  // -------------------- JWKS --------------------
-  async getJwks() {
-    try {
-      const { importSPKI, exportJWK } = await import('jose');
-      const publicKeyPem = process.env.JWT_PUBLIC_KEY!.replace(/\\n/g, '\n');
-      const keyId = process.env.JWT_KEY_ID!;
-      const ecPublicKey = await importSPKI(publicKeyPem, 'RS256');
-      const jwk = await exportJWK(ecPublicKey);
-      return { keys: [{ ...jwk, kid: keyId, use: 'sig', alg: 'RS256' }] };
-    } catch (error) {
-      console.error('JWKS Error:', error);
-      throw new InternalServerErrorException('Could not generate JWKS');
-    }
-  }
-
+ 
   // -------------------- Refresh Tokens --------------------
   async refreshTokens(refreshToken: string) {
     const storedTokens = await this.refreshTokenModel.findAll();

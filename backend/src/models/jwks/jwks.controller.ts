@@ -1,7 +1,7 @@
 import { Controller, Get, HttpCode, Header } from '@nestjs/common';
 import { JwksService } from './jwks.service';
 
-@Controller('auth')
+@Controller('api/auth')
 export class JwksController {
   constructor(private readonly jwksService: JwksService) {}
 
