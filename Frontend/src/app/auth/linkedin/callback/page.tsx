@@ -72,7 +72,7 @@ export default function LinkedInCallback() {
         if (decodedToken.role === 'admin') {
           finalRedirectPath = '/admin/clients';
         } else {
-          finalRedirectPath = '/dashboard';
+          finalRedirectPath = '/user/profile';
         }
         
         setStatus('success');
