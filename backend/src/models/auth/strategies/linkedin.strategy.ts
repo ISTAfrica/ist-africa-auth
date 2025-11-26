@@ -18,7 +18,7 @@ export class LinkedInStrategy extends PassportStrategy(Strategy, 'linkedin') {
     super(options);
   }
 
-  async validate(accessToken: string, refreshToken: string): Promise<any> {
+  async validate(accessToken: string): Promise<any> {
     // Fetch user profile from LinkedIn's OpenID Connect userinfo endpoint
     const response = await fetch('https://api.linkedin.com/v2/userinfo', {
       headers: {
@@ -32,15 +32,7 @@ export class LinkedInStrategy extends PassportStrategy(Strategy, 'linkedin') {
       throw new Error('Failed to fetch LinkedIn user profile');
     }
 
-    interface LinkedInProfile {
-      sub: string;
-      email: string;
-      given_name: string;
-      family_name: string;
-      picture?: string;
-    }
-
-    const profile = (await response.json()) as LinkedInProfile;
+    const profile = await response.json();
 
     return {
       linkedinId: profile.sub,
