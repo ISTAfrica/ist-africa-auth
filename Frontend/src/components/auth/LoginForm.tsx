@@ -132,18 +132,23 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
 
   return (
     <>
-      <div className="mb-6 text-center">
-        <h2 className="text-2xl font-bold text-foreground mb-1">{isOauthFlow ? 'Sign in to continue' : title}</h2>
-        <p className="text-muted-foreground">{isOauthFlow ? 'Please log in to your IST Africa account.' : 'Sign in with your IAA credentials'}</p>
+      <div className={isOauthFlow ? 'mb-2 text-center' : 'mb-4 text-center'}>
+        <h2 className={isOauthFlow ? 'text-sm font-bold text-foreground mb-1' : 'text-xl font-bold text-foreground mb-1'}>
+          {isOauthFlow ? 'Sign in to continue' : title}
+        </h2>
+        <p className={isOauthFlow ? 'text-xs text-muted-foreground leading-snug' : 'text-sm text-muted-foreground'}>
+          {isOauthFlow ? 'Please log in to your IST Africa account.' : 'Sign in with your IAA credentials'}
+        </p>
       </div>
 
       {isOauthFlow && (
-        <div className="mb-6">
+        <div className="mb-2">
+
           {clientInfo ? (
-            <div className="p-4 border rounded-lg bg-muted/50 text-center">
-              <ShieldCheck className="h-8 w-8 text-primary mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">You are granting access to:</p>
-              <p className="font-semibold text-foreground">{clientInfo.name}</p>
+            <div className="px-3 py-2 border rounded-lg bg-muted/50 text-center">
+              <ShieldCheck className="h-6 w-6 text-primary mx-auto mb-1" />
+              <p className="text-xs text-muted-foreground leading-snug">You are granting access to:</p>
+              <p className="mt-0.5 text-sm font-semibold text-foreground truncate max-w-[240px] mx-auto">{clientInfo.name}</p>
             </div>
           ) : (
             <Alert variant="destructive">
@@ -156,7 +161,8 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
 
       {isForgotPassword ? (
         resetSent ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
+
             <Alert className="border-green-500 bg-green-500/10 text-green-700">
               <AlertDescription>Password reset link has been sent to your email address.</AlertDescription>
             </Alert>
@@ -165,14 +171,15 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
             </Button>
           </div>
         ) : (
-          <form onSubmit={handlePasswordReset} className="space-y-4">
+          <form onSubmit={handlePasswordReset} className={isOauthFlow ? 'space-y-2' : 'space-y-3'}>
+
             {error && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            <div className="space-y-2">
+            <div className={isOauthFlow ? 'space-y-1.5' : 'space-y-2'}>
               <Label htmlFor="reset-email">Email Address</Label>
               <Input id="reset-email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
@@ -185,16 +192,16 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
           </form>
         )
       ) : (
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleLogin} className={isOauthFlow ? 'space-y-1.5' : 'space-y-3'}>
+
           {!isOauthFlow && error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-
           <fieldset disabled={loading || (isOauthFlow && !clientInfo)}>
-            <div className="space-y-2">
+            <div className={isOauthFlow ? 'space-y-1.5' : 'space-y-2'}>
               <Label htmlFor="email">Email Address</Label>
               <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
@@ -204,32 +211,70 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
             </div>
           </fieldset>
 
-          <div className="text-right">
-            <button type="button" onClick={() => router.push('/auth/login?forgot=true')} className="text-sm font-medium text-primary hover:underline focus:outline-none">
+          <div className={isOauthFlow ? 'text-right mt-0.5' : 'text-right mt-1'}>
+
+            <button
+              type="button"
+              onClick={() => router.push('/auth/login?forgot=true')}
+              className={isOauthFlow ? 'text-xs font-medium text-primary hover:underline focus:outline-none' : 'text-sm font-medium text-primary hover:underline focus:outline-none'}
+            >
               Forgot your password?
             </button>
           </div>
 
-          <Button type="submit" className="w-full font-semibold" disabled={loading || (isOauthFlow && !clientInfo)}>
+          <Button
+            type="submit"
+            className="w-full font-semibold"
+            size={isOauthFlow ? 'sm' : 'default'}
+            disabled={loading || (isOauthFlow && !clientInfo)}
+          >
             {loading ? <Loader2 className="animate-spin" /> : 'Sign In'}
           </Button>
 
-          <div className="relative my-4">
-            <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-            <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">Or continue with</span></div>
-          </div>
+          {isOauthFlow ? (
+            <>
+              <div className="relative my-2">
+                <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                <div className="relative flex justify-center text-[10px] uppercase"><span className="bg-card px-2 text-muted-foreground">Or continue with</span></div>
+              </div>
 
-          <Button type="button" variant="outline" className="w-full font-semibold bg-linkedin text-white hover:bg-linkedin/90 border-linkedin">
-            <Linkedin className="mr-2 h-4 w-4" />
-            Continue with LinkedIn
-          </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full text-xs font-semibold bg-linkedin text-white hover:bg-linkedin/90 border-linkedin"
+              >
+                <Linkedin className="mr-2 h-3 w-3" />
+                Continue with LinkedIn
+              </Button>
 
-          <p className="text-center text-sm text-muted-foreground pt-4">
-            Don’t have an account?{' '}
-            <Link href="/auth/signup" className="font-medium text-primary hover:underline">
-              Sign up
-            </Link>
-          </p>
+              <p className="text-center text-xs text-muted-foreground pt-1 leading-snug">
+                Don’t have an account?{' '}
+                <Link href="/auth/signup" className="font-medium text-primary hover:underline">
+                  Sign up
+                </Link>
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">Or continue with</span></div>
+              </div>
+
+              <Button type="button" variant="outline" className="w-full font-semibold bg-linkedin text-white hover:bg-linkedin/90 border-linkedin">
+                <Linkedin className="mr-2 h-4 w-4" />
+                Continue with LinkedIn
+              </Button>
+
+              <p className="text-center text-sm text-muted-foreground pt-2">
+                Don’t have an account?{' '}
+                <Link href="/auth/signup" className="font-medium text-primary hover:underline">
+                  Sign up
+                </Link>
+              </p>
+            </>
+          )}
         </form>
       )}
     </>
