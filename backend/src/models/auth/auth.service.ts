@@ -238,39 +238,110 @@ export class AuthService {
   // -------------------- LinkedIn Login --------------------
   async linkedinLogin(profile: {
     linkedinId: string;
-    email?: string;
-    firstName?: string;
-    lastName?: string;
-    picture?: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    picture: string;
   }) {
+    console.log('[AuthService] Processing LinkedIn login for:', profile.email);
+
+    // 1. Find the user by their LinkedIn ID (Primary check)
     let user = await this.userModel.findOne({
       where: { linkedinId: profile.linkedinId },
     });
 
+    if (user) {
+      console.log(`[AuthService] Existing LinkedIn user found: ${user.email}`);
+      await user.update({
+        profilePicture: profile.picture,
+      });
+    }
+
+    // 2. If not found, attempt to find by email for account linking
     if (!user && profile.email) {
-      user = await this.userModel.findOne({ where: { email: profile.email } });
-      if (user) {
-        await user.update({ linkedinId: profile.linkedinId });
+      const userByEmail = await this.userModel.findOne({
+        where: { email: profile.email },
+      });
+
+      if (userByEmail) {
+        console.log(
+          `[AuthService] Linking LinkedIn account to existing email user: ${userByEmail.email}`,
+        );
+
+        // User exists via email, link the LinkedIn ID
+        await userByEmail.update({
+          linkedinId: profile.linkedinId,
+          profilePicture: profile.picture,
+          isVerified: true,
+        });
+        user = userByEmail;
       }
     }
 
+    // 3. If still no user, create a new account
     if (!user) {
+      console.log(
+        `[AuthService] Creating new user from LinkedIn: ${profile.email}`,
+      );
+
+      const fullName =
+        `${profile.firstName || ''} ${profile.lastName || ''}`.trim() ||
+        'LinkedIn User';
+
+      // Determine membership status based on email domain
+      const domainsEnv = this.configService.get<string>('IST_DOMAINS') || '';
+      const istDomains = domainsEnv
+        .split(',')
+        .map((d) => d.trim().toLowerCase())
+        .filter((d) => d.length > 0);
+
+      const emailDomain = profile.email?.split('@')[1]?.toLowerCase();
+      const membershipStatus = istDomains.includes(emailDomain)
+        ? 'ist_member'
+        : 'ext_member';
+
       user = await this.userModel.create({
         linkedinId: profile.linkedinId,
         email: profile.email,
-        name: `${profile.firstName || ''} ${profile.lastName || ''}`.trim(),
+        name: fullName,
         profilePicture: profile.picture,
         isVerified: true,
         role: 'user',
         password: '',
+        membershipStatus,
+        verificationToken: null,
+        otp: null,
+        otpExpiresAt: null,
       });
+
+      console.log(
+        `[AuthService] New LinkedIn user created with ID: ${user.id}`,
+      );
     }
 
+    // 4. Issue tokens and return
     const { accessToken, refreshToken } = await this.issueTokens(
       user.id,
       user.role,
     );
-    return { accessToken, refreshToken, user };
+
+    console.log(
+      `[AuthService] LinkedIn login successful for user ID: ${user.id}`,
+    );
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        membershipStatus: user.membershipStatus,
+        profilePicture: user.profilePicture,
+        isVerified: user.isVerified,
+      },
+    };
   }
 
   // -------------------- Resend OTP --------------------

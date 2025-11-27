@@ -23,7 +23,10 @@ import { LinkedInStrategy } from './strategies/linkedin.strategy';
       AuthorizationCode,
     ]),
     EmailModule,
-    PassportModule.register({ defaultStrategy: 'jwt' }),
+    PassportModule.register({
+      defaultStrategy: 'jwt',
+      session: false,
+    }),
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, JwtAuthGuard, LinkedInStrategy],

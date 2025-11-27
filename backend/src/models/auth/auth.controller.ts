@@ -95,31 +95,76 @@ export class AuthController {
     return this.authService.updateUserRole(callerRole, id, role);
   }
 
+  // -------------------- LinkedIn OAuth2 Routes --------------------
+
+  /**
+   * Initiates LinkedIn OAuth2 authorization flow
+   * Redirects user to LinkedIn's authorization page
+   */
   @Get('linkedin')
   @UseGuards(AuthGuard('linkedin'))
-  linkedinLogin() {}
+  linkedinLogin(@Req() req: Request) {
+    // Guard handles the redirect to LinkedIn
+    console.log('[AuthController] /linkedin endpoint hit');
+    console.log('[AuthController] Request headers:', req.headers);
+    console.log('[AuthController] This should redirect to LinkedIn...');
+  }
 
+  /**
+   * LinkedIn OAuth2 callback endpoint
+   * Handles authorization code exchange and user creation/login
+   */
   @Get('linkedin/callback')
   @UseGuards(AuthGuard('linkedin'))
   async linkedinCallback(
     @Req() req: Request & { user?: any },
     @Res() res: Response,
   ) {
-    // Direct LinkedIn login - generate tokens
-    const { accessToken, refreshToken } = await this.authService.linkedinLogin(
-      req.user,
-    );
+    console.log('[AuthController] LinkedIn callback received');
 
-    const frontendUrl = (
-      process.env.FRONTEND_URL ||
-      process.env.NEXT_PUBLIC_FRONTEND_URL ||
-      'http://localhost:3000'
-    ).replace(/\/$/, '');
+    if (!req.user) {
+      console.error('[AuthController] No user data in LinkedIn callback');
+      const frontendUrl = (
+        process.env.FRONTEND_URL ||
+        process.env.NEXT_PUBLIC_FRONTEND_URL ||
+        'http://localhost:3000'
+      ).replace(/\/$/, '');
+      return res.redirect(
+        `${frontendUrl}/auth/login?error=linkedin_auth_failed`,
+      );
+    }
 
-    const redirectUrl = `${frontendUrl}/auth/linkedin/callback?accessToken=${encodeURIComponent(
-      accessToken,
-    )}&refreshToken=${encodeURIComponent(refreshToken)}`;
+    try {
+      // Call the LinkedIn login service method
+      const { accessToken, refreshToken, user } =
+        await this.authService.linkedinLogin(req.user);
 
-    return res.redirect(redirectUrl);
+      console.log(
+        `[AuthController] LinkedIn login successful for user: ${user.email}`,
+      );
+
+      // Redirect to frontend with tokens
+      const frontendUrl = (
+        process.env.FRONTEND_URL ||
+        process.env.NEXT_PUBLIC_FRONTEND_URL ||
+        'http://localhost:3000'
+      ).replace(/\/$/, '');
+
+      const redirectUrl = `${frontendUrl}/auth/linkedin/callback?accessToken=${encodeURIComponent(
+        accessToken,
+      )}&refreshToken=${encodeURIComponent(refreshToken)}`;
+
+      return res.redirect(redirectUrl);
+    } catch (error) {
+      console.error('[AuthController] LinkedIn callback error:', error);
+      const frontendUrl = (
+        process.env.FRONTEND_URL ||
+        process.env.NEXT_PUBLIC_FRONTEND_URL ||
+        'http://localhost:3000'
+      ).replace(/\/$/, '');
+      return res.redirect(
+        `${frontendUrl}/auth/login?error=linkedin_processing_failed`,
+      );
+    }
   }
 }
