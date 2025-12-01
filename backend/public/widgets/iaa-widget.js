@@ -1,16 +1,3 @@
-/**
- * =====================================================================================
- * IST Africa Auth (IAA) - All-in-One Authentication Widget (v7)
- *
- * This script is a self-contained authentication solution. It handles:
- *  - Checking initial auth state.
- *  - Rendering a login button for unauthenticated users.
- *  - Hiding itself for authenticated users.
- *  - Initiating the popup login flow.
- *  - Listening for cross-tab login/logout events.
- *  - Notifying the host application of auth changes via custom events.
- * =====================================================================================
- */
 class IAAAuthWidget {
   constructor(config) {
     if (!config || !config.clientId || !config.redirectUri || !config.iaaFrontendUrl) {
@@ -20,86 +7,88 @@ class IAAAuthWidget {
     this.clientId = config.clientId;
     this.redirectUri = config.redirectUri;
     this.iaaFrontendUrl = config.iaaFrontendUrl;
+    this.checkAuthEndpoint = config.checkAuthEndpoint || '/api/auth/status';
     this.isAuthenticated = false;
 
     this.init();
   }
 
-  init() {
-    this.checkAuthStatus(); // Run initial check
-    this.listenForStorageChanges(); // Listen for cross-tab changes
-
-    // Robustly render the widget only when the DOM is ready
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => this.render());
-    } else {
-      this.render();
-    }
+  async init() {
+    this.listenForStorageChanges();
+    await this.postLoginSyncCheck();
   }
 
-  /**
-   * Checks the auth status from localStorage and updates the internal state.
-   * This is the single source of truth for authentication.
-   */
-  checkAuthStatus() {
-    const token = localStorage.getItem('iaa_access_token');
-    const wasAuthenticated = this.isAuthenticated;
+  async postLoginSyncCheck() {
+    const needsSync = sessionStorage.getItem('iaa_sync_flag') === 'true';
     
-    if (token && !this.isTokenExpired(token)) {
-      localStorage.setItem('iaa_authenticated', 'true');
-      this.isAuthenticated = true;
-    } else {
-      localStorage.removeItem('iaa_access_token');
-      localStorage.setItem('iaa_authenticated', 'false');
-      this.isAuthenticated = false;
+    if (needsSync) {
+      sessionStorage.removeItem('iaa_sync_flag');
+      console.log('[IAA Widget] Detected sync signal. Syncing auth state with server...');
+      
+      try {
+        const response = await fetch(this.checkAuthEndpoint);
+        const data = await response.json();
+
+        if (data.isAuthenticated) {
+          console.log('[IAA Widget] Server confirmed authentication. Updating client state.');
+          localStorage.setItem('iaa_authenticated', 'true');
+        } else {
+          console.log('[IAA Widget] Server denied authentication after sync.');
+          localStorage.setItem('iaa_authenticated', 'false');
+        }
+      } catch (error) {
+        console.error('[IAA Widget] Failed to sync auth status with server:', error);
+      }
     }
 
-    // If the authentication status has changed, notify the application.
+    this.checkAuthStatus();
+    this.render();
+  }
+  
+  checkAuthStatus() {
+    const wasAuthenticated = this.isAuthenticated;
+    this.isAuthenticated = localStorage.getItem('iaa_authenticated') === 'true';
+
     if (wasAuthenticated !== this.isAuthenticated) {
       this.notifyAuthChange();
     }
   }
 
-  /**
-   * Renders or removes the widget based on the current auth state.
-   */
   render() {
     const existingWidget = document.getElementById('iaa-widget-container');
-
     if (this.isAuthenticated) {
-      // If user is authenticated, ensure the widget is removed from the DOM.
       if (existingWidget) {
+        console.log('[IAA Widget] User is authenticated. Removing login button.');
         existingWidget.remove();
       }
     } else {
-      // If user is not authenticated and widget doesn't exist, create it.
       if (!existingWidget) {
+        console.log('[IAA Widget] User is not authenticated. Creating login button.');
         this.createWidget();
         this.attachEventListeners();
       }
     }
   }
+
+  logout() {
+    console.log('[IAA Widget] Client-side logout initiated.');
+    localStorage.setItem('iaa_authenticated', 'false');
+    localStorage.removeItem('iaa_access_token');
+    this.isAuthenticated = false;
+    this.render(); 
+    this.notifyAuthChange();
+  }
   
-  /**
-   * Listens for `storage` events to detect login/logout in other tabs.
-   * This is the logic moved from your AuthProvider.
-   */
   listenForStorageChanges() {
     window.addEventListener('storage', (e) => {
-      if (e.key === 'iaa_access_token' || e.key === 'iaa_authenticated') {
-        console.log('[IAA Widget] Storage change detected. Re-checking auth status.');
+      if (e.key === 'iaa_authenticated') {
         this.checkAuthStatus();
-        this.render(); // Re-render the widget based on the new status
+        this.render();
       }
     });
   }
   
-  /**
-   * Dispatches a custom event to inform the host application (React)
-   * that the authentication state has changed.
-   */
   notifyAuthChange() {
-    console.log(`[IAA Widget] Auth state changed to: ${this.isAuthenticated}`);
     window.dispatchEvent(new CustomEvent('iaa-auth-change', {
       detail: { isAuthenticated: this.isAuthenticated }
     }));
@@ -108,7 +97,6 @@ class IAAAuthWidget {
   createWidget() {
     const style = document.createElement('style');
     style.innerHTML = `
-      /* ... (all your CSS styles remain exactly the same) ... */
       @keyframes iaa-fade-in { from { opacity: 0; } to { opacity: 1; } }
       @keyframes iaa-slide-in-from-bottom { from { transform: translateY(1rem); } to { transform: translateY(0); } }
       .iaa-widget-container { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 50; animation: iaa-fade-in 0.5s ease-out, iaa-slide-in-from-bottom 0.5s ease-out; }
@@ -131,7 +119,6 @@ class IAAAuthWidget {
   }
 
   initiateLogin() {
-    // ... (This function remains exactly the same) ...
     const state = this.generateRandomState();
     sessionStorage.setItem('oauth_state_iaa', state);
     const params = new URLSearchParams({
@@ -142,7 +129,7 @@ class IAAAuthWidget {
       display: 'popup',
     });
     const loginUrl = `${this.iaaFrontendUrl}/auth/login?${params.toString()}`;
-    const width = 450 , height = 500;
+    const width = 450, height = 500;
     const left = window.screenX + (window.outerWidth - width) / 2;
     const top = window.screenY + (window.outerHeight - height) / 2;
     const popup = window.open(loginUrl, 'iaa-login-popup', `width=${width},height=${height},left=${left},top=${top}`);
@@ -166,6 +153,12 @@ class IAAAuthWidget {
     return result;
   }
 }
+
+window.iaa = {
+  engine: null,
+  initiateLogin: () => window.iaa.engine?.initiateLogin(),
+  logout: () => window.iaa.engine?.logout(),
+};
 
 window.IAAAuthWidget = IAAAuthWidget;
 
