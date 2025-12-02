@@ -9,6 +9,7 @@ export interface JwtTokenRequest {
   auth_code?: string | null;
   client_id?: string | null;
   client_secret?: string | null;
+   tokenVersion?: number;
 }
 
 export interface JwtTokenResponse {

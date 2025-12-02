@@ -94,5 +94,10 @@ export class User extends Model {
   comment: 'Reason for disabling or reactivating the user account',
 })
 declare statusReason: string | null;
-
+@Column({
+  type: DataType.INTEGER,
+  allowNull: false,
+  defaultValue: 0,
+})
+declare tokenVersion: number;
 }

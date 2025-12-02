@@ -32,7 +32,7 @@ export class AuthService {
   constructor(
     @InjectModel(User) private readonly userModel: typeof User,
     @InjectModel(RefreshToken)
-    private readonly refreshTokenModel: typeof RefreshToken,
+    private refreshTokenModel: typeof RefreshToken,
     @InjectModel(Client) private readonly clientModel: typeof Client,
     @InjectModel(ClientAppToken)
     private readonly clientAppTokenModel: typeof ClientAppToken,
@@ -45,6 +45,25 @@ export class AuthService {
       this.configService,
       this.refreshTokenModel,
     );
+  }
+
+  // -------------------- Private Utility: Find Refresh Token --------------------
+
+  /**
+   * Finds a RefreshToken entity by comparing the raw token string against the stored hashed token.
+   * This is necessary because refresh tokens are stored hashed in the DB.
+   */
+  private async findRefreshTokenByRawToken(
+    rawToken: string,
+  ): Promise<RefreshToken | null> {
+    const storedTokens = await this.refreshTokenModel.findAll();
+    for (const t of storedTokens) {
+      const match = await compare(rawToken, t.hashedToken);
+      if (match) {
+        return t;
+      }
+    }
+    return null;
   }
 
   // -------------------- OTP Utility --------------------
@@ -175,6 +194,7 @@ export class AuthService {
       userId: user.id,
       role: user.role,
       name: user.name,
+      tokenVersion: user.tokenVersion, // Pass tokenVersion on issuance
     });
 
     return {
@@ -254,6 +274,7 @@ export class AuthService {
       userId: user.id,
       role: user.role,
       name: user.name,
+      tokenVersion: user.tokenVersion, // Pass tokenVersion on issuance
     });
   }
 
@@ -306,6 +327,7 @@ export class AuthService {
       userId: user.id,
       role: user.role,
       name: user.name,
+      tokenVersion: user.tokenVersion, // Pass tokenVersion on issuance
     });
   }
 
@@ -326,16 +348,8 @@ export class AuthService {
 
   // -------------------- Refresh Tokens --------------------
   async refreshTokens(refreshToken: string) {
-    const storedTokens = await this.refreshTokenModel.findAll();
-    let matched: RefreshToken | null = null;
-
-    for (const t of storedTokens) {
-      const match = await compare(refreshToken, t.hashedToken);
-      if (match) {
-        matched = t;
-        break;
-      }
-    }
+    // Note: this implementation is sound, using secure comparison via helper
+    const matched = await this.findRefreshTokenByRawToken(refreshToken);
 
     if (!matched)
       throw new UnauthorizedException('Invalid or expired refresh token.');
@@ -345,12 +359,14 @@ export class AuthService {
 
     await this.refreshTokenModel.destroy({ where: { id: matched.id } });
 
+    // The new tokens must include the user's latest tokenVersion
     return this.jwtTokenIssuer.issueTokens({
       email: user.email,
       password: user.password,
       userId: user.id,
       role: user.role,
       name: user.name,
+      tokenVersion: user.tokenVersion, // Pass tokenVersion on issuance
     });
   }
 
@@ -407,6 +423,7 @@ export class AuthService {
       auth_code: code,
       client_id: client.client_id,
       client_secret,
+      tokenVersion: user.tokenVersion, // Pass tokenVersion on issuance
     });
 
     // Hash client secret for storage
@@ -428,7 +445,7 @@ export class AuthService {
       refreshTokenIssuedAt: new Date(),
     });
 
-    // 7. Remove used authorization code
+    // Remove used authorization code
     await this.authCodeModel.destroy({ where: { code } });
 
     return {
@@ -436,5 +453,58 @@ export class AuthService {
       refresh_token: tokenPair.refreshToken,
       token_type: 'Bearer',
     };
+  }
+
+  // -------------------- Logout Functions --------------------
+
+  /**
+   * Logs out the user from the current device only.
+   * Finds the specific refresh token by comparing the raw token (if provided via cookie/header)
+   * against the hashed value in the database and destroys it.
+   */
+  async logoutCurrentDevice(refreshToken: string) {
+    if (!refreshToken) throw new UnauthorizedException('Refresh token missing');
+
+    // Securely find the matching RefreshToken entry by comparing the raw token to the hashed tokens
+    const matchedToken = await this.findRefreshTokenByRawToken(refreshToken);
+
+    if (!matchedToken) {
+      // Log for security purposes, but return success to avoid leaking token existence.
+      console.warn('Attempted to delete a non-existent or expired refresh token.');
+      return { message: 'Logged out successfully (session not found on backend)' };
+    }
+
+    // Destroy only the matching session
+    await this.refreshTokenModel.destroy({
+      where: { id: matchedToken.id },
+    });
+
+    return { message: 'Logged out from current device' };
+  }
+
+  /**
+   * Logs out the user from ALL devices using two key mechanisms:
+   * 1. Deleting all Refresh Tokens.
+   * 2. Incrementing the User's tokenVersion (for immediate Access Token revocation).
+   * @param userId The ID of the authenticated user (should be extracted from the Access Token by an AuthGuard).
+   */
+  async logoutAllDevices(userId: string) {
+    if (!userId) throw new UnauthorizedException('User ID missing');
+
+    const user = await this.userModel.findByPk(userId);
+    if (!user) throw new NotFoundException('User not found');
+
+    // 1. Invalidate all existing Access Tokens immediately by changing the user's token version.
+    await user.increment('tokenVersion');
+    await user.reload(); 
+
+    // 2. Destroy ALL Refresh Tokens associated with the user, preventing future token renewals.
+    const deletedCount = await this.refreshTokenModel.destroy({
+      where: { userId },
+    });
+
+    console.log(`[Logout All] User ${userId} tokenVersion updated to ${user.tokenVersion}. Deleted ${deletedCount} refresh tokens.`);
+    
+    return { message: 'Logged out from all devices' };
   }
 }

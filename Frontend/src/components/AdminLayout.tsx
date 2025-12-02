@@ -31,11 +31,13 @@ import { Button } from '@/components/ui/button';
 import Logo from './Logo';
 import { cn } from '@/lib/utils'; // For conditional classes
 import { Toaster } from './ui/sonner';
+import dynamic from "next/dynamic";
+import React, { useState } from "react";
 
 interface AdminLayoutProps {
   children: ReactNode;
 }
-
+const LogoutModal = dynamic(() => import("@/components/LogoutModal"), { ssr: false });
 const menuItems = [
   { title: 'Dashboard', url: '/admin/dashboard', icon: LayoutDashboard },
   { title: 'Clients', url: '/admin/clients', icon: Shield },
@@ -52,11 +54,7 @@ function AdminSidebar() {
   const router = useRouter(); // <-- 4. Use useRouter() for navigation
   const collapsed = state === 'collapsed';
 
-  const handleLogout = () => {
-    localStorage.removeItem('accessToken'); // Using consistent token names
-    localStorage.removeItem('refreshToken');
-    router.push('/auth/login'); // <-- 5. Use router.push() for navigation
-  };
+ const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   return (
     <Sidebar className={cn('transition-all duration-300', collapsed ? 'w-16' : 'w-64')} collapsible="icon">
@@ -97,16 +95,21 @@ function AdminSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <div className="mt-auto p-4 border-t border-border">
-          <Button
-            variant="ghost"
-            className="w-full justify-start"
-            onClick={handleLogout}
-          >
-            <LogOut className="h-4 w-4" />
-            {!collapsed && <span className="ml-2">Logout</span>}
-          </Button>
-        </div>
+       <div className="mt-auto p-4 border-t border-border">
+                 <Button
+                   variant="ghost"
+                   className="w-full justify-start"
+                   onClick={() => setShowLogoutModal(true)}
+                 >
+                   <LogOut className="h-4 w-4" />
+                   {!collapsed && <span className="ml-2">Logout</span>}
+                 </Button>
+       
+                 {showLogoutModal && (
+                   <LogoutModal onClose={() => setShowLogoutModal(false)} />
+                 )}
+               </div>
+       
       </SidebarContent>
     </Sidebar>
   );
