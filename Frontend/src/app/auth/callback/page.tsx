@@ -10,8 +10,35 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     const code = searchParams.get('code');
     const state = searchParams.get('state');
+    const accessToken = searchParams.get('accessToken');
+    const refreshToken = searchParams.get('refreshToken');
+    const loginSuccess = searchParams.get('loginSuccess');
 
-    if (window.opener && code) {
+    
+    if (loginSuccess === 'true' && accessToken && refreshToken) {
+     
+      localStorage.setItem('access_token', accessToken);
+      localStorage.setItem('refresh_token', refreshToken);
+
+      
+      if (window.opener) {
+        window.opener.postMessage(
+          {
+            type: 'linkedin-auth-success',
+            accessToken,
+            refreshToken,
+          },
+          '*'
+        );
+      }
+      
+     
+      if (window.opener) {
+        window.close();
+      }
+    }
+ 
+    else if (window.opener && code) {
       window.opener.postMessage(
         {
           type: 'iaa-auth-callback',

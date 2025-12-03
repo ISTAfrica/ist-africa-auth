@@ -125,29 +125,10 @@ export class AuthController {
       const { accessToken, refreshToken, user } =
         await this.authService.linkedinLogin(req.user);
 
-      const isProduction = process.env.NODE_ENV === 'production';
-
-      const jwtCookieOptions = {
-        httpOnly: false,
-        secure: isProduction,
-        sameSite: 'lax' as const,
-        maxAge: 3600000,
-      };
-
-      const refreshCookieOptions = {
-        ...jwtCookieOptions,
-        httpOnly: false,
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-        path: '/',
-      };
-
-      res.cookie('access_token_client', accessToken, jwtCookieOptions);
-      res.cookie('refresh_token_client', refreshToken, refreshCookieOptions);
-
       const finalFrontendPath =
         user.role === 'admin' ? '/admin/clients' : '/user/profile';
 
-      const redirectUrl = `${frontendUrl}${finalFrontendPath}?loginSuccess=true`;
+      const redirectUrl = `${frontendUrl}${finalFrontendPath}?loginSuccess=true&accessToken=${encodeURIComponent(accessToken)}&refreshToken=${encodeURIComponent(refreshToken)}`;
 
       return res.redirect(redirectUrl);
     } catch (error) {
