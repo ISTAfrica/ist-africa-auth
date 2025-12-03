@@ -1,4 +1,3 @@
-// File location: src/models/auth/strategies/linkedin.strategy.ts
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, StrategyOptions } from 'passport-oauth2';
@@ -35,22 +34,6 @@ export class LinkedInStrategy extends PassportStrategy(Strategy, 'linkedin') {
       }
 
       const profile = await response.json();
-
-      // ADD THESE DEBUG LOGS
-      console.log(
-        '[LinkedInStrategy] ========== FULL LINKEDIN PROFILE ==========',
-      );
-      console.log(JSON.stringify(profile, null, 2));
-      console.log('[LinkedInStrategy] Picture URL:', profile.picture);
-      console.log(
-        '[LinkedInStrategy] ==========================================',
-      );
-
-      console.log('[LinkedInStrategy] LinkedIn profile retrieved:', {
-        sub: profile.sub,
-        email: profile.email,
-        name: `${profile.given_name} ${profile.family_name}`,
-      });
 
       return {
         linkedinId: profile.sub,

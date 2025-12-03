@@ -243,15 +243,12 @@ export class AuthService {
     lastName: string;
     picture: string;
   }) {
-    console.log('[AuthService] Processing LinkedIn login for:', profile.email);
-
     // 1. Find the user by their LinkedIn ID (Primary check)
     let user = await this.userModel.findOne({
       where: { linkedinId: profile.linkedinId },
     });
 
     if (user) {
-      console.log(`[AuthService] Existing LinkedIn user found: ${user.email}`);
       await user.update({
         profilePicture: profile.picture,
       });
@@ -264,10 +261,6 @@ export class AuthService {
       });
 
       if (userByEmail) {
-        console.log(
-          `[AuthService] Linking LinkedIn account to existing email user: ${userByEmail.email}`,
-        );
-
         // User exists via email, link the LinkedIn ID
         await userByEmail.update({
           linkedinId: profile.linkedinId,
@@ -280,10 +273,6 @@ export class AuthService {
 
     // 3. If still no user, create a new account
     if (!user) {
-      console.log(
-        `[AuthService] Creating new user from LinkedIn: ${profile.email}`,
-      );
-
       const fullName =
         `${profile.firstName || ''} ${profile.lastName || ''}`.trim() ||
         'LinkedIn User';
@@ -323,10 +312,6 @@ export class AuthService {
     const { accessToken, refreshToken } = await this.issueTokens(
       user.id,
       user.role,
-    );
-
-    console.log(
-      `[AuthService] LinkedIn login successful for user ID: ${user.id}`,
     );
 
     return {
