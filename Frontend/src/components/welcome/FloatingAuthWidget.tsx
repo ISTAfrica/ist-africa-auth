@@ -33,7 +33,7 @@ export const FloatingAuthWidget = () => {
   const hiddenPaths = [
     'auth/login',
     'auth/signup',
-    '/dashboard',
+    '/user',
     '/iaa-auth',
     '/reset-password',
   ];

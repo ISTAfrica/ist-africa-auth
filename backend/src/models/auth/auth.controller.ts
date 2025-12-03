@@ -128,15 +128,13 @@ export class AuthController {
     return this.authService.updateUserRole(callerRole, id, role);
   }
 
-  /**
-   * Logs out the user from the current device/session only.
-   * Requires the Refresh Token (usually from the HTTP-only cookie).
-   */
+  // Inside AuthController.ts
+
   @UseGuards(JwtAuthGuard)
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  async logout(@Req() req: Request, @Res() res: Response) {
-    // The Refresh Token can come from a cookie (preferred) or a body field.
+  // 🚨 FIX: Change @Res() res: Response to @Res({ passthrough: true }) res: Response
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
 
     if (!refreshToken) {
@@ -145,14 +143,15 @@ export class AuthController {
 
     const result = await this.authService.logoutCurrentDevice(refreshToken);
 
-    // Clear the HTTP-only cookie immediately on the client
+    // Now we use the injected res object ONLY for setting the cookie header
     res.clearCookie('refreshToken', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
     });
 
-    return res.json(result);
+    // 🚨 NestJS automatically sends the JSON response body using the returned value
+    return result;
   }
 
   /**
@@ -161,12 +160,12 @@ export class AuthController {
    */
   @UseGuards(JwtAuthGuard)
   @Post('logout-all')
-  @HttpCode(HttpStatus.NO_CONTENT) // 204 No Content is standard for successful deletion/update
+  @HttpCode(HttpStatus.NO_CONTENT)
   async logoutAll(@Req() req: any, @Res() res: Response) {
-    // User ID is extracted from the Access Token by the JwtAuthGuard
+
     const userId = req.user.id;
 
-    // BUSINESS LOGIC: Delegate to the service to delete all tokens and increment token version
+    // Delegate to the service to delete all tokens and increment token version
     await this.authService.logoutAllDevices(userId);
 
     // Clear the HTTP-only cookie on the current device

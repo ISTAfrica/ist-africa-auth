@@ -32,7 +32,8 @@ export class UserController {
     const user = req.user as { id: number };
     return this.userService.getProfile(user.id);
   }
-
+  
+  @UseGuards(JwtAuthGuard)
   @Patch('me')
   updateProfile(
     @Req() req: Request,

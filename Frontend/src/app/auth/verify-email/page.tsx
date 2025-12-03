@@ -58,7 +58,7 @@ export default function VerifyEmailPage() {
       }
 
       setSuccess('Verification successful! Redirecting to dashboard...');
-      setTimeout(() => router.push('/dashboard'), 2000);
+      setTimeout(() => router.push('/user'), 2000);
     } catch (err: unknown) {
       if (err instanceof Error) setError(err.message);
       else setError('An unknown error occurred');

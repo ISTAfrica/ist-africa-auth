@@ -24,7 +24,7 @@ export const Hero = () => {
               <Link href="/auth/login">Get Started</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
-              <Link href="/dashboard">View Dashboard</Link>
+              <Link href="/user">View Dashboard</Link>
             </Button>
           </div>
         </div>

@@ -4,6 +4,8 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/sequelize';
 import { User } from '../users/entities/user.entity';
+// Import necessary Sequelize types (if not already globally available)
+import { Transaction } from 'sequelize';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -29,26 +31,31 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     sub: string;
     email: string;
     role?: 'user' | 'admin';
-    tokenVersion?: number;
+    tv?: number;
   }) {
     const userId = parseInt(payload.sub, 10);
     if (isNaN(userId)) {
       throw new UnauthorizedException('Invalid token subject.');
     }
 
+    
     const user = await this.userModel.findByPk(userId, {
       attributes: {
-        include: ['tokenVersion'], // Make sure to include tokenVersion
+        include: ['tokenVersion'],
         exclude: ['password']
       },
+    
+      useMaster: true,
+      
     });
-
+console.log('[DB RAW CHECK] User tokenVersion directly from findByPk:', user?.tokenVersion);
+   
     if (!user) {
       throw new UnauthorizedException('User not found or token is invalid.');
     }
-    console.log(`[JWT Validation] User ${user.id} - Token Version: JWT=${payload.tokenVersion}, DB=${user.tokenVersion}`);
+    console.log(`[JWT Validation] User ${user.id} - Token Version: JWT=${payload.tv}, DB=${user.tokenVersion}`);
 
-    if (payload.tokenVersion !== user.tokenVersion) {
+    if (payload.tv !== user.tokenVersion) {
       console.log(`[JWT Validation] Token version mismatch for user ${user.id}`);
       throw new UnauthorizedException('Token has been revoked. Please log in again.');
     }

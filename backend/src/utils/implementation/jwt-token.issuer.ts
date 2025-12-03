@@ -49,7 +49,7 @@ export class JwtTokenIssuerImpl implements JwtTokenIssuer {
       sub: payload.userId.toString(),
       email: payload.email,
       role: payload.role,
-      tokenVersion: payload.tokenVersion || 0
+      tv: payload.tokenVersion || 0
     };
 
     if (payload.name) {

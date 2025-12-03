@@ -27,7 +27,7 @@ export default function VerificationSuccessPage() {
         }
       } catch {}
       const appBase = process.env.NEXT_PUBLIC_APP_BASE_URL?.replace(/\/$/, '') || '';
-      window.location.replace(`${appBase}/dashboard` || '/dashboard');
+      window.location.replace(`${appBase}/user` || '/users');
     }
   }, []);
 

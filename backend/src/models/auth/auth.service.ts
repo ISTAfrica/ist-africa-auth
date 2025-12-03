@@ -194,7 +194,7 @@ export class AuthService {
       userId: user.id,
       role: user.role,
       name: user.name,
-      tokenVersion: user.tokenVersion, // Pass tokenVersion on issuance
+      tokenVersion: user.tokenVersion, 
     });
 
     return {
@@ -274,7 +274,7 @@ export class AuthService {
       userId: user.id,
       role: user.role,
       name: user.name,
-      tokenVersion: user.tokenVersion, // Pass tokenVersion on issuance
+      tokenVersion: user.tokenVersion, 
     });
   }
 
@@ -327,7 +327,7 @@ export class AuthService {
       userId: user.id,
       role: user.role,
       name: user.name,
-      tokenVersion: user.tokenVersion, // Pass tokenVersion on issuance
+      tokenVersion: user.tokenVersion, 
     });
   }
 
@@ -366,7 +366,7 @@ export class AuthService {
       userId: user.id,
       role: user.role,
       name: user.name,
-      tokenVersion: user.tokenVersion, // Pass tokenVersion on issuance
+      tokenVersion: user.tokenVersion, 
     });
   }
 
@@ -423,7 +423,7 @@ export class AuthService {
       auth_code: code,
       client_id: client.client_id,
       client_secret,
-      tokenVersion: user.tokenVersion, // Pass tokenVersion on issuance
+      tokenVersion: user.tokenVersion, 
     });
 
     // Hash client secret for storage
