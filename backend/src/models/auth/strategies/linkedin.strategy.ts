@@ -1,3 +1,4 @@
+// src/models/auth/strategies/linkedin.strategy.ts
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, StrategyOptions } from 'passport-oauth2';
@@ -29,21 +30,30 @@ export class LinkedInStrategy extends PassportStrategy(Strategy, 'linkedin') {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('[LinkedInStrategy] LinkedIn userinfo error:', errorText);
-        throw new Error('Failed to fetch LinkedIn user profile');
+        console.error(
+          '[LinkedInStrategy] LinkedIn API error response:',
+          errorText,
+        );
+        throw new Error(
+          `Failed to fetch LinkedIn user profile: ${response.status} - ${errorText}`,
+        );
       }
 
       const profile = await response.json();
 
-      return {
+      const userData = {
         linkedinId: profile.sub,
         email: profile.email,
-        firstName: profile.given_name,
-        lastName: profile.family_name,
-        picture: profile.picture,
+        firstName: profile.given_name || '',
+        lastName: profile.family_name || '',
+        picture: profile.picture || '',
       };
+
+      return userData;
     } catch (error) {
-      console.error('[LinkedInStrategy] Error in validate():', error);
+      console.error(
+        '[LinkedInStrategy] ========== ERROR IN VALIDATE ==========',
+      );
       throw error;
     }
   }

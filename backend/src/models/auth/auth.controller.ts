@@ -13,7 +13,6 @@ import {
   Req,
   UseGuards,
   Res,
-  InternalServerErrorException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterUserDto } from './dto/register-user.dto';
@@ -23,7 +22,6 @@ import { ResendOtpDto } from './dto/resend-otp.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { AuthGuard } from '@nestjs/passport';
 import type { Request, Response } from 'express';
-
 @Controller('api/auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
@@ -87,7 +85,6 @@ export class AuthController {
     @Body('role') role: 'user' | 'admin',
     @Req() req: Request & { user?: any },
   ) {
-    console.log('Request user:', req.user);
     const id = Number(userId);
 
     const callerRole = req.user?.role || req.user?.role;
@@ -99,9 +96,7 @@ export class AuthController {
 
   @Get('linkedin')
   @UseGuards(AuthGuard('linkedin'))
-  linkedinLogin(@Req() req: Request) {}
-
-  // LinkedIn OAuth2 callback endpoint
+  linkedinLogin() {}
 
   @Get('linkedin/callback')
   @UseGuards(AuthGuard('linkedin'))
@@ -109,29 +104,39 @@ export class AuthController {
     @Req() req: Request & { user?: any },
     @Res() res: Response,
   ) {
-    const frontendUrl = (
-      process.env.FRONTEND_URL ||
-      process.env.NEXT_PUBLIC_FRONTEND_URL ||
-      'http://localhost:3000'
-    ).replace(/\/$/, '');
-
     if (!req.user) {
+      const frontendUrl = (
+        process.env.FRONTEND_URL ||
+        process.env.NEXT_PUBLIC_FRONTEND_URL ||
+        'http://localhost:3000'
+      ).replace(/\/$/, '');
       return res.redirect(
         `${frontendUrl}/auth/login?error=linkedin_auth_failed`,
       );
     }
 
     try {
-      const { accessToken, refreshToken, user } =
+      const { accessToken, refreshToken } =
         await this.authService.linkedinLogin(req.user);
 
-      const finalFrontendPath =
-        user.role === 'admin' ? '/admin/clients' : '/user/profile';
+      const frontendUrl = (
+        process.env.FRONTEND_URL ||
+        process.env.NEXT_PUBLIC_FRONTEND_URL ||
+        'http://localhost:3000'
+      ).replace(/\/$/, '');
 
-      const redirectUrl = `${frontendUrl}${finalFrontendPath}?loginSuccess=true&accessToken=${encodeURIComponent(accessToken)}&refreshToken=${encodeURIComponent(refreshToken)}`;
+      const redirectUrl = `${frontendUrl}/auth/linkedin/callback?accessToken=${encodeURIComponent(
+        accessToken,
+      )}&refreshToken=${encodeURIComponent(refreshToken)}`;
 
       return res.redirect(redirectUrl);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
+      const frontendUrl = (
+        process.env.FRONTEND_URL ||
+        process.env.NEXT_PUBLIC_FRONTEND_URL ||
+        'http://localhost:3000'
+      ).replace(/\/$/, '');
       return res.redirect(
         `${frontendUrl}/auth/login?error=linkedin_processing_failed`,
       );

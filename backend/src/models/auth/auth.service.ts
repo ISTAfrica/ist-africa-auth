@@ -187,10 +187,6 @@ export class AuthService {
     }
 
     if (client_id && redirect_uri) {
-      console.log(
-        `[AuthService] Detected OAuth2 Authorization Code flow for client: ${client_id}`,
-      );
-
       const client = await this.clientModel.findOne({ where: { client_id } });
       if (!client) {
         throw new BadRequestException(
@@ -228,14 +224,12 @@ export class AuthService {
         redirect_uri: finalRedirectUri.toString(),
       };
     } else {
-      console.log(
-        `[AuthService] Detected Direct Login (Password Grant) flow for user: ${email}`,
-      );
       return this.issueTokens(user.id, user.role);
     }
   }
 
   // -------------------- LinkedIn Login --------------------
+
   async linkedinLogin(profile: {
     linkedinId: string;
     email: string;
@@ -243,7 +237,6 @@ export class AuthService {
     lastName: string;
     picture: string;
   }) {
-    // 1. Find the user by their LinkedIn ID (Primary check)
     let user = await this.userModel.findOne({
       where: { linkedinId: profile.linkedinId },
     });
@@ -253,15 +246,12 @@ export class AuthService {
         profilePicture: profile.picture,
       });
     }
-
-    // 2. If not found, attempt to find by email for account linking
     if (!user && profile.email) {
       const userByEmail = await this.userModel.findOne({
         where: { email: profile.email },
       });
 
       if (userByEmail) {
-        // User exists via email, link the LinkedIn ID
         await userByEmail.update({
           linkedinId: profile.linkedinId,
           profilePicture: profile.picture,
@@ -270,14 +260,10 @@ export class AuthService {
         user = userByEmail;
       }
     }
-
-    // 3. If still no user, create a new account
     if (!user) {
       const fullName =
         `${profile.firstName || ''} ${profile.lastName || ''}`.trim() ||
         'LinkedIn User';
-
-      // Determine membership status based on email domain
       const domainsEnv = this.configService.get<string>('IST_DOMAINS') || '';
       const istDomains = domainsEnv
         .split(',')
@@ -302,18 +288,11 @@ export class AuthService {
         otp: null,
         otpExpiresAt: null,
       });
-
-      console.log(
-        `[AuthService] New LinkedIn user created with ID: ${user.id}`,
-      );
     }
-
-    // 4. Issue tokens and return
     const { accessToken, refreshToken } = await this.issueTokens(
       user.id,
       user.role,
     );
-
     return {
       accessToken,
       refreshToken,
