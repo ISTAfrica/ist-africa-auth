@@ -1,54 +1,78 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { AlertCircle, Loader2, Linkedin } from 'lucide-react';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { AlertCircle, Loader2, Linkedin } from "lucide-react";
 
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { registerUser } from '@/services/authService';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { registerUser } from "@/services/authService";
 
 export default function SignUpForm() {
   const router = useRouter();
 
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [linkedinLoading, setLinkedinLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
+    setError("");
+    setSuccess("");
     setLoading(true);
 
     try {
       const result = await registerUser({ name, email, password });
-      setSuccess('Account created successfully! Redirecting to verify...');
-      try { localStorage.setItem('pendingEmail', email); } catch {}
-      const redirectUrl = result?.redirectUrl || '/auth/verify-email';
-      router.push(`${redirectUrl}${redirectUrl.includes('?') ? '&' : '?'}email=${encodeURIComponent(email)}`);
-
+      setSuccess("Account created successfully! Redirecting to verify...");
+      try {
+        localStorage.setItem("pendingEmail", email);
+      } catch {}
+      const redirectUrl = result?.redirectUrl || "/auth/verify-email";
+      router.push(
+        `${redirectUrl}${
+          redirectUrl.includes("?") ? "&" : "?"
+        }email=${encodeURIComponent(email)}`
+      );
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError('An unknown error occurred');
+        setError("An unknown error occurred");
       }
       setLoading(false);
     }
   };
 
+  const handleLinkedInSignUp = () => {
+    setLinkedinLoading(true);
+    setError("");
+    
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    window.location.href = `${baseUrl}/api/auth/linkedin`;
+  };
+
   return (
     <>
+<<<<<<< HEAD
       <div className="mb-4 text-center">
         <h2 className="text-xl font-bold text-foreground mb-1">Create an Account</h2>
         <p className="text-sm text-muted-foreground">Get started with your IAA account</p>
+=======
+      <div className="mb-6 text-center">
+        <h2 className="text-2xl font-bold text-foreground mb-1">
+          Create an Account
+        </h2>
+        <p className="text-muted-foreground">
+          Get started with your IAA account
+        </p>
+>>>>>>> 85d1f2e731e3ce4d3f3ff66f6f27990ef05e6cee
       </div>
 
       <form onSubmit={handleSignUp} className="space-y-3">
@@ -66,21 +90,46 @@ export default function SignUpForm() {
 
         <div className="space-y-2">
           <Label htmlFor="name">Full Name</Label>
-          <Input id="name" type="text" placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} required />
+          <Input
+            id="name"
+            type="text"
+            placeholder="John Doe"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="email">Email Address</Label>
-          <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <Input
+            id="email"
+            type="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="password">Password</Label>
-          <Input id="password" type="password" placeholder="Enter a strong password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <Input
+            id="password"
+            type="password"
+            placeholder="Enter a strong password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
         </div>
 
-        <Button type="submit" className="w-full font-semibold" disabled={loading || !!success}>
-          {loading ? <Loader2 className="animate-spin" /> : 'Create Account'}
+        <Button
+          type="submit"
+          className="w-full font-semibold"
+          disabled={loading || linkedinLoading || !!success}
+        >
+          {loading ? <Loader2 className="animate-spin" /> : "Create Account"}
         </Button>
 
         <div className="relative my-2">
@@ -93,19 +142,35 @@ export default function SignUpForm() {
             </span>
           </div>
         </div>
-        
+
         <Button
           type="button"
+          onClick={handleLinkedInSignUp}
           variant="outline"
           className="w-full font-semibold bg-linkedin text-white hover:bg-linkedin/90 border-linkedin"
+          disabled={loading || linkedinLoading || !!success}
         >
-          <Linkedin className="mr-2 h-4 w-4" />
+          {linkedinLoading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Linkedin className="mr-2 h-4 w-4" />
+          )}
           Continue with LinkedIn
         </Button>
+<<<<<<< HEAD
         
         <p className="text-center text-sm text-muted-foreground pt-2">
           Already have an account?{' '}
           <Link href="/auth/login" className="font-medium text-primary hover:underline">
+=======
+
+        <p className="text-center text-sm text-muted-foreground pt-4">
+          Already have an account?{" "}
+          <Link
+            href="/auth/login"
+            className="font-medium text-primary hover:underline"
+          >
+>>>>>>> 85d1f2e731e3ce4d3f3ff66f6f27990ef05e6cee
             Sign In
           </Link>
         </p>

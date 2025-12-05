@@ -26,7 +26,7 @@ type UserProfile = {
   name: string | null;
   email: string;
   createdAt: string;
-  avatarUrl?: string;
+  profilePicture:string;
 };
 
 export default function ProfilePage() {
@@ -111,7 +111,7 @@ export default function ProfilePage() {
         <CardContent className="flex flex-col md:flex-row gap-6">
           <div className="flex flex-col items-center gap-4">
             <Avatar className="h-32 w-32">
-              <AvatarImage src={user.avatarUrl} alt={user.name || "User"} />
+              <AvatarImage src={user.profilePicture} alt={user.name || "User"} />
               <AvatarFallback>{user.name?.split(" ").map(n => n[0]).join("")}</AvatarFallback>
             </Avatar>
             <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
