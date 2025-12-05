@@ -12,6 +12,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwksModule } from '../jwks/jwks.module';
+import { LinkedInStrategy } from './strategies/linkedin.strategy';
 
 @Module({
   imports: [
@@ -24,10 +25,14 @@ import { JwksModule } from '../jwks/jwks.module';
     ]),
     EmailModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
-    JwksModule
+    JwksModule,
+    PassportModule.register({
+      defaultStrategy: 'jwt',
+      session: false,
+    }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard],
+  providers: [AuthService, JwtStrategy, JwtAuthGuard, LinkedInStrategy],
   exports: [JwtAuthGuard, AuthService, PassportModule],
 })
 export class AuthModule {}
