@@ -87,25 +87,12 @@ export class User extends Model {
     defaultValue: false,
   })
   declare isDefaultAdmin: boolean;
-
+  
   @Column({
-    type: DataType.TEXT,
-    allowNull: true,
-    comment: 'Reason for disabling or reactivating the user account',
-  })
-  declare statusReason: string | null;
+  type: DataType.TEXT,
+  allowNull: true,
+  comment: 'Reason for disabling or reactivating the user account',
+})
+declare statusReason: string | null;
 
-  // LinkedIn OAuth fields
-  @Column({
-    type: DataType.STRING,
-    allowNull: true,
-    unique: true,
-  })
-  declare linkedinId: string | null;
-
-  @Column({
-    type: DataType.STRING,
-    allowNull: true,
-  })
-  declare profilePicture: string | null;
 }

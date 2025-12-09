@@ -33,16 +33,19 @@ export class UserService {
       throw new NotFoundException('User not found');
     }
 
+    // Store old role before updating
     const oldRole = user.role;
 
     await user.update(updateUserDto);
 
+    // If user was promoted to admin (and isn't the default admin), disable default admin
     if (oldRole !== 'admin' && user.role === 'admin') {
       await this.disableDefaultAdmin(user);
     }
 
     return user.toJSON();
   }
+
   async updateAvatar(
     userId: number,
     file: Express.Multer.File,
@@ -53,7 +56,7 @@ export class UserService {
       throw new NotFoundException('User not found');
     }
 
-    const oldAvatarUrl = user.profilePicture;
+    const oldAvatarUrl = user.avatarUrl;
 
     if (oldAvatarUrl) {
       try {
@@ -79,16 +82,20 @@ export class UserService {
     const baseUrl = process.env.API_BASE_URL || 'http://localhost:5000';
     const newAvatarUrl = `${baseUrl}/uploads/${file.filename}`;
 
-    await user.update({ profilePicture: newAvatarUrl });
+    await user.update({ avatarUrl: newAvatarUrl });
 
     return user.toJSON();
   }
 
+  /**
+   * Disable the default admin account when a real admin is promoted.
+   */
   private async disableDefaultAdmin(currentAdmin: User): Promise<void> {
     try {
       const attributes = (this.userModel as any).getAttributes?.() || {};
       const hasIsDefaultAdmin = 'isDefaultAdmin' in attributes;
 
+      // Find the default admin safely
       const defaultAdmin = await this.userModel.findOne({
         where: hasIsDefaultAdmin
           ? { isDefaultAdmin: true }

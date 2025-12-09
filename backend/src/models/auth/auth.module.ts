@@ -11,7 +11,6 @@ import { AuthorizationCode } from './entities/authorization-code.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { LinkedInStrategy } from './strategies/linkedin.strategy';
 
 @Module({
   imports: [
@@ -23,13 +22,10 @@ import { LinkedInStrategy } from './strategies/linkedin.strategy';
       AuthorizationCode,
     ]),
     EmailModule,
-    PassportModule.register({
-      defaultStrategy: 'jwt',
-      session: false,
-    }),
+    PassportModule.register({ defaultStrategy: 'jwt' }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard, LinkedInStrategy],
+  providers: [AuthService, JwtStrategy, JwtAuthGuard],
   exports: [JwtAuthGuard, AuthService, PassportModule],
 })
 export class AuthModule {}
