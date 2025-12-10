@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertCircle, Loader2, Linkedin, ShieldCheck } from 'lucide-react';
+import { loginWithLinkedIn } from '@/services/authService';
 import Link from 'next/link';
 import { jwtDecode } from 'jwt-decode';
 
@@ -42,6 +43,7 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
 
   const [clientInfo, setClientInfo] = useState<ClientInfo | null>(null);
   const [isOauthFlow, setIsOauthFlow] = useState(false);
+  const [isLinkedInLoading, setIsLinkedInLoading] = useState(false);
 
   const clientIdFromUrl = searchParams.get('client_id');
   const redirectUriFromUrl = searchParams.get('redirect_uri');
@@ -111,6 +113,77 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
       setLoading(false);
     }
   };
+
+// Frontend/src/components/auth/LoginForm.tsx
+const handleLinkedInLogin = async () => {
+  try {
+    // Store current path for redirect after login
+    const redirectPath = window.location.pathname;
+    localStorage.setItem('redirectAfterLogin', redirectPath);
+    
+    // Open login in a popup
+    const width = 600;
+    const height = 700;
+    const left = window.screen.width / 2 - width / 2;
+    const top = window.screen.height / 2 - height / 2;
+    
+    const popup = window.open(
+      '',
+      'linkedin-login',
+      `toolbar=no, location=no, directories=no, status=no, menubar=no, 
+      scrollbars=no, resizable=no, copyhistory=no, width=${width}, 
+      height=${height}, top=${top}, left=${left}`
+    );
+
+    // Get the LinkedIn URL
+    const response = await fetch('http://localhost:5000/api/auth/linkedin/url', {
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to get LinkedIn URL');
+    }
+    
+    const { url } = await response.json();
+    if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+  throw new Error('Popup was blocked. Please allow popups for this site and try again.');
+}
+    popup.location.href = url;
+
+    // Listen for auth success message from popup
+    const messageHandler = (event: MessageEvent) => {
+      if (event.origin !== 'http://localhost:3000') return;
+      
+      if (event.data.type === 'LINKEDIN_AUTH_SUCCESS') {
+        const { accessToken, refreshToken, user } = event.data;
+        localStorage.setItem('accessToken', accessToken);
+        if (refreshToken) {
+          localStorage.setItem('refreshToken', refreshToken);
+        }
+        localStorage.setItem('user', JSON.stringify(user));
+        
+        // Update your app's auth state here
+        // e.g., setUser(user);
+        
+        // Redirect to the intended page or home
+        const redirectTo = localStorage.getItem('redirectAfterLogin') || '/dashboard';
+        localStorage.removeItem('redirectAfterLogin');
+        window.location.href = redirectTo;
+      }
+    };
+
+    window.addEventListener('message', messageHandler);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('message', messageHandler);
+    };
+  } catch (error) {
+    console.error('Error initiating LinkedIn login:', error);
+    setError('Failed to initiate LinkedIn login');
+  }
+};
+
 
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -193,7 +266,9 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
             </Alert>
           )}
 
-          <fieldset disabled={loading || (isOauthFlow && !clientInfo)}>
+
+
+          <fieldset disabled={loading || (isOauthFlow && !clientInfo)} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email Address</Label>
               <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -219,10 +294,20 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
             <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">Or continue with</span></div>
           </div>
 
-          <Button type="button" variant="outline" className="w-full font-semibold bg-linkedin text-white hover:bg-linkedin/90 border-linkedin">
-            <Linkedin className="mr-2 h-4 w-4" />
-            Continue with LinkedIn
-          </Button>
+<Button
+  type="button"
+  variant="outline"
+  className="w-full font-semibold bg-[#0A66C2] hover:bg-[#0A66C2]/90 text-white border-[#0A66C2]"
+  onClick={handleLinkedInLogin}
+  disabled={isLinkedInLoading || loading || (isOauthFlow && !clientInfo)}
+>
+  {isLinkedInLoading ? (
+    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+  ) : (
+    <Linkedin className="mr-2 h-4 w-4" />
+  )}
+  Continue with LinkedIn
+</Button>
 
           <p className="text-center text-sm text-muted-foreground pt-4">
             Don’t have an account?{' '}

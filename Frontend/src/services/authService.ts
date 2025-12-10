@@ -149,3 +149,63 @@ export const uploadAvatar = async (file: File) => {
 
   return response.json();
 };
+// src/services/authService.ts
+
+export const loginWithLinkedIn = async () => {
+  try {
+    // Store the current URL to redirect back after login
+    const redirectAfterLogin = window.location.pathname;
+    localStorage.setItem('redirectAfterLogin', redirectAfterLogin);
+    
+    // Get the auth URL from the backend
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/linkedin/url`);
+    const { url } = await response.json();
+    
+    if (!url) {
+      throw new Error('Could not get LinkedIn authorization URL');
+    }
+    
+    // Redirect to LinkedIn's OAuth page
+    window.location.href = url;
+  } catch (error) {
+    console.error('Error in loginWithLinkedIn:', error);
+    throw error;
+  }
+};
+export const handleLinkedInCallback = async (code: string) => {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/linkedin/callback?code=${code}`, {
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to authenticate with LinkedIn');
+    }
+
+    const { accessToken, refreshToken, user } = await response.json();
+
+    // Store tokens and user data
+    if (accessToken && refreshToken) {
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
+      if (user) {
+        localStorage.setItem('user', JSON.stringify(user));
+      }
+      return { accessToken, refreshToken, user };
+    }
+
+    throw new Error('Invalid response from server');
+  } catch (error) {
+    console.error('Error in handleLinkedInCallback:', error);
+    throw error;
+  }
+};
+// export const logout = () => {
+//   if (typeof window === 'undefined') return;
+//   localStorage.removeItem('accessToken');
+//   localStorage.removeItem('refreshToken');
+//   window.location.href = '/auth/login';
+// };
