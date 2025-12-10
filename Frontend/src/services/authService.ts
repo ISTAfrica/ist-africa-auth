@@ -149,15 +149,13 @@ export const uploadAvatar = async (file: File) => {
 
   return response.json();
 };
-// src/services/authService.ts
+
 
 export const loginWithLinkedIn = async () => {
   try {
-    // Store the current URL to redirect back after login
     const redirectAfterLogin = window.location.pathname;
     localStorage.setItem('redirectAfterLogin', redirectAfterLogin);
     
-    // Get the auth URL from the backend
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/linkedin/url`);
     const { url } = await response.json();
     
@@ -165,7 +163,7 @@ export const loginWithLinkedIn = async () => {
       throw new Error('Could not get LinkedIn authorization URL');
     }
     
-    // Redirect to LinkedIn's OAuth page
+
     window.location.href = url;
   } catch (error) {
     console.error('Error in loginWithLinkedIn:', error);
@@ -187,7 +185,6 @@ export const handleLinkedInCallback = async (code: string) => {
 
     const { accessToken, refreshToken, user } = await response.json();
 
-    // Store tokens and user data
     if (accessToken && refreshToken) {
       localStorage.setItem('accessToken', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
@@ -203,9 +200,3 @@ export const handleLinkedInCallback = async (code: string) => {
     throw error;
   }
 };
-// export const logout = () => {
-//   if (typeof window === 'undefined') return;
-//   localStorage.removeItem('accessToken');
-//   localStorage.removeItem('refreshToken');
-//   window.location.href = '/auth/login';
-// };
