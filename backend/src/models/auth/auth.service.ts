@@ -203,7 +203,6 @@ export class AuthService {
 
     // -------------------- OAuth2 Authorization Code Flow --------------------
     if (client_id && redirect_uri) {
-
       const client = await this.clientModel.findOne({ where: { client_id } });
       if (!client) {
         throw new BadRequestException(
@@ -436,24 +435,35 @@ export class AuthService {
     };
   }
 
-  // -------------------- LinkedIn Login --------------------
+  // -------------------- LinkedIn Login with OAuth2 Support --------------------
 
-  async linkedinLogin(profile: {
-    linkedinId: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-    picture: string;
-  }) {
+  async linkedinLogin(
+    profile: {
+      linkedinId: string;
+      email: string;
+      firstName: string;
+      lastName: string;
+      picture: string;
+    },
+    oauthParams?: {
+      client_id?: string;
+      redirect_uri?: string;
+      state?: string;
+    },
+  ) {
+    // Find or create user
     let user = await this.userModel.findOne({
       where: { linkedinId: profile.linkedinId },
     });
 
+    // Update existing user's profile picture
     if (user) {
       await user.update({
         profilePicture: profile.picture,
       });
     }
+
+    // Link LinkedIn to existing email account
     if (!user && profile.email) {
       const userByEmail = await this.userModel.findOne({
         where: { email: profile.email },
@@ -468,6 +478,8 @@ export class AuthService {
         user = userByEmail;
       }
     }
+
+    // Create new user if not found
     if (!user) {
       const fullName =
         `${profile.firstName || ''} ${profile.lastName || ''}`.trim() ||
@@ -497,6 +509,56 @@ export class AuthService {
         otpExpiresAt: null,
       });
     }
+
+    // -------------------- OAuth2 Authorization Code Flow --------------------
+    if (oauthParams?.client_id && oauthParams?.redirect_uri) {
+      const client = await this.clientModel.findOne({
+        where: { client_id: oauthParams.client_id },
+      });
+
+      if (!client) {
+        throw new BadRequestException(
+          'Unauthorized client: This application is not registered.',
+        );
+      }
+
+      if (client.redirect_uri !== oauthParams.redirect_uri) {
+        throw new BadRequestException(
+          `Invalid redirect URI: Expected ${client.redirect_uri}, got: ${oauthParams.redirect_uri}`,
+        );
+      }
+
+      if (client.status !== 'active') {
+        throw new BadRequestException('Client application is not active.');
+      }
+
+      const code = randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+      await this.authCodeModel.create({
+        code,
+        expiresAt,
+        userId: user.id,
+        clientId: client.id,
+      });
+
+      const iaaFrontendUrl = this.configService.get<string>(
+        'FRONTEND_URL',
+        'http://localhost:3000',
+      );
+
+      const finalRedirectUri = new URL(`${iaaFrontendUrl}/auth/callback`);
+      finalRedirectUri.searchParams.append('code', code);
+      if (oauthParams.state) {
+        finalRedirectUri.searchParams.append('state', oauthParams.state);
+      }
+
+      return {
+        redirect_uri: finalRedirectUri.toString(),
+      };
+    }
+
+    // -------------------- Direct Login (No OAuth2 Client) --------------------
     const { accessToken, refreshToken } = await this.jwtTokenIssuer.issueTokens(
       {
         userId: user.id,
@@ -505,6 +567,7 @@ export class AuthService {
         profilePicture: user.profilePicture,
       },
     );
+
     return {
       accessToken,
       refreshToken,

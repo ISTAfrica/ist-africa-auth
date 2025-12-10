@@ -52,6 +52,8 @@ import {
  deleteClient,
 } from "@/services/clientsService";
 
+import { extractAndStoreTokensFromURL } from "@/services/authService";
+
 import AdminLayout from "@/components/AdminLayout";
 
 export default function AdminClientsPage() {
@@ -114,546 +116,545 @@ export default function AdminClientsPage() {
  const [deleteSuccess, setDeleteSuccess] = useState(false);
  const [successMessage, setSuccessMessage] = useState("");
 
+ // Extract tokens from URL FIRST (from LinkedIn redirect)
  useEffect(() => {
- const loadClients = async () => {
- try {
- setFetchError("");
- const data = await getClients();
- setClients(data);
- } catch (error: any) {
- setFetchError(error.message || "An unexpected error occurred.");
- } finally {
- setIsLoading(false);
- }
- };
- loadClients();
+   const tokensExtracted = extractAndStoreTokensFromURL();
+   if (tokensExtracted) {
+   }
  }, []);
 
  useEffect(() => {
- if (updateSuccess || deleteSuccess) {
- const timer = setTimeout(() => {
- setUpdateSuccess(false);
- setDeleteSuccess(false);
- setSuccessMessage("");
- }, 5000);
- return () => clearTimeout(timer);
- }
+   const loadClients = async () => {
+     try {
+       setFetchError("");
+       const data = await getClients();
+       setClients(data);
+     } catch (error: any) {
+       console.error("Failed to load clients:", error);
+       setFetchError(error.message || "An unexpected error occurred.");
+     } finally {
+       setIsLoading(false);
+     }
+   };
+   loadClients();
+ }, []);
+
+ useEffect(() => {
+   if (updateSuccess || deleteSuccess) {
+     const timer = setTimeout(() => {
+       setUpdateSuccess(false);
+       setDeleteSuccess(false);
+       setSuccessMessage("");
+     }, 5000);
+     return () => clearTimeout(timer);
+   }
  }, [updateSuccess, deleteSuccess]);
 
  const handleAddOrigin = (e: React.KeyboardEvent<HTMLInputElement>) => {
- if (e.key === "Enter" && originInput.trim()) {
- e.preventDefault();
- if (!allowedOrigins.includes(originInput.trim())) {
- setAllowedOrigins([...allowedOrigins, originInput.trim()]);
- }
- setOriginInput("");
- }
+   if (e.key === "Enter" && originInput.trim()) {
+     e.preventDefault();
+     if (!allowedOrigins.includes(originInput.trim())) {
+       setAllowedOrigins([...allowedOrigins, originInput.trim()]);
+     }
+     setOriginInput("");
+   }
  };
 
  const handleRemoveOrigin = (indexToRemove: number) => {
- setAllowedOrigins(
- allowedOrigins.filter((_, index) => index !== indexToRemove)
- );
+   setAllowedOrigins(
+     allowedOrigins.filter((_, index) => index !== indexToRemove)
+   );
  };
 
  const handleAddEditOrigin = (e: React.KeyboardEvent<HTMLInputElement>) => {
- if (e.key === "Enter" && editOriginInput.trim()) {
- e.preventDefault();
- if (!editAllowedOrigins.includes(editOriginInput.trim())) {
- setEditAllowedOrigins([...editAllowedOrigins, editOriginInput.trim()]);
- }
- setEditOriginInput("");
- }
+   if (e.key === "Enter" && editOriginInput.trim()) {
+     e.preventDefault();
+     if (!editAllowedOrigins.includes(editOriginInput.trim())) {
+       setEditAllowedOrigins([...editAllowedOrigins, editOriginInput.trim()]);
+     }
+     setEditOriginInput("");
+   }
  };
 
  const handleRemoveEditOrigin = (indexToRemove: number) => {
- setEditAllowedOrigins(
- editAllowedOrigins.filter((_, index) => index !== indexToRemove)
- );
+   setEditAllowedOrigins(
+     editAllowedOrigins.filter((_, index) => index !== indexToRemove)
+   );
  };
 
  const handleView = async (client: Client) => {
- setViewDialogOpen(true);
- setIsLoadingClient(true);
- setClientError("");
- setSelectedClient(null);
+   setViewDialogOpen(true);
+   setIsLoadingClient(true);
+   setClientError("");
+   setSelectedClient(null);
 
- try {
- const fullClientData = await getClientById(client.id);
- setSelectedClient(fullClientData);
- } catch (error: any) {
- setClientError(error.message || "Failed to load client details");
- } finally {
- setIsLoadingClient(false);
- }
+   try {
+     const fullClientData = await getClientById(client.id);
+     setSelectedClient(fullClientData);
+   } catch (error: any) {
+     setClientError(error.message || "Failed to load client details");
+   } finally {
+     setIsLoadingClient(false);
+   }
  };
 
  const handleEdit = async (client: Client) => {
- setEditDialogOpen(true);
- setEditError("");
+   setEditDialogOpen(true);
+   setEditError("");
 
- setClientToEdit(client);
+   setClientToEdit(client);
 
- setEditName(client.name || "");
- setEditDescription(client.description || "");
- setEditRedirectUri(client.redirect_uri || "");
- setEditAllowedOrigins(
- Array.isArray(client.allowed_origins) ? client.allowed_origins : []
- );
- setEditOriginInput("");
+   setEditName(client.name || "");
+   setEditDescription(client.description || "");
+   setEditRedirectUri(client.redirect_uri || "");
+   setEditAllowedOrigins(
+     Array.isArray(client.allowed_origins) ? client.allowed_origins : []
+   );
+   setEditOriginInput("");
 
- setIsLoadingEdit(false);
+   setIsLoadingEdit(false);
  };
 
  const handleSaveEdit = async (e: React.FormEvent) => {
- e.preventDefault();
- if (!clientToEdit) return;
+   e.preventDefault();
+   if (!clientToEdit) return;
 
- setIsSavingEdit(true);
- setEditError("");
+   setIsSavingEdit(true);
+   setEditError("");
 
- try {
- const payload = {
- name: editName,
- description: editDescription,
- redirect_uri: editRedirectUri,
- allowed_origins: editAllowedOrigins.filter(Boolean),
- };
+   try {
+     const payload = {
+       name: editName,
+       description: editDescription,
+       redirect_uri: editRedirectUri,
+       allowed_origins: editAllowedOrigins.filter(Boolean),
+     };
 
- await updateClient(clientToEdit.id, payload);
+     await updateClient(clientToEdit.id, payload);
 
- setClients((prev) =>
- prev.map((c) => (c.id === clientToEdit.id ? { ...c, ...payload } : c))
- );
+     setClients((prev) =>
+       prev.map((c) => (c.id === clientToEdit.id ? { ...c, ...payload } : c))
+     );
 
- setEditDialogOpen(false);
- setClientToEdit(null);
+     setEditDialogOpen(false);
+     setClientToEdit(null);
 
- // Show success message
- setSuccessMessage(`Client "${editName}" has been updated successfully!`);
- setUpdateSuccess(true);
- } catch (error: any) {
- setEditError(error.message || "Failed to update client");
- } finally {
- setIsSavingEdit(false);
- }
+     setSuccessMessage(`Client "${editName}" has been updated successfully!`);
+     setUpdateSuccess(true);
+   } catch (error: any) {
+     setEditError(error.message || "Failed to update client");
+   } finally {
+     setIsSavingEdit(false);
+   }
  };
 
  const handleDelete = (client: Client) => {
- console.log("Deleting client with ID:", client.id);
- setClientToDelete(client);
- setDeleteDialogOpen(true);
+   console.log("Deleting client with ID:", client.id);
+   setClientToDelete(client);
+   setDeleteDialogOpen(true);
  };
 
  const confirmDelete = async () => {
- if (!clientToDelete) return;
+   if (!clientToDelete) return;
+   setIsDeletingClient(true);
 
- console.log("🔵 Full client object:", clientToDelete);
+   try {
+     const clientIdToDelete = clientToDelete.id;
+     await deleteClient(clientIdToDelete);
 
- setIsDeletingClient(true);
+     setClients((prev) => prev.filter((c) => c.id !== clientToDelete.id));
 
- try {
- // The API expects the actual client_id or the ID string.
- const clientIdToDelete = clientToDelete.id; // Assuming ID is the unique identifier for delete API
+     const deletedClientName = clientToDelete.name;
+     setDeleteDialogOpen(false);
+     setClientToDelete(null);
 
- console.log("🔵 Sending to API:", clientIdToDelete);
+     setSuccessMessage(
+       `Client "${deletedClientName}" has been deleted successfully!`
+     );
+     setDeleteSuccess(true);
+   } catch (error: any) {
+     console.error("Delete error:", error);
+     setDeleteDialogOpen(false);
+     setClientToDelete(null);
 
- await deleteClient(clientIdToDelete);
-
- setClients((prev) => prev.filter((c) => c.id !== clientToDelete.id));
-
- const deletedClientName = clientToDelete.name;
- setDeleteDialogOpen(false);
- setClientToDelete(null);
-
- setSuccessMessage(
- `Client "${deletedClientName}" has been deleted successfully!`
- );
- setDeleteSuccess(true);
- } catch (error: any) {
- console.error("Delete error:", error);
- setDeleteDialogOpen(false);
- setClientToDelete(null);
-
- alert(error.message || "Failed to delete client");
- } finally {
- setIsDeletingClient(false);
- }
+     alert(error.message || "Failed to delete client");
+   } finally {
+     setIsDeletingClient(false);
+   }
  };
 
  const handleCreateClient = async (e: React.FormEvent) => {
- e.preventDefault();
- setIsSubmitting(true);
- setFormError("");
+   e.preventDefault();
+   setIsSubmitting(true);
+   setFormError("");
 
- try {
- const payload = {
- name,
- description,
- redirect_uri: redirectUri,
- allowed_origins: allowedOrigins.filter(Boolean),
- };
+   try {
+     const payload = {
+       name,
+       description,
+       redirect_uri: redirectUri,
+       allowed_origins: allowedOrigins.filter(Boolean),
+     };
 
- const result = await createClient(payload);
- setNewClient(result);
- setClients((prev) => [...prev, result]);
- } catch (error: any) {
- setFormError(error.message);
- } finally {
- setIsSubmitting(false);
- }
+     const result = await createClient(payload);
+     setNewClient(result);
+     setClients((prev) => [...prev, result]);
+   } catch (error: any) {
+     setFormError(error.message);
+   } finally {
+     setIsSubmitting(false);
+   }
  };
 
  const handleRegenerateClientSecret = async (clientId: string) => {
- setIsRegenerating(true);
- setRegenerateError("");
+   setIsRegenerating(true);
+   setRegenerateError("");
 
- try {
- const result = await regenerateClientSecret(clientId);
+   try {
+     const result = await regenerateClientSecret(clientId);
 
- setRegeneratedSecret(result);
- setIsRegenDialogOpen(true);
- setIsConfirmDialogOpen(false);
+     setRegeneratedSecret(result);
+     setIsRegenDialogOpen(true);
+     setIsConfirmDialogOpen(false);
 
- setClients((prev) =>
- prev.map((c) =>
- c.id === clientId
- ? { ...c, updated_at: new Date().toISOString() } 
- : c
- )
- );
- } catch (error: any) {
- setRegenerateError(error.message || "Failed to regenerate secret");
- setIsConfirmDialogOpen(false);
- } finally {
- setIsRegenerating(false);
- }
+     setClients((prev) =>
+       prev.map((c) =>
+         c.id === clientId
+           ? { ...c, updated_at: new Date().toISOString() } 
+           : c
+       )
+     );
+   } catch (error: any) {
+     setRegenerateError(error.message || "Failed to regenerate secret");
+     setIsConfirmDialogOpen(false);
+   } finally {
+     setIsRegenerating(false);
+   }
  };
 
  const openConfirmDialog = (client: { id: string; name: string }) => {
- setSelectedClientForRegen({ id: client.id, name: client.name });
- setIsConfirmDialogOpen(true);
+   setSelectedClientForRegen({ id: client.id, name: client.name });
+   setIsConfirmDialogOpen(true);
  };
 
  const resetForm = () => {
- setName("");
- setDescription("");
- setRedirectUri("");
- setAllowedOrigins([]);
- setOriginInput("");
- setFormError("");
- setNewClient(null);
- setIsDialogOpen(false);
+   setName("");
+   setDescription("");
+   setRedirectUri("");
+   setAllowedOrigins([]);
+   setOriginInput("");
+   setFormError("");
+   setNewClient(null);
+   setIsDialogOpen(false);
  };
 
  const copyToClipboard = (text: string) => {
- navigator.clipboard.writeText(text);
+   navigator.clipboard.writeText(text);
  };
 
  const renderCreateDialogContent = () => {
- if (newClient) {
- return (
- <>
- <DialogHeader>
- <DialogTitle className="text-green-600">
- Client Created Successfully!
- </DialogTitle>
- <DialogDescription>
- Copy the Client ID & Secret now — you won't see the secret again.
- </DialogDescription>
- </DialogHeader>
- <div className="space-y-4 py-4">
- <Alert className="border-green-600 bg-green-50 dark:bg-green-950/30">
- <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-500" />
- <AlertDescription className="text-green-800 dark:text-green-200">
- New client has been created successfully!
- </AlertDescription>
- </Alert>
+   if (newClient) {
+     return (
+       <>
+         <DialogHeader>
+           <DialogTitle className="text-green-600">
+             Client Created Successfully!
+           </DialogTitle>
+           <DialogDescription>
+             Copy the Client ID & Secret now — you won't see the secret again.
+           </DialogDescription>
+         </DialogHeader>
+         <div className="space-y-4 py-4">
+           <Alert className="border-green-600 bg-green-50 dark:bg-green-950/30">
+             <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-500" />
+             <AlertDescription className="text-green-800 dark:text-green-200">
+               New client has been created successfully!
+             </AlertDescription>
+           </Alert>
 
- <div>
- <Label>Client ID</Label>
- <div className="flex items-center gap-2">
- <Input
- readOnly
- value={newClient.client_id}
- className="font-mono"
- />
- <Button
- variant="outline"
- size="icon"
- onClick={() => copyToClipboard(newClient.client_id)}
- >
- <Copy className="h-4 w-4" />
- </Button>
- </div>
- </div>
+           <div>
+             <Label>Client ID</Label>
+             <div className="flex items-center gap-2">
+               <Input
+                 readOnly
+                 value={newClient.client_id}
+                 className="font-mono"
+               />
+               <Button
+                 variant="outline"
+                 size="icon"
+                 onClick={() => copyToClipboard(newClient.client_id)}
+               >
+                 <Copy className="h-4 w-4" />
+               </Button>
+             </div>
+           </div>
 
- <div>
- <Label>Client Secret</Label>
- <div className="flex items-center gap-2">
- <Input
- readOnly
- value={newClient.client_secret}
- className="font-mono"
- />
- <Button
- variant="outline"
- size="icon"
- onClick={() => copyToClipboard(newClient.client_secret)}
- >
- <Copy className="h-4 w-4" />
- </Button>
- </div>
- </div>
- </div>
- <Button onClick={resetForm} className="w-full">
- Done
- </Button>
- </>
- );
- }
+           <div>
+             <Label>Client Secret</Label>
+             <div className="flex items-center gap-2">
+               <Input
+                 readOnly
+                 value={newClient.client_secret}
+                 className="font-mono"
+               />
+               <Button
+                 variant="outline"
+                 size="icon"
+                 onClick={() => copyToClipboard(newClient.client_secret)}
+               >
+                 <Copy className="h-4 w-4" />
+               </Button>
+             </div>
+           </div>
+         </div>
+         <Button onClick={resetForm} className="w-full">
+           Done
+         </Button>
+       </>
+     );
+   }
 
- return (
- <>
- <DialogHeader>
- <DialogTitle>Register New Client</DialogTitle>
- <DialogDescription>
- Create a new OAuth2 client application.
- </DialogDescription>
- </DialogHeader>
+   return (
+     <>
+       <DialogHeader>
+         <DialogTitle>Register New Client</DialogTitle>
+         <DialogDescription>
+           Create a new OAuth2 client application.
+         </DialogDescription>
+       </DialogHeader>
 
- <form onSubmit={handleCreateClient} className="space-y-4 py-4">
- {formError && (
- <Alert variant="destructive">
- <AlertCircle className="h-4 w-4" />
- <AlertDescription>{formError}</AlertDescription>
- </Alert>
- )}
- <div className="space-y-2">
- <Label>Application Name</Label>
- <Input
- value={name}
- onChange={(e) => setName(e.target.value)}
- placeholder="My Awesome App"
- required
- />
- </div>
+       <form onSubmit={handleCreateClient} className="space-y-4 py-4">
+         {formError && (
+           <Alert variant="destructive">
+             <AlertCircle className="h-4 w-4" />
+             <AlertDescription>{formError}</AlertDescription>
+           </Alert>
+         )}
+         <div className="space-y-2">
+           <Label>Application Name</Label>
+           <Input
+             value={name}
+             onChange={(e) => setName(e.target.value)}
+             placeholder="My Awesome App"
+             required
+           />
+         </div>
 
- <div className="space-y-2">
- <Label>Description</Label>
- <Input
- value={description}
- onChange={(e) => setDescription(e.target.value)}
- placeholder="A short description of the app"
- />
- </div>
+         <div className="space-y-2">
+           <Label>Description</Label>
+           <Input
+             value={description}
+             onChange={(e) => setDescription(e.target.value)}
+             placeholder="A short description of the app"
+           />
+         </div>
 
- <div className="space-y-2">
- <Label>Redirect URI</Label>
- <Input
- value={redirectUri}
- onChange={(e) => setRedirectUri(e.target.value)}
- placeholder="https://app.example.com/callback"
- required
- />
- </div>
+         <div className="space-y-2">
+           <Label>Redirect URI</Label>
+           <Input
+             value={redirectUri}
+             onChange={(e) => setRedirectUri(e.target.value)}
+             placeholder="https://app.example.com/callback"
+             required
+           />
+         </div>
 
- <div className="space-y-2">
- <Label>Allowed Origins</Label>
- <div className="min-h-[42px] px-3 py-2 border border-input rounded-md focus-within:ring-2 focus-within:ring-ring bg-background">
- <div className="flex flex-wrap gap-2 items-center">
- {allowedOrigins.map((origin, index) => (
- <div
- key={index}
- className="inline-flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded text-sm"
- >
- <span>{origin}</span>
- <button
- type="button"
- onClick={() => handleRemoveOrigin(index)}
- className="hover:bg-primary/20 rounded p-0.5 transition-colors"
- >
- <X size={14} />
- </button>
- </div>
- ))}
- <input
- type="text"
- value={originInput}
- onChange={(e) => setOriginInput(e.target.value)}
- onKeyDown={handleAddOrigin}
- placeholder={
- allowedOrigins.length === 0 ? "https://app.example.com" : ""
- }
- className="flex-1 min-w-[120px] outline-none bg-transparent text-sm"
- />
- </div>
- </div>
- <p className="text-xs text-muted-foreground">
- Press Enter to add each origin
- </p>
- </div>
- <Button type="submit" disabled={isSubmitting} className="w-full">
- {isSubmitting && <Loader2 className="animate-spin mr-2" />}
- {isSubmitting ? "Creating..." : "Create Client"}
- </Button>
- </form>
- </>
- );
+         <div className="space-y-2">
+           <Label>Allowed Origins</Label>
+           <div className="min-h-[42px] px-3 py-2 border border-input rounded-md focus-within:ring-2 focus-within:ring-ring bg-background">
+             <div className="flex flex-wrap gap-2 items-center">
+               {allowedOrigins.map((origin, index) => (
+                 <div
+                   key={index}
+                   className="inline-flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded text-sm"
+                 >
+                   <span>{origin}</span>
+                   <button
+                     type="button"
+                     onClick={() => handleRemoveOrigin(index)}
+                     className="hover:bg-primary/20 rounded p-0.5 transition-colors"
+                   >
+                     <X size={14} />
+                   </button>
+                 </div>
+               ))}
+               <input
+                 type="text"
+                 value={originInput}
+                 onChange={(e) => setOriginInput(e.target.value)}
+                 onKeyDown={handleAddOrigin}
+                 placeholder={
+                   allowedOrigins.length === 0 ? "https://app.example.com" : ""
+                 }
+                 className="flex-1 min-w-[120px] outline-none bg-transparent text-sm"
+               />
+             </div>
+           </div>
+           <p className="text-xs text-muted-foreground">
+             Press Enter to add each origin
+           </p>
+         </div>
+         <Button type="submit" disabled={isSubmitting} className="w-full">
+           {isSubmitting && <Loader2 className="animate-spin mr-2" />}
+           {isSubmitting ? "Creating..." : "Create Client"}
+         </Button>
+       </form>
+     </>
+   );
  };
 
  return (
- <AdminLayout>
- <div className="space-y-6">
- </div>
- {/* HEADER */}
- <div className="flex items-center justify-between">
- <div>
- <h2 className="text-3xl font-bold">Client Management</h2>
- <p className="text-muted-foreground">
- Manage OAuth2 client applications
- </p>
- </div>
+   <AdminLayout>
+     <div className="space-y-6">
+       {/* HEADER */}
+       <div className="flex items-center justify-between">
+         <div>
+           <h2 className="text-3xl font-bold">Client Management</h2>
+           <p className="text-muted-foreground">
+             Manage OAuth2 client applications
+           </p>
+         </div>
 
- <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
- <DialogTrigger asChild>
- <Button onClick={() => setNewClient(null)}>
- <Plus className="mr-2 h-4 w-4" /> Register Client
- </Button>
- </DialogTrigger>
- <DialogContent className="max-w-md">
- {renderCreateDialogContent()}
- </DialogContent>
- </Dialog>
- </div>
+         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+           <DialogTrigger asChild>
+             <Button onClick={() => setNewClient(null)}>
+               <Plus className="mr-2 h-4 w-4" /> Register Client
+             </Button>
+           </DialogTrigger>
+           <DialogContent className="max-w-md">
+             {renderCreateDialogContent()}
+           </DialogContent>
+         </Dialog>
+       </div>
 
- {/* SUCCESS ALERTS */}
- {updateSuccess && (
- <Alert className="border-green-600 bg-green-50 dark:bg-green-950/30">
- <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-500" />
- <AlertDescription className="text-green-800 dark:text-green-200">
- {successMessage}
- </AlertDescription>
- </Alert>
- )}
+       {/* SUCCESS ALERTS */}
+       {updateSuccess && (
+         <Alert className="border-green-600 bg-green-50 dark:bg-green-950/30">
+           <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-500" />
+           <AlertDescription className="text-green-800 dark:text-green-200">
+             {successMessage}
+           </AlertDescription>
+         </Alert>
+       )}
 
- {deleteSuccess && (
- <Alert className="border-green-600 bg-green-50 dark:bg-green-950/30">
- <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-500" />
- <AlertDescription className="text-green-800 dark:text-green-200">
- {successMessage}
- </AlertDescription>
- </Alert>
- )}
+       {deleteSuccess && (
+         <Alert className="border-green-600 bg-green-50 dark:bg-green-950/30">
+           <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-500" />
+           <AlertDescription className="text-green-800 dark:text-green-200">
+             {successMessage}
+           </AlertDescription>
+         </Alert>
+       )}
 
- {/* TABLE */}
- <Card>
- <CardHeader>
- <CardTitle>Registered Clients</CardTitle>
- </CardHeader>
+       {/* TABLE */}
+       <Card>
+         <CardHeader>
+           <CardTitle>Registered Clients</CardTitle>
+         </CardHeader>
 
- <CardContent>
- {isLoading && (
- <div className="text-center p-8">
- <Loader2 className="animate-spin h-8 w-8 mx-auto" />
- </div>
- )}
+         <CardContent>
+           {isLoading && (
+             <div className="text-center p-8">
+               <Loader2 className="animate-spin h-8 w-8 mx-auto" />
+             </div>
+           )}
 
- {fetchError && (
- <Alert variant="destructive">
- <AlertCircle className="h-4 w-4" />
- <AlertDescription>{fetchError}</AlertDescription>
- </Alert>
- )}
+           {fetchError && (
+             <Alert variant="destructive">
+               <AlertCircle className="h-4 w-4" />
+               <AlertDescription>{fetchError}</AlertDescription>
+             </Alert>
+           )}
 
- {regenerateError && (
- <Alert variant="destructive" className="mb-4">
- <AlertCircle className="h-4 w-4" />
- <AlertDescription>{regenerateError}</AlertDescription>
- </Alert>
- )}
+           {regenerateError && (
+             <Alert variant="destructive" className="mb-4">
+               <AlertCircle className="h-4 w-4" />
+               <AlertDescription>{regenerateError}</AlertDescription>
+             </Alert>
+           )}
 
- {!isLoading && !fetchError && clients.length === 0 && (
- <p className="text-center text-muted-foreground p-8">
- No clients registered yet.
- </p>
- )}
+           {!isLoading && !fetchError && clients.length === 0 && (
+             <p className="text-center text-muted-foreground p-8">
+               No clients registered yet.
+             </p>
+           )}
 
- {!isLoading && !fetchError && clients.length > 0 && (
- <Table>
- <TableHeader>
- <TableRow>
- <TableHead>Name</TableHead>
- <TableHead>Client ID</TableHead>
- <TableHead>Redirect URI</TableHead>
- <TableHead>Created</TableHead>
- <TableHead className="text-right">Actions</TableHead>
- </TableRow>
- </TableHeader>
+           {!isLoading && !fetchError && clients.length > 0 && (
+             <Table>
+               <TableHeader>
+                 <TableRow>
+                   <TableHead>Name</TableHead>
+                   <TableHead>Client ID</TableHead>
+                   <TableHead>Redirect URI</TableHead>
+                   <TableHead>Created</TableHead>
+                   <TableHead className="text-right">Actions</TableHead>
+                 </TableRow>
+               </TableHeader>
 
- <TableBody>
- {clients.map((client) => (
- <TableRow key={client.id}>
- <TableCell className="font-medium">{client.name}</TableCell>
- <TableCell className="font-mono text-sm">
- {client.client_id}
- </TableCell>
- <TableCell className="text-sm">
- {client.redirect_uri}
- </TableCell>
- <TableCell className="text-sm text-muted-foreground">
- {format(new Date(client.created_at), "yyyy-MM-dd")}
- </TableCell>
+               <TableBody>
+                 {clients.map((client) => (
+                   <TableRow key={client.id}>
+                     <TableCell className="font-medium">{client.name}</TableCell>
+                     <TableCell className="font-mono text-sm">
+                       {client.client_id}
+                     </TableCell>
+                     <TableCell className="text-sm">
+                       {client.redirect_uri}
+                     </TableCell>
+                     <TableCell className="text-sm text-muted-foreground">
+                       {format(new Date(client.created_at), "yyyy-MM-dd")}
+                     </TableCell>
 
- <TableCell className="text-right">
- <div className="flex justify-end gap-2">
- <Button
- variant="ghost"
- size="icon"
- onClick={() => handleView(client)}
- >
- <Eye className="h-4 w-4" />
- </Button>
- <Button
- variant="ghost"
- size="icon"
- onClick={() => handleEdit(client)}
- >
- <Edit className="h-4 w-4" />
- </Button>
- <Button
- variant="ghost"
- size="icon"
- onClick={() =>
- openConfirmDialog({
- id: client.id,
- name: client.name,
- })
- }
- disabled={isRegenerating}
- >
- <RefreshCcw
- className={`h-4 w-4 ${
- isRegenerating ? "animate-spin" : ""
- }`}
- />
- </Button>
- <Button
- variant="ghost"
- size="icon"
- onClick={() => handleDelete(client)}
- >
- <Trash2 className="h-4 w-4 text-destructive" />
- </Button>
- </div>
- </TableCell>
- </TableRow>
- ))}
- </TableBody>
- </Table>
- )}
- </CardContent>
- </Card>
+                     <TableCell className="text-right">
+                       <div className="flex justify-end gap-2">
+                         <Button
+                           variant="ghost"
+                           size="icon"
+                           onClick={() => handleView(client)}
+                         >
+                           <Eye className="h-4 w-4" />
+                         </Button>
+                         <Button
+                           variant="ghost"
+                           size="icon"
+                           onClick={() => handleEdit(client)}
+                         >
+                           <Edit className="h-4 w-4" />
+                         </Button>
+                         <Button
+                           variant="ghost"
+                           size="icon"
+                           onClick={() =>
+                             openConfirmDialog({
+                               id: client.id,
+                               name: client.name,
+                             })
+                           }
+                           disabled={isRegenerating}
+                         >
+                           <RefreshCcw
+                             className={`h-4 w-4 ${
+                               isRegenerating ? "animate-spin" : ""
+                             }`}
+                           />
+                         </Button>
+                         <Button
+                           variant="ghost"
+                           size="icon"
+                           onClick={() => handleDelete(client)}
+                         >
+                           <Trash2 className="h-4 w-4 text-destructive" />
+                         </Button>
+                       </div>
+                     </TableCell>
+                   </TableRow>
+                 ))}
+               </TableBody>
+             </Table>
+           )}
+         </CardContent>
+         </Card>
 
  {/* Confirm Regenerate Secret Dialog */}
  <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
@@ -1023,6 +1024,7 @@ export default function AdminClientsPage() {
  </div>
  </DialogContent>
  </Dialog>
+ </div>
  </AdminLayout>
  );
 }

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   BadRequestException,
   Body,
@@ -114,12 +116,29 @@ export class AuthController {
 
   @Get('linkedin')
   @UseGuards(AuthGuard('linkedin'))
-  linkedinLogin() {}
+  linkedinLogin(
+    @Query('client_id') clientId: string,
+    @Query('redirect_uri') redirectUri: string,
+    @Query('state') state: string,
+    @Req() req: Request & { session?: any },
+  ) {
+
+    // Store OAuth params in session for callback
+
+    if (clientId && redirectUri) {
+      req.session = req.session || {};
+      req.session.oauth = {
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        state,
+      };
+    }
+  }
 
   @Get('linkedin/callback')
   @UseGuards(AuthGuard('linkedin'))
   async linkedinCallback(
-    @Req() req: Request & { user?: any },
+    @Req() req: Request & { user?: any; session?: any },
     @Res() res: Response,
   ) {
     if (!req.user) {
@@ -134,8 +153,41 @@ export class AuthController {
     }
 
     try {
-      const { accessToken, refreshToken, user } =
-        await this.authService.linkedinLogin(req.user);
+      // Extract OAuth params from session (stored during initial /linkedin call)
+      const oauthParams = req.session?.oauth;
+
+      // Call linkedinLogin with OAuth params
+      const result = await this.authService.linkedinLogin(
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        req.user,
+        oauthParams
+          ? {
+              client_id: oauthParams.client_id,
+              redirect_uri: oauthParams.redirect_uri,
+              state: oauthParams.state,
+            }
+          : undefined,
+      );
+
+      // Clear OAuth params from session
+
+      if (req.session?.oauth) {
+        delete req.session.oauth;
+      }
+
+      // -------------------- OAuth2 Authorization Code Flow --------------------
+      
+      if ('redirect_uri' in result && result.redirect_uri) {
+        // Redirect back to IAA frontend with authorization code
+        return res.redirect(result.redirect_uri);
+      }
+
+      // -------------------- Direct Login (No OAuth2 Client) --------------------
+      const { accessToken, refreshToken, user } = result;
+
+      if (!user || !accessToken || !refreshToken) {
+        throw new Error('Invalid response from linkedinLogin');
+      }
 
       const frontendUrl = (
         process.env.FRONTEND_URL ||

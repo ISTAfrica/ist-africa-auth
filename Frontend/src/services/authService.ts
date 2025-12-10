@@ -10,7 +10,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 export const getAuthHeaders = () => {
   const token = localStorage.getItem("accessToken");
   if (!token) {
-    throw new Error("No access token found.");
+    throw new Error("No access token found. Please log in.");
   }
 
   return {
@@ -19,7 +19,42 @@ export const getAuthHeaders = () => {
   };
 };
 
-
+// Helper function to extract tokens from URL and store them
+export const extractAndStoreTokensFromURL = () => {
+  if (typeof window === 'undefined') return false;
+  
+  const params = new URLSearchParams(window.location.search);
+  
+  const accessToken = params.get('accessToken');
+  const refreshToken = params.get('refreshToken');
+  const role = params.get('role');
+  const userId = params.get('userId');
+  const name = params.get('name');
+  const email = params.get('email');
+  
+  if (accessToken && refreshToken) {
+    // Store tokens
+    localStorage.setItem('accessToken', accessToken);
+    localStorage.setItem('refreshToken', refreshToken);
+    
+    // Store user data
+    const user = {
+      id: userId,
+      name: name,
+      email: email,
+      role: role,
+    };
+    localStorage.setItem('user', JSON.stringify(user));
+    
+    // Clean URL (remove sensitive data)
+    window.history.replaceState({}, document.title, window.location.pathname);
+    
+    console.log('✅ Tokens stored successfully! User role:', role);
+    return true;
+  }
+  
+  return false;
+};
 
 export const authenticateUser = async (credentials: AuthenticateUserDto) => {
   const response = await fetch(`${API_BASE_URL}/api/auth/authenticate`, {
@@ -38,7 +73,6 @@ export const authenticateUser = async (credentials: AuthenticateUserDto) => {
 
   return data;
 };
-
 
 export const getProfile = async () => {
   const response = await fetch(`${API_BASE_URL}/api/user/me`, {
@@ -150,7 +184,6 @@ export const uploadAvatar = async (file: File) => {
   return response.json();
 };
 
-
 export const loginWithLinkedIn = async () => {
   try {
     const redirectAfterLogin = window.location.pathname;
@@ -163,13 +196,13 @@ export const loginWithLinkedIn = async () => {
       throw new Error('Could not get LinkedIn authorization URL');
     }
     
-
     window.location.href = url;
   } catch (error) {
     console.error('Error in loginWithLinkedIn:', error);
     throw error;
   }
 };
+
 export const handleLinkedInCallback = async (code: string) => {
   try {
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/linkedin/callback?code=${code}`, {
