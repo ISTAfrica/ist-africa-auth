@@ -186,8 +186,7 @@ export class AuthService {
 
   // -------------------- Authenticate --------------------
   async authenticate(authenticateDto: AuthenticateUserDto) {
-    const { email, password, client_id, redirect_uri, state } =
-      authenticateDto;
+    const { email, password, client_id, redirect_uri, state } = authenticateDto;
 
     const user = await this.userModel.findOne({ where: { email } });
     if (!user) throw new NotFoundException('User not found');
@@ -394,7 +393,9 @@ export class AuthService {
     // 5. Load user
     const user = await this.userModel.findByPk(authCode.userId);
     if (!user) {
-      throw new NotFoundException('User linked to authorization code not found');
+      throw new NotFoundException(
+        'User linked to authorization code not found',
+      );
     }
 
     // 6. Generate tokens
@@ -435,6 +436,90 @@ export class AuthService {
       access_token: tokenPair.accessToken,
       refresh_token: tokenPair.refreshToken,
       token_type: 'Bearer',
+    };
+  }
+
+  // -------------------- LinkedIn Login --------------------
+
+  async linkedinLogin(profile: {
+    linkedinId: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    picture: string;
+  }) {
+    let user = await this.userModel.findOne({
+      where: { linkedinId: profile.linkedinId },
+    });
+
+    if (user) {
+      await user.update({
+        profilePicture: profile.picture,
+      });
+    }
+    if (!user && profile.email) {
+      const userByEmail = await this.userModel.findOne({
+        where: { email: profile.email },
+      });
+
+      if (userByEmail) {
+        await userByEmail.update({
+          linkedinId: profile.linkedinId,
+          profilePicture: profile.picture,
+          isVerified: true,
+        });
+        user = userByEmail;
+      }
+    }
+    if (!user) {
+      const fullName =
+        `${profile.firstName || ''} ${profile.lastName || ''}`.trim() ||
+        'LinkedIn User';
+      const domainsEnv = this.configService.get<string>('IST_DOMAINS') || '';
+      const istDomains = domainsEnv
+        .split(',')
+        .map((d) => d.trim().toLowerCase())
+        .filter((d) => d.length > 0);
+
+      const emailDomain = profile.email?.split('@')[1]?.toLowerCase();
+      const membershipStatus = istDomains.includes(emailDomain)
+        ? 'ist_member'
+        : 'ext_member';
+
+      user = await this.userModel.create({
+        linkedinId: profile.linkedinId,
+        email: profile.email,
+        name: fullName,
+        profilePicture: profile.picture,
+        isVerified: true,
+        role: 'user',
+        password: '',
+        membershipStatus,
+        verificationToken: null,
+        otp: null,
+        otpExpiresAt: null,
+      });
+    }
+    const { accessToken, refreshToken } = await this.jwtTokenIssuer.issueTokens(
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        profilePicture: user.profilePicture,
+      },
+    );
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        membershipStatus: user.membershipStatus,
+        profilePicture: user.profilePicture,
+        isVerified: user.isVerified,
+      },
     };
   }
 }
