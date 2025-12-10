@@ -103,7 +103,6 @@ export class AuthController {
     @Body('role') role: 'user' | 'admin',
     @Req() req: Request & { user?: any },
   ) {
-    console.log('Request user:', req.user);
     const id = Number(userId);
 
     const callerRole = req.user?.role || req.user?.role;
@@ -135,7 +134,6 @@ export class AuthController {
     }
 
     try {
-      // Extract the full response including user data
       const { accessToken, refreshToken, user } =
         await this.authService.linkedinLogin(req.user);
 
@@ -145,11 +143,8 @@ export class AuthController {
         'http://localhost:3000'
       ).replace(/\/$/, '');
 
-      // Determine redirect path based on user role
       const redirectPath =
         user.role === 'admin' ? '/admin/clients' : '/user/profile';
-
-      // Redirect directly to the user's dashboard with auth params
       const redirectUrl = `${frontendUrl}${redirectPath}?accessToken=${encodeURIComponent(
         accessToken,
       )}&refreshToken=${encodeURIComponent(refreshToken)}&userId=${encodeURIComponent(

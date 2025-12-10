@@ -203,9 +203,6 @@ export class AuthService {
 
     // -------------------- OAuth2 Authorization Code Flow --------------------
     if (client_id && redirect_uri) {
-      console.log(
-        `[AuthService] Detected OAuth2 Authorization Code flow for client: ${client_id}`,
-      );
 
       const client = await this.clientModel.findOne({ where: { client_id } });
       if (!client) {

@@ -21,9 +21,6 @@ export class LinkedInStrategy extends PassportStrategy(Strategy, 'linkedin') {
 
   async validate(accessToken: string): Promise<any> {
     try {
-      console.log('=== LinkedIn Strategy Validate ===');
-      console.log('Access Token:', accessToken ? '✓ Present' : '✗ Missing');
-
       const response = await fetch('https://api.linkedin.com/v2/userinfo', {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -43,9 +40,6 @@ export class LinkedInStrategy extends PassportStrategy(Strategy, 'linkedin') {
 
       const profile = await response.json();
 
-      console.log('=== RAW LinkedIn Profile Response ===');
-      console.log(JSON.stringify(profile, null, 2));
-      console.log('=====================================');
 
       // LinkedIn OpenID Connect returns picture in the 'picture' field
       const userData = {
@@ -57,15 +51,6 @@ export class LinkedInStrategy extends PassportStrategy(Strategy, 'linkedin') {
         picture:
           profile.picture || profile.profilePicture || profile.photo || null,
       };
-
-      console.log('=== Processed User Data ===');
-      console.log('LinkedIn ID:', userData.linkedinId);
-      console.log('Email:', userData.email);
-      console.log('First Name:', userData.firstName);
-      console.log('Last Name:', userData.lastName);
-      console.log('Picture URL:', userData.picture);
-      console.log('Picture found:', userData.picture ? '✓ YES' : '✗ NO');
-      console.log('===========================');
 
       return userData;
     } catch (error) {

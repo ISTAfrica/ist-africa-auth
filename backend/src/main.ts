@@ -17,7 +17,6 @@ async function bootstrap() {
       transform: true,
     }),
   );
-  // Add session middleware
   app.use(
     session({
       secret:
@@ -25,9 +24,9 @@ async function bootstrap() {
       resave: false,
       saveUninitialized: false,
       cookie: {
-        maxAge: 3600000, // 1 hour
+        maxAge: 3600000,
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production', // true in production with HTTPS
+        secure: process.env.NODE_ENV === 'production',
       },
     }),
   );
