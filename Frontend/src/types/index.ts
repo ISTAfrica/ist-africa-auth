@@ -23,5 +23,5 @@ export interface UserProfile {
   name: string | null;
   email: string;
   createdAt: string;
-  profilePicture?: string;
+  avatarUrl?: string;
 }

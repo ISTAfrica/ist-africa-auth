@@ -37,7 +37,6 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [linkedinLoading, setLinkedinLoading] = useState(false);
   const [error, setError] = useState('');
   const [resetSent, setResetSent] = useState(false);
 
@@ -48,14 +47,6 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
   const redirectUriFromUrl = searchParams.get('redirect_uri');
   const stateFromUrl = searchParams.get('state');
   const isForgotPassword = searchParams.get('forgot') === 'true' || forgotPasswordInitial;
-
-  // LinkedIn error handling
-  useEffect(() => {
-    const errorFromUrl = searchParams.get('error');
-    if (errorFromUrl) {
-      setError(decodeURIComponent(errorFromUrl));
-    }
-  }, [searchParams]);
 
   useEffect(() => {
     if (clientIdFromUrl) {
@@ -119,27 +110,6 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
       }
       setLoading(false);
     }
-  };
-
-  const handleLinkedInLogin = () => {
-    setLinkedinLoading(true);
-    setError('');
-    
-    // Build LinkedIn OAuth URL with all necessary parameters
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-    let linkedinUrl = `${baseUrl}/api/auth/linkedin`;
-    
-    // If this is an OAuth flow, pass the client parameters to LinkedIn auth
-    if (isOauthFlow && clientIdFromUrl) {
-      const params = new URLSearchParams({
-        client_id: clientIdFromUrl,
-        redirect_uri: redirectUriFromUrl || '',
-        state: stateFromUrl || '',
-      });
-      linkedinUrl += `?${params.toString()}`;
-    }
-    
-    window.location.href = linkedinUrl;
   };
 
   const handlePasswordReset = async (e: React.FormEvent) => {
@@ -223,7 +193,7 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
             </Alert>
           )}
 
-          <fieldset disabled={loading || linkedinLoading || (isOauthFlow && !clientInfo)}>
+          <fieldset disabled={loading || (isOauthFlow && !clientInfo)}>
             <div className="space-y-2">
               <Label htmlFor="email">Email Address</Label>
               <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -240,7 +210,7 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
             </button>
           </div>
 
-          <Button type="submit" className="w-full font-semibold" disabled={loading || linkedinLoading || (isOauthFlow && !clientInfo)}>
+          <Button type="submit" className="w-full font-semibold" disabled={loading || (isOauthFlow && !clientInfo)}>
             {loading ? <Loader2 className="animate-spin" /> : 'Sign In'}
           </Button>
 
@@ -249,23 +219,13 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
             <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">Or continue with</span></div>
           </div>
 
-          <Button 
-            type="button"
-            onClick={handleLinkedInLogin}
-            variant="outline" 
-            className="w-full font-semibold bg-linkedin text-white hover:bg-linkedin/90 border-linkedin"
-            disabled={loading || linkedinLoading || (isOauthFlow && !clientInfo)}
-          >
-            {linkedinLoading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Linkedin className="mr-2 h-4 w-4" />
-            )}
+          <Button type="button" variant="outline" className="w-full font-semibold bg-linkedin text-white hover:bg-linkedin/90 border-linkedin">
+            <Linkedin className="mr-2 h-4 w-4" />
             Continue with LinkedIn
           </Button>
 
           <p className="text-center text-sm text-muted-foreground pt-4">
-            Don&apos;t have an account?{' '}
+            Don’t have an account?{' '}
             <Link href="/auth/signup" className="font-medium text-primary hover:underline">
               Sign up
             </Link>

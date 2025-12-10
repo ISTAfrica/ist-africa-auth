@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -12,7 +13,6 @@ import {
   Patch,
   Req,
   UseGuards,
-  Res,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterUserDto } from './dto/register-user.dto';
@@ -20,9 +20,10 @@ import { AuthenticateUserDto } from './dto/authenticate-user.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
-import { AuthGuard } from '@nestjs/passport';
-import type { Request, Response } from 'express';
+import { ClientCredentialsDto } from './dto/client-credentials.dto';
+
 @Controller('api/auth')
+// @UseGuards(JwtAuthGuard)
 export class AuthController {
   constructor(private authService: AuthService) {}
 
@@ -75,6 +76,19 @@ export class AuthController {
     return this.authService.refreshTokens(refreshToken);
   }
 
+  @Post('tokens')
+  @HttpCode(HttpStatus.OK)
+  async exchangeAuthCode(
+    @Query('code') code: string | undefined,
+    @Body(new ValidationPipe()) credentials: ClientCredentialsDto,
+  ) {
+    if (!code) {
+      throw new BadRequestException('Authorization code (code) is required');
+    }
+
+    return this.authService.exchangeAuthCode(code, credentials);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Patch('users/:id/role')
   async updateRole(
@@ -82,61 +96,11 @@ export class AuthController {
     @Body('role') role: 'user' | 'admin',
     @Req() req: Request & { user?: any },
   ) {
+    console.log('Request user:', req.user);
     const id = Number(userId);
-
+    
     const callerRole = req.user?.role || req.user?.role;
-
+    
     return this.authService.updateUserRole(callerRole, id, role);
-  }
-
-  // -------------------- LinkedIn OAuth2 Routes --------------------
-
-  @Get('linkedin')
-  @UseGuards(AuthGuard('linkedin'))
-  linkedinLogin() {}
-
-  @Get('linkedin/callback')
-  @UseGuards(AuthGuard('linkedin'))
-  async linkedinCallback(
-    @Req() req: Request & { user?: any },
-    @Res() res: Response,
-  ) {
-    if (!req.user) {
-      const frontendUrl = (
-        process.env.FRONTEND_URL ||
-        process.env.NEXT_PUBLIC_FRONTEND_URL ||
-        'http://localhost:3000'
-      ).replace(/\/$/, '');
-      return res.redirect(
-        `${frontendUrl}/auth/login?error=linkedin_auth_failed`,
-      );
-    }
-
-    try {
-      const { accessToken, refreshToken } =
-        await this.authService.linkedinLogin(req.user);
-
-      const frontendUrl = (
-        process.env.FRONTEND_URL ||
-        process.env.NEXT_PUBLIC_FRONTEND_URL ||
-        'http://localhost:3000'
-      ).replace(/\/$/, '');
-
-      const redirectUrl = `${frontendUrl}/auth/linkedin/callback?accessToken=${encodeURIComponent(
-        accessToken,
-      )}&refreshToken=${encodeURIComponent(refreshToken)}`;
-
-      return res.redirect(redirectUrl);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (error) {
-      const frontendUrl = (
-        process.env.FRONTEND_URL ||
-        process.env.NEXT_PUBLIC_FRONTEND_URL ||
-        'http://localhost:3000'
-      ).replace(/\/$/, '');
-      return res.redirect(
-        `${frontendUrl}/auth/login?error=linkedin_processing_failed`,
-      );
-    }
   }
 }
