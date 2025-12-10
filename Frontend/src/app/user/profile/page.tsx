@@ -60,7 +60,6 @@ export default function ProfilePage() {
       const refreshToken = searchParams.get('refreshToken');
       
       if (accessToken && refreshToken) {
-        console.log('🟡 Processing LinkedIn authentication...');
         
         try {
           // Store tokens
@@ -88,17 +87,14 @@ export default function ProfilePage() {
           if (profilePicture) {
             localStorage.setItem('profilePicture', profilePicture);
             setProfilePictureUrl(profilePicture);
-            console.log('🟡 ✓ Profile picture stored:', profilePicture);
           }
           if (isVerified) localStorage.setItem('isVerified', isVerified);
-
-          console.log('🟡 ✓ Authentication complete, cleaning URL...');
           
           // Clean the URL by removing query params
           router.replace('/user/profile');
           
         } catch (err) {
-          console.error('🟡 ❌ Token decode error:', err);
+          console.error(' Token decode error:', err);
           router.replace('/auth/login?error=Invalid token');
         }
       }
@@ -113,7 +109,6 @@ export default function ProfilePage() {
         // Check localStorage for profile picture first
         const storedPicture = localStorage.getItem('profilePicture');
         if (storedPicture) {
-          console.log('✓ Profile picture loaded from localStorage:', storedPicture);
           setProfilePictureUrl(storedPicture);
         }
 
