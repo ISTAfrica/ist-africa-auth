@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, ChangeEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
+import { jwtDecode } from 'jwt-decode';
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -21,18 +22,27 @@ import { Separator } from "@/components/ui/separator";
 
 import { getProfile, updateProfile, uploadAvatar } from "@/services/authService";
 
+interface DecodedToken {
+  sub: string;
+  role: 'user' | 'admin';
+  iat?: number;
+  exp?: number;
+}
+
 type UserProfile = {
   id: number;
   name: string | null;
   email: string;
   createdAt: string;
-  avatarUrl?: string;
+  profilePicture?: string;
 };
 
 export default function ProfilePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
 
   const [editedName, setEditedName] = useState("");
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
@@ -44,11 +54,77 @@ export default function ProfilePage() {
   const editDialogCloseRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
+    const processAuth = () => {
+      // Check if this is a LinkedIn redirect with auth params
+      const accessToken = searchParams.get('accessToken');
+      const refreshToken = searchParams.get('refreshToken');
+      
+      if (accessToken && refreshToken) {
+        console.log('🟡 Processing LinkedIn authentication...');
+        
+        try {
+          // Store tokens
+          localStorage.setItem('accessToken', accessToken);
+          localStorage.setItem('refreshToken', refreshToken);
+
+          // Decode and store user ID
+          const decodedToken = jwtDecode<DecodedToken>(accessToken);
+          localStorage.setItem('userId', decodedToken.sub);
+
+          // Store additional user data from URL params
+          const userId = searchParams.get('userId');
+          const name = searchParams.get('name');
+          const email = searchParams.get('email');
+          const role = searchParams.get('role');
+          const membershipStatus = searchParams.get('membershipStatus');
+          const isVerified = searchParams.get('isVerified');
+          const profilePicture = searchParams.get('profilePicture');
+
+          if (userId) localStorage.setItem('userId', userId);
+          if (name) localStorage.setItem('userName', name);
+          if (email) localStorage.setItem('userEmail', email);
+          if (role) localStorage.setItem('userRole', role);
+          if (membershipStatus) localStorage.setItem('membershipStatus', membershipStatus);
+          if (profilePicture) {
+            localStorage.setItem('profilePicture', profilePicture);
+            setProfilePictureUrl(profilePicture);
+            console.log('🟡 ✓ Profile picture stored:', profilePicture);
+          }
+          if (isVerified) localStorage.setItem('isVerified', isVerified);
+
+          console.log('🟡 ✓ Authentication complete, cleaning URL...');
+          
+          // Clean the URL by removing query params
+          router.replace('/user/profile');
+          
+        } catch (err) {
+          console.error('🟡 ❌ Token decode error:', err);
+          router.replace('/auth/login?error=Invalid token');
+        }
+      }
+    };
+
+    processAuth();
+  }, [searchParams, router]);
+
+  useEffect(() => {
     const fetchProfileData = async () => {
       try {
+        // Check localStorage for profile picture first
+        const storedPicture = localStorage.getItem('profilePicture');
+        if (storedPicture) {
+          console.log('✓ Profile picture loaded from localStorage:', storedPicture);
+          setProfilePictureUrl(storedPicture);
+        }
+
         const profileData = await getProfile();
         setUser(profileData);
         setEditedName(profileData.name || "");
+        
+        // Use API profile picture if available and localStorage doesn't have one
+        if (!storedPicture && profileData.profilePicture) {
+          setProfilePictureUrl(profileData.profilePicture);
+        }
       } catch (error) {
         console.error("Failed to fetch profile, redirecting...", error);
         router.push("/auth/login");
@@ -83,6 +159,11 @@ export default function ProfilePage() {
     try {
       const updatedUser = await uploadAvatar(file);
       setUser(updatedUser);
+      // Update the profile picture URL if returned from API
+      if (updatedUser.profilePicture) {
+        setProfilePictureUrl(updatedUser.profilePicture);
+        localStorage.setItem('profilePicture', updatedUser.profilePicture);
+      }
     } catch (err: any) {
       setAvatarError(err.message || "Upload failed.");
     } finally {
@@ -101,6 +182,9 @@ export default function ProfilePage() {
 
   if (!user) return null;
 
+  // Use profilePictureUrl (from localStorage or API) or fall back to user.profilePicture
+  const displayPictureUrl = profilePictureUrl || user.profilePicture;
+
   return (
     <div className="space-y-6">
       <Card>
@@ -111,8 +195,8 @@ export default function ProfilePage() {
         <CardContent className="flex flex-col md:flex-row gap-6">
           <div className="flex flex-col items-center gap-4">
             <Avatar className="h-32 w-32">
-              <AvatarImage src={user.avatarUrl} alt={user.name || "User"} />
-              <AvatarFallback>{user.name?.split(" ").map(n => n[0]).join("")}</AvatarFallback>
+              <AvatarImage src={displayPictureUrl} alt={user.name || "User"} />
+              <AvatarFallback>{user.name?.split(" ").map(n => n[0]).join("").toUpperCase()}</AvatarFallback>
             </Avatar>
             <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
             <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>

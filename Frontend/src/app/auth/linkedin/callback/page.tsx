@@ -1,26 +1,15 @@
-// Frontend/src/app/auth/callback/page.tsx
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
 
-export default function CallbackPage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    // This is just a fallback in case the popup was closed
-    // The main logic happens in the LoginForm component
-    router.push('/');
-  }, [router]);
+export default function LinkedInCallback() {
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold mb-4">Completing Login...</h1>
-        <p>Please wait while we log you in.</p>
-        <p className="mt-2 text-sm text-gray-500">
-          If you're not redirected automatically, <a href="/" className="text-blue-500">click here</a>.
-        </p>
+    <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="text-center p-8 bg-white shadow-lg rounded-lg max-w-md w-full">
+        <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
+        <h2 className="text-2xl font-semibold mb-3">Authenticating...</h2>
+        <p className="text-gray-600">Please wait while we complete your authentication</p>
       </div>
     </div>
   );
