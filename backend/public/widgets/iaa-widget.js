@@ -8,14 +8,67 @@ class IAAAuthWidget {
     this.redirectUri = config.redirectUri;
     this.iaaFrontendUrl = config.iaaFrontendUrl;
     this.checkAuthEndpoint = config.checkAuthEndpoint || '/api/auth/status';
+    
+    // Internal state
     this.isAuthenticated = false;
 
     this.init();
   }
 
   async init() {
+    // 1. Check initial state immediately
+    this.validateState();
+    
+    // 2. Setup listeners for other tabs
     this.listenForStorageChanges();
+    
+    // 3. Setup polling for THIS tab (detects DevTools deletion)
+    this.startWatchdog();
+
+    // 4. Handle sync from callback (if applicable)
     await this.postLoginSyncCheck();
+    
+    // 5. Initial Render
+    this.render();
+  }
+
+  // --- CORE LOGIC: Validates consistency between Flag and Tokens ---
+  validateState() {
+    const authFlag = localStorage.getItem('iaa_authenticated') === 'true';
+    const tokens = localStorage.getItem('auth_tokens');
+
+    const prevAuth = this.isAuthenticated;
+
+    if (authFlag && !tokens) {
+      // SCENARIO 1: Flag is true, but Tokens are gone.
+      // Action: Force full logout.
+      console.warn('[IAA Widget] State Invalid: Authenticated flag found but tokens missing. Logging out.');
+      this.logout();
+    } 
+    else if (!authFlag && tokens) {
+      // SCENARIO 2: Status is false (deleted), but Tokens exist.
+      // Action: Remove tokens to match status.
+      console.warn('[IAA Widget] State Invalid: Tokens found but authenticated flag missing. Clearing tokens.');
+      localStorage.removeItem('auth_tokens');
+      this.isAuthenticated = false;
+    } 
+    else {
+      // SCENARIO 3: Consistent State (Both True or Both False/Null)
+      this.isAuthenticated = authFlag;
+    }
+
+    // Only re-render or notify if state actually changed
+    if (prevAuth !== this.isAuthenticated) {
+      this.notifyAuthChange();
+      this.render();
+    }
+  }
+
+  // Polls LocalStorage to handle manual deletion in DevTools
+  startWatchdog() {
+    setInterval(() => {
+      this.validateState();
+    }, 1000); // Check every 1 second
   }
 
   async postLoginSyncCheck() {
@@ -23,47 +76,23 @@ class IAAAuthWidget {
     
     if (needsSync) {
       sessionStorage.removeItem('iaa_sync_flag');
-      console.log('[IAA Widget] Detected sync signal. Syncing auth state with server...');
-      
-      try {
-        const response = await fetch(this.checkAuthEndpoint);
-        const data = await response.json();
-
-        if (data.isAuthenticated) {
-          console.log('[IAA Widget] Server confirmed authentication. Updating client state.');
-          localStorage.setItem('iaa_authenticated', 'true');
-        } else {
-          console.log('[IAA Widget] Server denied authentication after sync.');
-          localStorage.setItem('iaa_authenticated', 'false');
-        }
-      } catch (error) {
-        console.error('[IAA Widget] Failed to sync auth status with server:', error);
-      }
-    }
-
-    this.checkAuthStatus();
-    this.render();
-  }
-  
-  checkAuthStatus() {
-    const wasAuthenticated = this.isAuthenticated;
-    this.isAuthenticated = localStorage.getItem('iaa_authenticated') === 'true';
-
-    if (wasAuthenticated !== this.isAuthenticated) {
-      this.notifyAuthChange();
+      // Re-run validation to pick up what the callback just set
+      this.validateState();
     }
   }
 
+  // Updates the UI
   render() {
     const existingWidget = document.getElementById('iaa-widget-container');
+    
     if (this.isAuthenticated) {
+      // User is logged in: Hide Button
       if (existingWidget) {
-        console.log('[IAA Widget] User is authenticated. Removing login button.');
         existingWidget.remove();
       }
     } else {
+      // User is logged out: Show Button
       if (!existingWidget) {
-        console.log('[IAA Widget] User is not authenticated. Creating login button.');
         this.createWidget();
         this.attachEventListeners();
       }
@@ -72,18 +101,20 @@ class IAAAuthWidget {
 
   logout() {
     console.log('[IAA Widget] Client-side logout initiated.');
+    // Clear EVERYTHING
     localStorage.setItem('iaa_authenticated', 'false');
-    localStorage.removeItem('iaa_access_token');
+    localStorage.removeItem('auth_tokens'); // Matches the key set in your callback
+    
     this.isAuthenticated = false;
     this.render(); 
     this.notifyAuthChange();
   }
   
   listenForStorageChanges() {
+    // This handles changes made in OTHER tabs
     window.addEventListener('storage', (e) => {
-      if (e.key === 'iaa_authenticated') {
-        this.checkAuthStatus();
-        this.render();
+      if (e.key === 'iaa_authenticated' || e.key === 'auth_tokens') {
+        this.validateState();
       }
     });
   }
@@ -94,6 +125,7 @@ class IAAAuthWidget {
     }));
   }
 
+  // --- UI & POPUP LOGIC (Unchanged) ---
   createWidget() {
     const style = document.createElement('style');
     style.innerHTML = `
@@ -106,6 +138,7 @@ class IAAAuthWidget {
     `;
     document.head.appendChild(style);
     const widgetContainer = document.createElement('div');
+    widgetContainer.id = 'iaa-widget-container'; // Added ID for easier removal
     widgetContainer.className = 'iaa-widget-container';
     widgetContainer.innerHTML = `<button id="iaa-login-btn" class="iaa-themed-btn"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/></svg>Login with IAA</button>`;
     document.body.appendChild(widgetContainer);
@@ -137,13 +170,6 @@ class IAAAuthWidget {
     else alert('Popup blocked. Please allow popups for this site to log in.');
   }
   
-  isTokenExpired(token) {
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      return Date.now() >= payload.exp * 1000;
-    } catch { return true; }
-  }
-  
   generateRandomState(length = 16) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let result = '';
@@ -154,12 +180,12 @@ class IAAAuthWidget {
   }
 }
 
+// Global exposure
 window.iaa = {
   engine: null,
   initiateLogin: () => window.iaa.engine?.initiateLogin(),
   logout: () => window.iaa.engine?.logout(),
 };
-
 window.IAAAuthWidget = IAAAuthWidget;
 
 if (window.initIAAWidget && typeof window.initIAAWidget === 'function') {
