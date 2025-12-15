@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, ChangeEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
-import { jwtDecode } from 'jwt-decode';
+import { jwtDecode } from "jwt-decode";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,16 +15,31 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
 import { Edit, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 
-import { getProfile, updateProfile, uploadAvatar } from "@/services/authService";
+import {
+  getProfile,
+  updateProfile,
+  uploadAvatar,
+} from "@/services/authService";
+import LinkedInPopupHandler from "@/components/LinkedInPopupHandler";
 
+// --- Types ---
 interface DecodedToken {
   sub: string;
-  role: 'user' | 'admin';
+  role: "user" | "admin";
   iat?: number;
   exp?: number;
 }
@@ -40,9 +55,26 @@ type UserProfile = {
 export default function ProfilePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // =========================================================================
+  // 1. POPUP INTERCEPTOR
+  // If we have a token in the URL, render the Handler immediately.
+  // This prevents the dashboard from flashing in the popup.
+  // =========================================================================
+  const accessTokenParam = searchParams.get("accessToken");
+  const errorParam = searchParams.get("error");
+
+  if (accessTokenParam || errorParam) {
+    return <LinkedInPopupHandler />;
+  }
+  // =========================================================================
+
+  // --- 2. Normal Dashboard Logic ---
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
+  const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(
+    null
+  );
 
   const [editedName, setEditedName] = useState("");
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
@@ -53,61 +85,11 @@ export default function ProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editDialogCloseRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    const processAuth = () => {
-      // Check if this is a LinkedIn redirect with auth params
-      const accessToken = searchParams.get('accessToken');
-      const refreshToken = searchParams.get('refreshToken');
-      
-      if (accessToken && refreshToken) {
-        
-        try {
-          // Store tokens
-          localStorage.setItem('accessToken', accessToken);
-          localStorage.setItem('refreshToken', refreshToken);
-
-          // Decode and store user ID
-          const decodedToken = jwtDecode<DecodedToken>(accessToken);
-          localStorage.setItem('userId', decodedToken.sub);
-
-          // Store additional user data from URL params
-          const userId = searchParams.get('userId');
-          const name = searchParams.get('name');
-          const email = searchParams.get('email');
-          const role = searchParams.get('role');
-          const membershipStatus = searchParams.get('membershipStatus');
-          const isVerified = searchParams.get('isVerified');
-          const profilePicture = searchParams.get('profilePicture');
-
-          if (userId) localStorage.setItem('userId', userId);
-          if (name) localStorage.setItem('userName', name);
-          if (email) localStorage.setItem('userEmail', email);
-          if (role) localStorage.setItem('userRole', role);
-          if (membershipStatus) localStorage.setItem('membershipStatus', membershipStatus);
-          if (profilePicture) {
-            localStorage.setItem('profilePicture', profilePicture);
-            setProfilePictureUrl(profilePicture);
-          }
-          if (isVerified) localStorage.setItem('isVerified', isVerified);
-          
-          // Clean the URL by removing query params
-          router.replace('/user/profile');
-          
-        } catch (err) {
-          console.error(' Token decode error:', err);
-          router.replace('/auth/login?error=Invalid token');
-        }
-      }
-    };
-
-    processAuth();
-  }, [searchParams, router]);
-
+  // Fetch Profile Data
   useEffect(() => {
     const fetchProfileData = async () => {
       try {
-        // Check localStorage for profile picture first
-        const storedPicture = localStorage.getItem('profilePicture');
+        const storedPicture = localStorage.getItem("profilePicture");
         if (storedPicture) {
           setProfilePictureUrl(storedPicture);
         }
@@ -115,10 +97,10 @@ export default function ProfilePage() {
         const profileData = await getProfile();
         setUser(profileData);
         setEditedName(profileData.name || "");
-        
-        // Use API profile picture if available and localStorage doesn't have one
+
         if (!storedPicture && profileData.profilePicture) {
           setProfilePictureUrl(profileData.profilePicture);
+          localStorage.setItem("profilePicture", profileData.profilePicture);
         }
       } catch (error) {
         console.error("Failed to fetch profile, redirecting...", error);
@@ -127,6 +109,7 @@ export default function ProfilePage() {
         setIsLoading(false);
       }
     };
+
     fetchProfileData();
   }, [router]);
 
@@ -154,10 +137,9 @@ export default function ProfilePage() {
     try {
       const updatedUser = await uploadAvatar(file);
       setUser(updatedUser);
-      // Update the profile picture URL if returned from API
       if (updatedUser.profilePicture) {
         setProfilePictureUrl(updatedUser.profilePicture);
-        localStorage.setItem('profilePicture', updatedUser.profilePicture);
+        localStorage.setItem("profilePicture", updatedUser.profilePicture);
       }
     } catch (err: any) {
       setAvatarError(err.message || "Upload failed.");
@@ -177,28 +159,51 @@ export default function ProfilePage() {
 
   if (!user) return null;
 
-  // Use profilePictureUrl (from localStorage or API) or fall back to user.profilePicture
   const displayPictureUrl = profilePictureUrl || user.profilePicture;
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Edit /> Profile</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Edit /> Profile
+          </CardTitle>
           <CardDescription>Your account information</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col md:flex-row gap-6">
           <div className="flex flex-col items-center gap-4">
             <Avatar className="h-32 w-32">
               <AvatarImage src={displayPictureUrl} alt={user.name || "User"} />
-              <AvatarFallback>{user.name?.split(" ").map(n => n[0]).join("").toUpperCase()}</AvatarFallback>
+              <AvatarFallback>
+                {user.name
+                  ?.split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .toUpperCase()}
+              </AvatarFallback>
             </Avatar>
-            <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-              {isUploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Edit className="h-4 w-4 mr-2" />}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+            >
+              {isUploading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Edit className="h-4 w-4 mr-2" />
+              )}
               {isUploading ? "Uploading..." : "Change Photo"}
             </Button>
-            {avatarError && <p className="text-sm text-destructive">{avatarError}</p>}
+            {avatarError && (
+              <p className="text-sm text-destructive">{avatarError}</p>
+            )}
           </div>
 
           <div className="flex-1 space-y-4">
@@ -213,30 +218,52 @@ export default function ProfilePage() {
             </div>
             <Separator />
             <div>
-              <Label className="text-muted-foreground text-xs">Member Since</Label>
-              <p className="text-foreground font-medium">{format(new Date(user.createdAt), "MMMM d, yyyy")}</p>
+              <Label className="text-muted-foreground text-xs">
+                Member Since
+              </Label>
+              <p className="text-foreground font-medium">
+                {format(new Date(user.createdAt), "MMMM d, yyyy")}
+              </p>
             </div>
 
             <Dialog>
               <DialogTrigger asChild>
-                <Button variant="default"><Edit className="h-4 w-4 mr-2" /> Edit Profile</Button>
+                <Button variant="default">
+                  <Edit className="h-4 w-4 mr-2" /> Edit Profile
+                </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Edit Profile</DialogTitle>
-                  <DialogDescription>Update your personal information</DialogDescription>
+                  <DialogDescription>
+                    Update your personal information
+                  </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleProfileUpdate} className="space-y-4 py-4">
-                  {editError && <Alert variant="destructive"><AlertDescription>{editError}</AlertDescription></Alert>}
+                  {editError && (
+                    <Alert variant="destructive">
+                      <AlertDescription>{editError}</AlertDescription>
+                    </Alert>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="name">Full Name</Label>
-                    <Input id="name" value={editedName} onChange={e => setEditedName(e.target.value)} />
+                    <Input
+                      id="name"
+                      value={editedName}
+                      onChange={(e) => setEditedName(e.target.value)}
+                    />
                   </div>
                   <DialogFooter>
                     <DialogClose asChild>
                       <Button variant="ghost">Cancel</Button>
                     </DialogClose>
-                    <Button type="submit" disabled={isUpdatingProfile}>{isUpdatingProfile ? <Loader2 className="animate-spin" /> : "Save Changes"}</Button>
+                    <Button type="submit" disabled={isUpdatingProfile}>
+                      {isUpdatingProfile ? (
+                        <Loader2 className="animate-spin" />
+                      ) : (
+                        "Save Changes"
+                      )}
+                    </Button>
                   </DialogFooter>
                 </form>
                 <DialogClose ref={editDialogCloseRef} className="hidden" />

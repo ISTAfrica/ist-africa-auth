@@ -1,16 +1,41 @@
 'use client';
 
+import { useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
-export default function LinkedInCallback() {
+export default function LinkedInCallbackPage() {
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    // 1. Grab the tokens/data sent by the backend
+    const accessToken = searchParams.get('accessToken');
+    const refreshToken = searchParams.get('refreshToken');
+    const redirectUri = searchParams.get('redirect_uri');
+    const error = searchParams.get('error');
+
+    // 2. Send this data to the Main Window (opener)
+    if (window.opener) {
+      window.opener.postMessage({
+        type: 'LINKEDIN_AUTH_SUCCESS',
+        payload: {
+          accessToken,
+          refreshToken,
+          redirect_uri: redirectUri,
+          error
+        }
+      }, window.location.origin); // Ensure security by limiting to same origin
+    }
+
+    // 3. Close this popup window
+    window.close();
+  }, [searchParams]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <div className="text-center p-8 bg-white shadow-lg rounded-lg max-w-md w-full">
-        <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
-        <h2 className="text-2xl font-semibold mb-3">Authenticating...</h2>
-        <p className="text-gray-600">Please wait while we complete your authentication</p>
-      </div>
+    <div className="flex h-screen w-full flex-col items-center justify-center bg-background p-4 text-center">
+      <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+      <h3 className="text-lg font-semibold">Authenticating...</h3>
+      <p className="text-muted-foreground text-sm">Please wait while we log you in.</p>
     </div>
   );
 }
