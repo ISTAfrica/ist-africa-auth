@@ -37,6 +37,7 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [linkedinLoading, setLinkedinLoading] = useState(false);
   const [error, setError] = useState('');
   const [resetSent, setResetSent] = useState(false);
 
@@ -47,6 +48,14 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
   const redirectUriFromUrl = searchParams.get('redirect_uri');
   const stateFromUrl = searchParams.get('state');
   const isForgotPassword = searchParams.get('forgot') === 'true' || forgotPasswordInitial;
+
+  // 1. Initial Checks (OAuth / Errors)
+  useEffect(() => {
+    const errorFromUrl = searchParams.get('error');
+    if (errorFromUrl) {
+      setError(decodeURIComponent(errorFromUrl));
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (clientIdFromUrl) {
@@ -64,6 +73,90 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
     }
   }, [clientIdFromUrl]);
 
+  // =======================================================================
+  //  THE ROBUST LISTENER: Handles redirect + Polling Fallback
+  // =======================================================================
+  useEffect(() => {
+    
+    // Helper: Perform the redirect if a token is found
+    const performRedirect = (token: string) => {
+      // 1. Stop spinners
+      setLinkedinLoading(false);
+      setLoading(false);
+
+      try {
+        const decoded = jwtDecode<DecodedToken>(token);
+        
+        // Ensure userId is saved
+        if (decoded.sub && !localStorage.getItem('userId')) {
+            localStorage.setItem('userId', decoded.sub);
+        }
+
+        // Redirect based on role
+        if (decoded.role === 'admin') {
+          router.push('/admin/clients');
+        } else {
+          router.push('/user/profile'); 
+        }
+      } catch (e) {
+        // Fallback if decode fails but token exists
+        router.push('/user/profile');
+      }
+    };
+
+    // Listener 1: PostMessage (Direct signal from Popup)
+    const handleAuthMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      
+      if (event.data?.type === 'LINKEDIN_AUTH_SUCCESS') {
+        const { accessToken, refreshToken, error: authError } = event.data.payload;
+        if (authError) {
+            setLinkedinLoading(false);
+            setError(authError);
+            return;
+        }
+        if (accessToken) {
+            localStorage.setItem('accessToken', accessToken);
+            if(refreshToken) localStorage.setItem('refreshToken', refreshToken);
+            performRedirect(accessToken);
+        }
+      }
+    };
+
+    // Listener 2: Storage (If popup updates LS directly)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'accessToken' && e.newValue) {
+        performRedirect(e.newValue);
+      }
+    };
+
+    // Listener 3: POLLING (The Ultimate Fix for Stuck Spinners)
+    // If the spinner is running, check LS every 500ms.
+    let pollInterval: NodeJS.Timeout;
+    if (linkedinLoading) {
+        pollInterval = setInterval(() => {
+            const token = localStorage.getItem('accessToken');
+            if (token) {
+                clearInterval(pollInterval);
+                performRedirect(token);
+            }
+        }, 500);
+    }
+
+    // Register events
+    window.addEventListener('message', handleAuthMessage);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('message', handleAuthMessage);
+      window.removeEventListener('storage', handleStorageChange);
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [router, linkedinLoading]); 
+
+
+  // --- Handlers ---
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -78,14 +171,9 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
     try {
       const data = await authenticateUser(payload);
 
-      // --- THIS IS THE UPDATED LOGIC ---
       if (data.redirect_uri) {
-        // OAuth2 Flow: The backend returned the full URL for our messenger page.
-        // Redirect the popup to that URL.
         window.location.href = data.redirect_uri;
-
       } else if (data.accessToken) {
-        // Direct Login Flow: The backend returned tokens.
         localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('refreshToken', data.refreshToken);
 
@@ -97,7 +185,7 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
         if (decodedToken.role === 'admin') {
           router.push('/admin/clients');
         } else {
-          router.push('/user');
+          router.push('/user/profile');
         }
       } else {
         throw new Error('Invalid response from authentication server.');
@@ -109,6 +197,47 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
         setError('An unknown error occurred');
       }
       setLoading(false);
+    }
+  };
+
+  const handleLinkedInLogin = () => {
+    setLinkedinLoading(true);
+    setError('');
+    
+    // Clear old tokens so we don't redirect on stale data
+    localStorage.removeItem('accessToken'); 
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('userId');
+
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    let linkedinUrl = `${baseUrl}/api/auth/linkedin`;
+    
+    if (isOauthFlow && clientIdFromUrl) {
+      const params = new URLSearchParams({
+        client_id: clientIdFromUrl,
+        redirect_uri: redirectUriFromUrl || '',
+        state: stateFromUrl || '',
+      });
+      linkedinUrl += `?${params.toString()}`;
+    }
+    
+    // Center popup
+    const width = 500;
+    const height = 600;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+
+    const popup = window.open(
+      linkedinUrl,
+      'linkedin-login-popup',
+      `width=${width},height=${height},left=${left},top=${top},scrollbars=yes`
+    );
+
+    if (popup) {
+      popup.focus();
+    } else {
+      setLinkedinLoading(false);
+      setError('Pop-up blocked. Please allow pop-ups for this site.');
     }
   };
 
@@ -128,7 +257,6 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
   };
 
   const title = isForgotPassword ? 'Reset Password' : 'Welcome Back';
-  const subtitle = isForgotPassword ? 'Enter your email to receive a password reset link' : 'Sign in to access your account';
 
   return (
     <>
@@ -193,7 +321,7 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
             </Alert>
           )}
 
-          <fieldset disabled={loading || (isOauthFlow && !clientInfo)}>
+          <fieldset disabled={loading || linkedinLoading || (isOauthFlow && !clientInfo)}>
             <div className="space-y-2">
               <Label htmlFor="email">Email Address</Label>
               <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -210,7 +338,7 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
             </button>
           </div>
 
-          <Button type="submit" className="w-full font-semibold" disabled={loading || (isOauthFlow && !clientInfo)}>
+          <Button type="submit" className="w-full font-semibold" disabled={loading || linkedinLoading || (isOauthFlow && !clientInfo)}>
             {loading ? <Loader2 className="animate-spin" /> : 'Sign In'}
           </Button>
 
@@ -219,13 +347,25 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
             <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">Or continue with</span></div>
           </div>
 
-          <Button type="button" variant="outline" className="w-full font-semibold bg-linkedin text-white hover:bg-linkedin/90 border-linkedin">
-            <Linkedin className="mr-2 h-4 w-4" />
-            Continue with LinkedIn
+          <Button 
+            type="button"
+            onClick={handleLinkedInLogin}
+            variant="outline" 
+            className="w-full font-semibold bg-linkedin text-white hover:bg-linkedin/90 border-linkedin"
+            disabled={loading || linkedinLoading || (isOauthFlow && !clientInfo)}
+          >
+            {linkedinLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <div className="flex items-center">
+                <Linkedin className="mr-2 h-4 w-4" />
+                Continue with LinkedIn
+              </div>
+            )}
           </Button>
 
           <p className="text-center text-sm text-muted-foreground pt-4">
-            Don’t have an account?{' '}
+            Don&apos;t have an account?{' '}
             <Link href="/auth/signup" className="font-medium text-primary hover:underline">
               Sign up
             </Link>
