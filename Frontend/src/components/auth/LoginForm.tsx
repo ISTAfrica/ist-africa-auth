@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AlertCircle, Loader2, Linkedin, ShieldCheck } from 'lucide-react';
+import { AlertCircle, Loader2, Linkedin, ShieldCheck, Info } from 'lucide-react';
 import Link from 'next/link';
 import { jwtDecode } from 'jwt-decode';
 
@@ -42,6 +42,7 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
 
   const [clientInfo, setClientInfo] = useState<ClientInfo | null>(null);
   const [isOauthFlow, setIsOauthFlow] = useState(false);
+  const [isClientInfoLoading, setIsClientInfoLoading] = useState(true);
 
   const clientIdFromUrl = searchParams.get('client_id');
   const redirectUriFromUrl = searchParams.get('redirect_uri');
@@ -52,15 +53,21 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
     if (clientIdFromUrl) {
       setIsOauthFlow(true);
       setError('');
+      setIsClientInfoLoading(true);
+
       const fetchClientInfo = async () => {
         try {
           const data = await getClientPublicInfo(clientIdFromUrl);
           setClientInfo(data);
         } catch (err) {
           setError('The application you are trying to log into is not registered or is invalid.');
+        } finally {
+          setIsClientInfoLoading(false);
         }
       };
       fetchClientInfo();
+    } else {
+      setIsClientInfoLoading(false);
     }
   }, [clientIdFromUrl]);
 
@@ -72,42 +79,28 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
     const payload = {
       email,
       password,
-      ...(isOauthFlow && { client_id: clientIdFromUrl, redirect_uri: redirectUriFromUrl, state: stateFromUrl}),
+      ...(isOauthFlow && { client_id: clientIdFromUrl, redirect_uri: redirectUriFromUrl, state: stateFromUrl }),
     };
 
     try {
       const data = await authenticateUser(payload);
 
-      // --- THIS IS THE UPDATED LOGIC ---
       if (data.redirect_uri) {
-        // OAuth2 Flow: The backend returned the full URL for our messenger page.
-        // Redirect the popup to that URL.
         window.location.href = data.redirect_uri;
-
       } else if (data.accessToken) {
-        // Direct Login Flow: The backend returned tokens.
         localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('refreshToken', data.refreshToken);
-
         const decodedToken = jwtDecode<DecodedToken>(data.accessToken);
         if (decodedToken.sub) {
           localStorage.setItem('userId', decodedToken.sub);
         }
-
-        if (decodedToken.role === 'admin') {
-          router.push('/admin/clients');
-        } else {
-          router.push('/user');
-        }
+        router.push(decodedToken.role === 'admin' ? '/admin/clients' : '/user');
       } else {
         throw new Error('Invalid response from authentication server.');
       }
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('An unknown error occurred');
-      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || 'An unknown error occurred');
+    } finally {
       setLoading(false);
     }
   };
@@ -143,8 +136,12 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
 
       {isOauthFlow && (
         <div className="mb-2">
-
-          {clientInfo ? (
+          {isClientInfoLoading ? (
+            <Alert variant="default" className="text-center">
+              <Info className="h-4 w-4" />
+              <AlertDescription>Loading application info...</AlertDescription>
+            </Alert>
+          ) : clientInfo ? (
             <div className="px-3 py-2 border rounded-lg bg-muted/50 text-center">
               <ShieldCheck className="h-6 w-6 text-primary mx-auto mb-1" />
               <p className="text-xs text-muted-foreground leading-snug">You are granting access to:</p>
@@ -153,7 +150,7 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
           ) : (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error || 'Loading application info...'}</AlertDescription>
+              <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
         </div>
@@ -162,7 +159,6 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
       {isForgotPassword ? (
         resetSent ? (
           <div className="space-y-3">
-
             <Alert className="border-green-500 bg-green-500/10 text-green-700">
               <AlertDescription>Password reset link has been sent to your email address.</AlertDescription>
             </Alert>
@@ -172,7 +168,6 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
           </div>
         ) : (
           <form onSubmit={handlePasswordReset} className={isOauthFlow ? 'space-y-2' : 'space-y-3'}>
-
             {error && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
@@ -193,14 +188,21 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
         )
       ) : (
         <form onSubmit={handleLogin} className={isOauthFlow ? 'space-y-1.5' : 'space-y-3'}>
-
+          {isOauthFlow && error && !isClientInfoLoading && (
+            <Alert variant="destructive" className="my-2">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          
           {!isOauthFlow && error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-          <fieldset disabled={loading || (isOauthFlow && !clientInfo)}>
+
+          <fieldset disabled={loading || (isOauthFlow && isClientInfoLoading)}>
             <div className={isOauthFlow ? 'space-y-1.5' : 'space-y-2'}>
               <Label htmlFor="email">Email Address</Label>
               <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -212,7 +214,6 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
           </fieldset>
 
           <div className={isOauthFlow ? 'text-right mt-0.5' : 'text-right mt-1'}>
-
             <button
               type="button"
               onClick={() => router.push('/auth/login?forgot=true')}
@@ -226,7 +227,7 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
             type="submit"
             className="w-full font-semibold"
             size={isOauthFlow ? 'sm' : 'default'}
-            disabled={loading || (isOauthFlow && !clientInfo)}
+            disabled={loading || (isOauthFlow && isClientInfoLoading)}
           >
             {loading ? <Loader2 className="animate-spin" /> : 'Sign In'}
           </Button>
