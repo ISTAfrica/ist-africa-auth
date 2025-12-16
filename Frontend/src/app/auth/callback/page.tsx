@@ -26,12 +26,12 @@ export default function AuthCallbackPage() {
   }, [searchParams]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen text-center bg-card p-4">
-      <Loader2 className="h-8 w-8 animate-spin mb-4 text-primary" />
-      <p className="text-muted-foreground">
+    <div className="flex flex-col items-center justify-center h-screen text-center bg-card px-1 py-1">
+      <Loader2 className="h-5 w-5 animate-spin mb-1 text-primary" />
+      <p className="text-xs text-muted-foreground leading-snug">
         Finalizing authentication, please wait...
       </p>
-      <p className="text-xs text-muted-foreground mt-2">
+      <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
         This window will close automatically.
       </p>
     </div>

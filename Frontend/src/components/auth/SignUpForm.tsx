@@ -69,7 +69,7 @@ export default function SignUpForm() {
         </p>
       </div>
 
-      <form onSubmit={handleSignUp} className="space-y-4">
+      <form onSubmit={handleSignUp} className="space-y-3">
         {error && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
@@ -126,7 +126,7 @@ export default function SignUpForm() {
           {loading ? <Loader2 className="animate-spin" /> : "Create Account"}
         </Button>
 
-        <div className="relative my-4">
+        <div className="relative my-2">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t" />
           </div>
@@ -151,13 +151,10 @@ export default function SignUpForm() {
           )}
           Continue with LinkedIn
         </Button>
-
-        <p className="text-center text-sm text-muted-foreground pt-4">
-          Already have an account?{" "}
-          <Link
-            href="/auth/login"
-            className="font-medium text-primary hover:underline"
-          >
+        
+        <p className="text-center text-sm text-muted-foreground pt-2">
+          Already have an account?{' '}
+          <Link href="/auth/login" className="font-medium text-primary hover:underline">
             Sign In
           </Link>
         </p>

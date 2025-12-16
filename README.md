@@ -94,9 +94,7 @@ In the OAuth ecosystem, these entities exist:
 
 OpenID Connect (OIDC) extends OAuth 2.0 by adding identity information.
 
----
 
-### Tokens
 
 IAA issues two main types of tokens:
 
@@ -295,7 +293,7 @@ https://auth.ist.africa/api
 
 ---
 
-### `/auth/login`
+### `/auth/authenticate`
 
 **Initiated by:** Client App
 **When:** When the user clicks “Login with IST Africa”
