@@ -303,13 +303,19 @@ export default function AdminClientsPage() {
     e.preventDefault();
     setIsSubmitting(true);
     setFormError("");
-
+  
     try {
+      // Include the current originInput if it exists and hasn't been added yet
+      const finalOrigins: string[] = [...allowedOrigins];
+      if (originInput.trim() && !allowedOrigins.includes(originInput.trim())) {
+        finalOrigins.push(originInput.trim());
+      }
+  
       const payload = {
         name,
         description,
         redirect_uri: redirectUri,
-        allowed_origins: allowedOrigins.filter(Boolean),
+        allowed_origins: finalOrigins.filter(Boolean),
       };
 
       const result = await createClient(payload);
