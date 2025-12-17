@@ -349,5 +349,5 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
       )}
     </>
   );
-  
+
 }
