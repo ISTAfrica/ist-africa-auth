@@ -1,0 +1,193 @@
+class IAAAuthWidget {
+  constructor(config) {
+    if (!config || !config.clientId || !config.redirectUri || !config.iaaFrontendUrl) {
+      console.error('IAA Widget Error: `clientId`, `redirectUri`, and `iaaFrontendUrl` are required.');
+      return;
+    }
+    this.clientId = config.clientId;
+    this.redirectUri = config.redirectUri;
+    this.iaaFrontendUrl = config.iaaFrontendUrl;
+    this.checkAuthEndpoint = config.checkAuthEndpoint || '/api/auth/status';
+    
+    // Internal state
+    this.isAuthenticated = false;
+
+    this.init();
+  }
+
+  async init() {
+    // 1. Check initial state immediately
+    this.validateState();
+    
+    // 2. Setup listeners for other tabs
+    this.listenForStorageChanges();
+    
+    // 3. Setup polling for THIS tab (detects DevTools deletion)
+    this.startWatchdog();
+
+    // 4. Handle sync from callback (if applicable)
+    await this.postLoginSyncCheck();
+    
+    // 5. Initial Render
+    this.render();
+  }
+
+  // --- CORE LOGIC: Validates consistency between Flag and Tokens ---
+  validateState() {
+    const authFlag = localStorage.getItem('iaa_authenticated') === 'true';
+    const tokens = localStorage.getItem('auth_tokens');
+
+    const prevAuth = this.isAuthenticated;
+
+    if (authFlag && !tokens) {
+      // SCENARIO 1: Flag is true, but Tokens are gone.
+      // Action: Force full logout.
+      console.warn('[IAA Widget] State Invalid: Authenticated flag found but tokens missing. Logging out.');
+      this.logout();
+    } 
+    else if (!authFlag && tokens) {
+      // SCENARIO 2: Status is false (deleted), but Tokens exist.
+      // Action: Remove tokens to match status.
+      console.warn('[IAA Widget] State Invalid: Tokens found but authenticated flag missing. Clearing tokens.');
+      localStorage.removeItem('auth_tokens');
+      this.isAuthenticated = false;
+    } 
+    else {
+      // SCENARIO 3: Consistent State (Both True or Both False/Null)
+      this.isAuthenticated = authFlag;
+    }
+
+    // Only re-render or notify if state actually changed
+    if (prevAuth !== this.isAuthenticated) {
+      this.notifyAuthChange();
+      this.render();
+    }
+  }
+
+  // Polls LocalStorage to handle manual deletion in DevTools
+  startWatchdog() {
+    setInterval(() => {
+      this.validateState();
+    }, 1000); // Check every 1 second
+  }
+
+  async postLoginSyncCheck() {
+    const needsSync = sessionStorage.getItem('iaa_sync_flag') === 'true';
+    
+    if (needsSync) {
+      sessionStorage.removeItem('iaa_sync_flag');
+      // Re-run validation to pick up what the callback just set
+      this.validateState();
+    }
+  }
+
+  // Updates the UI
+  render() {
+    const existingWidget = document.getElementById('iaa-widget-container');
+    
+    if (this.isAuthenticated) {
+      // User is logged in: Hide Button
+      if (existingWidget) {
+        existingWidget.remove();
+      }
+    } else {
+      // User is logged out: Show Button
+      if (!existingWidget) {
+        this.createWidget();
+        this.attachEventListeners();
+      }
+    }
+  }
+
+  logout() {
+    console.log('[IAA Widget] Client-side logout initiated.');
+    // Clear EVERYTHING
+    localStorage.setItem('iaa_authenticated', 'false');
+    localStorage.removeItem('auth_tokens'); // Matches the key set in your callback
+    
+    this.isAuthenticated = false;
+    this.render(); 
+    this.notifyAuthChange();
+  }
+  
+  listenForStorageChanges() {
+    // This handles changes made in OTHER tabs
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'iaa_authenticated' || e.key === 'auth_tokens') {
+        this.validateState();
+      }
+    });
+  }
+  
+  notifyAuthChange() {
+    window.dispatchEvent(new CustomEvent('iaa-auth-change', {
+      detail: { isAuthenticated: this.isAuthenticated }
+    }));
+  }
+
+  // --- UI & POPUP LOGIC (Unchanged) ---
+  createWidget() {
+    const style = document.createElement('style');
+    style.innerHTML = `
+      @keyframes iaa-fade-in { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes iaa-slide-in-from-bottom { from { transform: translateY(1rem); } to { transform: translateY(0); } }
+      .iaa-widget-container { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 50; animation: iaa-fade-in 0.5s ease-out, iaa-slide-in-from-bottom 0.5s ease-out; }
+      .iaa-themed-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; white-space: nowrap; border-radius: 0.375rem; font-size: 0.875rem; font-weight: 500; background-color: hsl(220 85% 45%); color: #fafafa; height: 2.75rem; padding-left: 2rem; padding-right: 2rem; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); transition-property: all; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 300ms; border: none; cursor: pointer; }
+      .iaa-themed-btn:hover { background-color: hsl(220 85% 45%); box-shadow: 0 10px 15px -3px rgb(26 26 26 / 0.3), 0 4px 6px -4px rgb(26 26 26 / 0.3); transform: scale(1.05); }
+      .iaa-themed-btn svg { margin-right: 0.5rem; height: 1.25rem; width: 1.25rem; pointer-events: none; flex-shrink: 0; }
+    `;
+    document.head.appendChild(style);
+    const widgetContainer = document.createElement('div');
+    widgetContainer.id = 'iaa-widget-container'; // Added ID for easier removal
+    widgetContainer.className = 'iaa-widget-container';
+    widgetContainer.innerHTML = `<button id="iaa-login-btn" class="iaa-themed-btn"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/></svg>Login with IAA</button>`;
+    document.body.appendChild(widgetContainer);
+  }
+  
+  attachEventListeners() {
+    const loginButton = document.getElementById('iaa-login-btn');
+    if (loginButton) {
+      loginButton.addEventListener('click', () => this.initiateLogin());
+    }
+  }
+
+  initiateLogin() {
+    const state = this.generateRandomState();
+    sessionStorage.setItem('oauth_state_iaa', state);
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: this.clientId,
+      redirect_uri: this.redirectUri,
+      state: state,
+      display: 'popup',
+    });
+    const loginUrl = `${this.iaaFrontendUrl}/auth/login?${params.toString()}`;
+    const width = 450, height = 500;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+    const popup = window.open(loginUrl, 'iaa-login-popup', `width=${width},height=${height},left=${left},top=${top}`);
+    if (popup) popup.focus();
+    else alert('Popup blocked. Please allow popups for this site to log in.');
+  }
+  
+  generateRandomState(length = 16) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < length; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  }
+}
+
+// Global exposure
+window.iaa = {
+  engine: null,
+  initiateLogin: () => window.iaa.engine?.initiateLogin(),
+  logout: () => window.iaa.engine?.logout(),
+};
+window.IAAAuthWidget = IAAAuthWidget;
+
+if (window.initIAAWidget && typeof window.initIAAWidget === 'function') {
+  window.initIAAWidget();
+}
