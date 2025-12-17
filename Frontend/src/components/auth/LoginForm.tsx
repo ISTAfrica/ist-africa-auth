@@ -34,7 +34,6 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // All state variables from your original component are preserved
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -51,7 +50,13 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
   const stateFromUrl = searchParams.get('state');
   const isForgotPassword = searchParams.get('forgot') === 'true' || forgotPasswordInitial;
 
-  // Effect for handling client info fetching in OAuth flow
+  useEffect(() => {
+    const errorFromUrl = searchParams.get('error');
+    if (errorFromUrl) {
+      setError(decodeURIComponent(errorFromUrl));
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     if (clientIdFromUrl) {
       setIsOauthFlow(true);
@@ -73,53 +78,84 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
     }
   }, [clientIdFromUrl]);
 
-  // Effect for handling successful logins from any source (email, LinkedIn, etc.)
+  // =======================================================================
+  //  THE ROBUST LISTENER: Merged from your working version
+  // =======================================================================
   useEffect(() => {
-    const handleSuccessfulLogin = (e: StorageEvent) => {
-      // Listen for the 'accessToken' being set in localStorage
-      if (e.key === 'accessToken' && e.newValue) {
-        setLoading(false);
-        setLinkedinLoading(false);
-        try {
-          const decodedToken = jwtDecode<DecodedToken>(e.newValue);
-          // Redirect based on role after successful login
-          router.push(decodedToken.role === 'admin' ? '/admin/clients' : '/user/profile');
-        } catch (error) {
-          console.error("Failed to decode token, redirecting to default.", error);
-          router.push('/user/profile'); // Fallback redirect
+    const performRedirect = (token: string) => {
+      setLinkedinLoading(false);
+      setLoading(false);
+      try {
+        const decoded = jwtDecode<DecodedToken>(token);
+        if (decoded.sub && !localStorage.getItem('userId')) {
+          localStorage.setItem('userId', decoded.sub);
+        }
+        router.push(decoded.role === 'admin' ? '/admin/clients' : '/user/profile');
+      } catch (e) {
+        router.push('/user/profile');
+      }
+    };
+
+    // --- THIS WAS THE MISSING PIECE ---
+    const handleAuthMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === 'LINKEDIN_AUTH_SUCCESS') {
+        const { accessToken, refreshToken, error: authError } = event.data.payload;
+        if (authError) {
+          setLinkedinLoading(false);
+          setError(authError);
+          return;
+        }
+        if (accessToken) {
+          localStorage.setItem('accessToken', accessToken);
+          if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+          performRedirect(accessToken);
         }
       }
     };
-    window.addEventListener('storage', handleSuccessfulLogin);
-    return () => window.removeEventListener('storage', handleSuccessfulLogin);
-  }, [router]);
 
-  // Handler for standard email/password login
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'accessToken' && e.newValue) {
+        performRedirect(e.newValue);
+      }
+    };
+
+    let pollInterval: NodeJS.Timeout;
+    if (linkedinLoading) {
+      pollInterval = setInterval(() => {
+        const token = localStorage.getItem('accessToken');
+        if (token) {
+          clearInterval(pollInterval);
+          performRedirect(token);
+        }
+      }, 500);
+    }
+
+    window.addEventListener('message', handleAuthMessage);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('message', handleAuthMessage);
+      window.removeEventListener('storage', handleStorageChange);
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [router, linkedinLoading]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-
-    const payload = {
-      email,
-      password,
-      ...(isOauthFlow && { client_id: clientIdFromUrl, redirect_uri: redirectUriFromUrl, state: stateFromUrl }),
-    };
-
+    const payload = { email, password, ...(isOauthFlow && { client_id: clientIdFromUrl, redirect_uri: redirectUriFromUrl, state: stateFromUrl }) };
     try {
       const data = await authenticateUser(payload);
       if (data.redirect_uri) {
-        // OAuth flow: backend gives us the next URL
         window.location.href = data.redirect_uri;
       } else if (data.accessToken) {
-        // Direct login flow: we got tokens, set them.
-        // The 'storage' event listener above will handle the redirect.
         localStorage.setItem('accessToken', data.accessToken);
-        if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+        if(data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
         const decodedToken = jwtDecode<DecodedToken>(data.accessToken);
-        if (decodedToken.sub) {
-          localStorage.setItem('userId', decodedToken.sub);
-        }
+        if (decodedToken.sub) localStorage.setItem('userId', decodedToken.sub);
+        // The storage event listener will handle the redirect.
       } else {
         throw new Error('Invalid response from authentication server.');
       }
@@ -130,44 +166,24 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
     }
   };
 
-  // Handler for LinkedIn login popup
   const handleLinkedInLogin = () => {
     setLinkedinLoading(true);
     setError('');
-    localStorage.removeItem('accessToken'); // Clear old tokens to ensure a fresh login
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('userId');
 
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
     let linkedinUrl = `${baseUrl}/api/auth/linkedin`;
-    
-    // Forward OAuth parameters if they exist
     if (isOauthFlow && clientIdFromUrl) {
-      const params = new URLSearchParams({
-        client_id: clientIdFromUrl,
-        redirect_uri: redirectUriFromUrl || '',
-        state: stateFromUrl || '',
-      });
+      const params = new URLSearchParams({ client_id: clientIdFromUrl, redirect_uri: redirectUriFromUrl || '', state: stateFromUrl || '' });
       linkedinUrl += `?${params.toString()}`;
     }
-    
     const width = 500, height = 600;
     const left = window.screenX + (window.outerWidth - width) / 2;
     const top = window.screenY + (window.outerHeight - height) / 2;
-
     const popup = window.open(linkedinUrl, 'linkedin-login-popup', `width=${width},height=${height},left=${left},top=${top},scrollbars=yes`);
-
-    // Robust polling to stop the spinner if the user closes the popup
     if (popup) {
-      const timer = setInterval(() => {
-        if (popup.closed) {
-          clearInterval(timer);
-          // Small delay to see if login was successful before stopping spinner
-          setTimeout(() => {
-            if (!localStorage.getItem('accessToken')) {
-              setLinkedinLoading(false);
-            }
-          }, 500);
-        }
-      }, 500);
       popup.focus();
     } else {
       setLinkedinLoading(false);
@@ -175,7 +191,6 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
     }
   };
 
-  // Handler for password reset
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -201,7 +216,7 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
           {isOauthFlow ? 'Sign in to continue' : title}
         </h2>
         <p className={isOauthFlow ? 'text-xs text-muted-foreground leading-snug' : 'text-sm text-muted-foreground'}>
-          {isOauthFlow ? 'Please log in to your IST Africa account.' : 'Sign in with your IAA credentials'}
+          {isOauthFlow ? 'Please log in to your IST Africa account.' : subtitle}
         </p>
       </div>
 
