@@ -62,7 +62,6 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
       setIsOauthFlow(true);
       setError('');
       setIsClientInfoLoading(true);
-
       const fetchClientInfo = async () => {
         try {
           const data = await getClientPublicInfo(clientIdFromUrl);
@@ -79,30 +78,84 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
     }
   }, [clientIdFromUrl]);
 
+  // =======================================================================
+  //  THE ROBUST LISTENER: Merged from your working version
+  // =======================================================================
+  useEffect(() => {
+    const performRedirect = (token: string) => {
+      setLinkedinLoading(false);
+      setLoading(false);
+      try {
+        const decoded = jwtDecode<DecodedToken>(token);
+        if (decoded.sub && !localStorage.getItem('userId')) {
+          localStorage.setItem('userId', decoded.sub);
+        }
+        router.push(decoded.role === 'admin' ? '/admin/clients' : '/user/profile');
+      } catch (e) {
+        router.push('/user/profile');
+      }
+    };
+
+    // --- THIS WAS THE MISSING PIECE ---
+    const handleAuthMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === 'LINKEDIN_AUTH_SUCCESS') {
+        const { accessToken, refreshToken, error: authError } = event.data.payload;
+        if (authError) {
+          setLinkedinLoading(false);
+          setError(authError);
+          return;
+        }
+        if (accessToken) {
+          localStorage.setItem('accessToken', accessToken);
+          if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+          performRedirect(accessToken);
+        }
+      }
+    };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'accessToken' && e.newValue) {
+        performRedirect(e.newValue);
+      }
+    };
+
+    let pollInterval: NodeJS.Timeout;
+    if (linkedinLoading) {
+      pollInterval = setInterval(() => {
+        const token = localStorage.getItem('accessToken');
+        if (token) {
+          clearInterval(pollInterval);
+          performRedirect(token);
+        }
+      }, 500);
+    }
+
+    window.addEventListener('message', handleAuthMessage);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('message', handleAuthMessage);
+      window.removeEventListener('storage', handleStorageChange);
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [router, linkedinLoading]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-
-    const payload = {
-      email,
-      password,
-      ...(isOauthFlow && { client_id: clientIdFromUrl, redirect_uri: redirectUriFromUrl, state: stateFromUrl }),
-    };
-
+    const payload = { email, password, ...(isOauthFlow && { client_id: clientIdFromUrl, redirect_uri: redirectUriFromUrl, state: stateFromUrl }) };
     try {
       const data = await authenticateUser(payload);
-
       if (data.redirect_uri) {
         window.location.href = data.redirect_uri;
       } else if (data.accessToken) {
         localStorage.setItem('accessToken', data.accessToken);
-        if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+        if(data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
         const decodedToken = jwtDecode<DecodedToken>(data.accessToken);
-        if (decodedToken.sub) {
-          localStorage.setItem('userId', decodedToken.sub);
-        }
-        router.push(decodedToken.role === 'admin' ? '/admin/clients' : '/user/profile');
+        if (decodedToken.sub) localStorage.setItem('userId', decodedToken.sub);
+        // The storage event listener will handle the redirect.
       } else {
         throw new Error('Invalid response from authentication server.');
       }
@@ -116,58 +169,27 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
   const handleLinkedInLogin = () => {
     setLinkedinLoading(true);
     setError('');
-    localStorage.removeItem('accessToken'); 
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('userId');
 
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
     let linkedinUrl = `${baseUrl}/api/auth/linkedin`;
-    
     if (isOauthFlow && clientIdFromUrl) {
-      const params = new URLSearchParams({
-        client_id: clientIdFromUrl,
-        redirect_uri: redirectUriFromUrl || '',
-        state: stateFromUrl || '',
-      });
+      const params = new URLSearchParams({ client_id: clientIdFromUrl, redirect_uri: redirectUriFromUrl || '', state: stateFromUrl || '' });
       linkedinUrl += `?${params.toString()}`;
     }
-    
     const width = 500, height = 600;
     const left = window.screenX + (window.outerWidth - width) / 2;
     const top = window.screenY + (window.outerHeight - height) / 2;
-
     const popup = window.open(linkedinUrl, 'linkedin-login-popup', `width=${width},height=${height},left=${left},top=${top},scrollbars=yes`);
-
     if (popup) {
-      const timer = setInterval(() => {
-        if (popup.closed) {
-          clearInterval(timer);
-          // After popup closes, check if login succeeded
-          setTimeout(() => { // Small delay to allow storage event to fire
-            if (!localStorage.getItem('accessToken')) {
-              setLinkedinLoading(false); // Stop spinner if no token found
-            }
-          }, 500);
-        }
-      }, 500);
       popup.focus();
     } else {
       setLinkedinLoading(false);
       setError('Pop-up blocked. Please allow pop-ups for this site.');
     }
   };
-
-  // This single useEffect now handles successful logins from any source
-  useEffect(() => {
-    const handleSuccessfulLogin = (e: StorageEvent) => {
-      if (e.key === 'accessToken' && e.newValue) {
-        setLoading(false);
-        setLinkedinLoading(false);
-        const decodedToken = jwtDecode<DecodedToken>(e.newValue);
-        router.push(decodedToken.role === 'admin' ? '/admin/clients' : '/user/profile');
-      }
-    };
-    window.addEventListener('storage', handleSuccessfulLogin);
-    return () => window.removeEventListener('storage', handleSuccessfulLogin);
-  }, [router]);
 
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -185,6 +207,7 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
   };
 
   const title = isForgotPassword ? 'Reset Password' : 'Welcome Back';
+  const subtitle = isForgotPassword ? 'Enter your email to receive a password reset link' : 'Sign in to access your account';
 
   return (
     <>
@@ -193,7 +216,7 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
           {isOauthFlow ? 'Sign in to continue' : title}
         </h2>
         <p className={isOauthFlow ? 'text-xs text-muted-foreground leading-snug' : 'text-sm text-muted-foreground'}>
-          {isOauthFlow ? 'Please log in to your IST Africa account.' : 'Sign in with your IAA credentials'}
+          {isOauthFlow ? 'Please log in to your IST Africa account.' : subtitle}
         </p>
       </div>
 
