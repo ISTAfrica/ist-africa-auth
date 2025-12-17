@@ -145,23 +145,46 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
     e.preventDefault();
     setError('');
     setLoading(true);
-    const payload = { email, password, ...(isOauthFlow && { client_id: clientIdFromUrl, redirect_uri: redirectUriFromUrl, state: stateFromUrl }) };
+
+    const payload = {
+      email,
+      password,
+      ...(isOauthFlow && { client_id: clientIdFromUrl, redirect_uri: redirectUriFromUrl, state: stateFromUrl}),
+    };
+
     try {
       const data = await authenticateUser(payload);
+
+      // --- THIS IS THE UPDATED LOGIC ---
       if (data.redirect_uri) {
+        // OAuth2 Flow: The backend returned the full URL for our messenger page.
+        // Redirect the popup to that URL.
         window.location.href = data.redirect_uri;
+
       } else if (data.accessToken) {
+        // Direct Login Flow: The backend returned tokens.
         localStorage.setItem('accessToken', data.accessToken);
-        if(data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+        localStorage.setItem('refreshToken', data.refreshToken);
+
         const decodedToken = jwtDecode<DecodedToken>(data.accessToken);
-        if (decodedToken.sub) localStorage.setItem('userId', decodedToken.sub);
-        // The storage event listener will handle the redirect.
+        if (decodedToken.sub) {
+          localStorage.setItem('userId', decodedToken.sub);
+        }
+
+        if (decodedToken.role === 'admin') {
+          router.push('/admin/clients');
+        } else {
+          router.push('/user');
+        }
       } else {
         throw new Error('Invalid response from authentication server.');
       }
-    } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'An unknown error occurred');
-    } finally {
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An unknown error occurred');
+      }
       setLoading(false);
     }
   };
@@ -349,5 +372,5 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
       )}
     </>
   );
-  
+
 }
