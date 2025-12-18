@@ -23,10 +23,11 @@ import { RegisterUserDto } from './dto/register-user.dto';
 import { AuthenticateUserDto } from './dto/authenticate-user.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
+import { LogoutDto } from './dto/logout.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { ClientCredentialsDto } from './dto/client-credentials.dto';
 import { AuthGuard } from '@nestjs/passport';
-import type { Response } from 'express';
+import type { Response, Request } from 'express';
 
 @Controller('api/auth')
 // @UseGuards(JwtAuthGuard)
@@ -221,5 +222,36 @@ export class AuthController {
         `${frontendUrl}/auth/login?error=linkedin_processing_failed`,
       );
     }
+  }
+
+  // -------------------- Logout Routes --------------------
+
+  @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async logout(
+    @Body(new ValidationPipe()) logoutDto: LogoutDto,
+    @Req() req: Request & { user?: any },
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new BadRequestException('User not authenticated');
+    }
+
+    // Extract token from Authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      throw new BadRequestException('No authorization header found');
+    }
+
+    const accessToken = authHeader.replace('Bearer ', '');
+
+    if (logoutDto.type === 'single') {
+      return this.authService.logoutSingleDevice(userId, accessToken);
+    } else if (logoutDto.type === 'all') {
+      return this.authService.logoutAllDevices(userId);
+    }
+
+    throw new BadRequestException('Invalid logout type');
   }
 }

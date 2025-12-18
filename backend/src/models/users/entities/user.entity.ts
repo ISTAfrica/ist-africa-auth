@@ -108,4 +108,12 @@ export class User extends Model {
     allowNull: true,
   })
   declare profilePicture: string | null;
+
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+    comment: 'Token version for invalidating all tokens on logout from all devices',
+  })
+  declare tokenVersion: number;
 }

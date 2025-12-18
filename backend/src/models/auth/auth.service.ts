@@ -10,6 +10,7 @@ import {
 import { InjectModel } from '@nestjs/sequelize';
 import { User } from '../users/entities/user.entity';
 import { RefreshToken } from '../users/entities/refresh-token.entity';
+import { BlacklistedToken } from '../users/entities/blacklisted-token.entity';
 import { hash, compare } from 'bcryptjs';
 import { randomUUID, randomInt, randomBytes } from 'crypto';
 import { RegisterUserDto } from './dto/register-user.dto';
@@ -33,6 +34,8 @@ export class AuthService {
     @InjectModel(User) private readonly userModel: typeof User,
     @InjectModel(RefreshToken)
     private readonly refreshTokenModel: typeof RefreshToken,
+    @InjectModel(BlacklistedToken)
+    private readonly blacklistedTokenModel: typeof BlacklistedToken,
     @InjectModel(Client) private readonly clientModel: typeof Client,
     @InjectModel(ClientAppToken)
     private readonly clientAppTokenModel: typeof ClientAppToken,
@@ -175,6 +178,7 @@ export class AuthService {
       userId: user.id,
       role: user.role,
       name: user.name,
+      tokenVersion: user.tokenVersion,
     });
 
     return {
@@ -249,6 +253,7 @@ export class AuthService {
       userId: user.id,
       role: user.role,
       name: user.name,
+      tokenVersion: user.tokenVersion,
     });
   }
 
@@ -301,6 +306,7 @@ export class AuthService {
       userId: user.id,
       role: user.role,
       name: user.name,
+      tokenVersion: user.tokenVersion,
     });
   }
 
@@ -346,6 +352,7 @@ export class AuthService {
       userId: user.id,
       role: user.role,
       name: user.name,
+      tokenVersion: user.tokenVersion,
     });
   }
 
@@ -401,6 +408,7 @@ export class AuthService {
       userId: user.id,
       role: user.role,
       name: user.name,
+      tokenVersion: user.tokenVersion,
       auth_code: code,
       client_id: client.client_id,
       client_secret,
@@ -564,6 +572,7 @@ export class AuthService {
         userId: user.id,
         email: user.email,
         role: user.role,
+        tokenVersion: user.tokenVersion,
         profilePicture: user.profilePicture,
       },
     );
@@ -580,6 +589,62 @@ export class AuthService {
         profilePicture: user.profilePicture,
         isVerified: user.isVerified,
       },
+    };
+  }
+
+  // -------------------- Logout on Single Device --------------------
+  async logoutSingleDevice(userId: number, accessToken: string) {
+    const { jwtVerify, importSPKI } = await import('jose');
+
+    try {
+      // Decode the token to get expiration
+      const publicKeyPem = this.configService
+        .get<string>('JWT_PUBLIC_KEY')!
+        .replace(/\\n/g, '\n');
+      const publicKey = await importSPKI(publicKeyPem, 'RS256');
+
+      const { payload } = await jwtVerify(accessToken, publicKey, {
+        algorithms: ['RS256'],
+      });
+
+      // Add token to blacklist with expiration from the token
+      const expiresAt = new Date((payload.exp || 0) * 1000);
+
+      await this.blacklistedTokenModel.create({
+        token: accessToken,
+        userId,
+        expiresAt,
+        deviceInfo: null,
+      });
+
+      return {
+        message: 'Successfully logged out from this device',
+      };
+    } catch (error) {
+      throw new UnauthorizedException('Invalid token');
+    }
+  }
+
+  // -------------------- Logout on All Devices --------------------
+  async logoutAllDevices(userId: number) {
+    const user = await this.userModel.findByPk(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Increment token version to invalidate all existing tokens
+    await user.update({
+      tokenVersion: user.tokenVersion + 1,
+    });
+
+    // Optionally, delete all refresh tokens for this user
+    await this.refreshTokenModel.destroy({
+      where: { userId },
+    });
+
+    return {
+      message: 'Successfully logged out from all devices',
+      newTokenVersion: user.tokenVersion + 1,
     };
   }
 }

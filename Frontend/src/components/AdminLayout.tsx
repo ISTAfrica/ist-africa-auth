@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation'; // <-- 1. Import Next.js routing hooks
 import Link from 'next/link'; // <-- 2. Import Next.js Link component
 import {
@@ -31,6 +31,9 @@ import { Button } from '@/components/ui/button';
 import Logo from './Logo';
 import { cn } from '@/lib/utils'; // For conditional classes
 import { Toaster } from './ui/sonner';
+import { LogoutDialog } from '@/components/auth/LogoutDialog';
+import { logout } from '@/services/authService';
+import { toast } from 'sonner';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -51,11 +54,31 @@ function AdminSidebar() {
   const pathname = usePathname(); // <-- 3. Use usePathname() for the current URL
   const router = useRouter(); // <-- 4. Use useRouter() for navigation
   const collapsed = state === 'collapsed';
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const handleLogout = () => {
-    localStorage.removeItem('accessToken'); // Using consistent token names
-    localStorage.removeItem('refreshToken');
-    router.push('/auth/login'); // <-- 5. Use router.push() for navigation
+  const handleLogoutClick = () => {
+    setLogoutDialogOpen(true);
+  };
+
+  const handleLogout = async (type: "single" | "all") => {
+    setIsLoggingOut(true);
+    try {
+      await logout(type);
+      toast.success(
+        type === "single"
+          ? "Logged out from this device successfully"
+          : "Logged out from all devices successfully"
+      );
+      setLogoutDialogOpen(false);
+      router.push("/auth/login");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Logout failed"
+      );
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   return (
@@ -101,13 +124,19 @@ function AdminSidebar() {
           <Button
             variant="ghost"
             className="w-full justify-start"
-            onClick={handleLogout}
+            onClick={handleLogoutClick}
           >
             <LogOut className="h-4 w-4" />
             {!collapsed && <span className="ml-2">Logout</span>}
           </Button>
         </div>
       </SidebarContent>
+      <LogoutDialog
+        open={logoutDialogOpen}
+        onOpenChange={setLogoutDialogOpen}
+        onLogout={handleLogout}
+        isLoading={isLoggingOut}
+      />
     </Sidebar>
   );
 }

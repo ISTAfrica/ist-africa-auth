@@ -1,4 +1,4 @@
-import { toast, useToast } from "@/hooks/use-toast";
+import { toast } from "@/hooks/use-toast";
 
 export async function apiClient<T = any>(
   endpoint: string,
@@ -23,14 +23,29 @@ export async function apiClient<T = any>(
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      if (response.status === 401) {
-        // Handle token expiration
+      const error = data.message || 'Something went wrong';
+
+      // Handle authentication errors and token version mismatch
+      if (response.status === 401 || error.toLowerCase().includes('token version mismatch')) {
+        // Clear tokens and redirect to login
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+
+        // Show appropriate message
+        toast({
+          title: 'Session Expired',
+          description: error.toLowerCase().includes('token version mismatch')
+            ? 'You have been logged out from all devices. Please login again.'
+            : 'Your session has expired. Please login again.',
+          variant: 'destructive',
+        });
+
+        // Redirect and return a never-resolving promise to prevent further execution
         window.location.href = '/auth/login';
+        return new Promise(() => {}); // Never resolves, prevents further code execution
       }
 
-      const error = data.message || 'Something went wrong';
       toast({
         title: 'Error',
         description: error,

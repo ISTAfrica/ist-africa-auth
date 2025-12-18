@@ -4,6 +4,7 @@ export interface JwtTokenRequest {
   email: string;
   userId: number;
   role: UserRole;
+  tokenVersion: number;
   name?: string | null;
   password?: string | null;
   auth_code?: string | null;
