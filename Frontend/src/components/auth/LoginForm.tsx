@@ -195,13 +195,27 @@ export default function LoginForm({ forgotPasswordInitial = false }: LoginFormPr
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('userId');
-
+  
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
     let linkedinUrl = `${baseUrl}/api/auth/linkedin`;
+    
+    // ADD THESE DEBUG LOGS
+    console.log('isOauthFlow:', isOauthFlow);
+    console.log('clientIdFromUrl:', clientIdFromUrl);
+    console.log('redirectUriFromUrl:', redirectUriFromUrl);
+    console.log('stateFromUrl:', stateFromUrl);
+    
     if (isOauthFlow && clientIdFromUrl) {
-      const params = new URLSearchParams({ client_id: clientIdFromUrl, redirect_uri: redirectUriFromUrl || '', state: stateFromUrl || '' });
+      const params = new URLSearchParams({ 
+        client_id: clientIdFromUrl, 
+        redirect_uri: redirectUriFromUrl || '', 
+        state: stateFromUrl || '' 
+      });
       linkedinUrl += `?${params.toString()}`;
     }
+    
+    console.log('Final LinkedIn URL:', linkedinUrl); // CHECK THIS
+    
     const width = 500, height = 600;
     const left = window.screenX + (window.outerWidth - width) / 2;
     const top = window.screenY + (window.outerHeight - height) / 2;
