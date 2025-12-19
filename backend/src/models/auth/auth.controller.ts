@@ -26,6 +26,7 @@ import { ResendOtpDto } from './dto/resend-otp.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { ClientCredentialsDto } from './dto/client-credentials.dto';
 import { AuthGuard } from '@nestjs/passport';
+import { LinkedInOAuthGuard } from './guards/linkedin.guard';
 import type { Response } from 'express';
 
 @Controller('api/auth')
@@ -115,24 +116,10 @@ export class AuthController {
   // -------------------- LinkedIn OAuth2 Routes --------------------
 
   @Get('linkedin')
-  @UseGuards(AuthGuard('linkedin'))
-  linkedinLogin(
-    @Query('client_id') clientId: string,
-    @Query('redirect_uri') redirectUri: string,
-    @Query('state') state: string,
-    @Req() req: Request & { session?: any },
-  ) {
-
-    // Store OAuth params in session for callback
-
-    if (clientId && redirectUri) {
-      req.session = req.session || {};
-      req.session.oauth = {
-        client_id: clientId,
-        redirect_uri: redirectUri,
-        state,
-      };
-    }
+  @UseGuards(LinkedInOAuthGuard)
+  linkedinLogin() {
+    // The LinkedInOAuthGuard handles storing OAuth params and redirect
+    // This method body won't execute before the redirect, but needs to exist
   }
 
   @Get('linkedin/callback')
@@ -155,10 +142,10 @@ export class AuthController {
     try {
       // Extract OAuth params from session (stored during initial /linkedin call)
       const oauthParams = req.session?.oauth;
+      console.log('OAuth Params:', oauthParams);
 
       // Call linkedinLogin with OAuth params
       const result = await this.authService.linkedinLogin(
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         req.user,
         oauthParams
           ? {
@@ -168,17 +155,18 @@ export class AuthController {
             }
           : undefined,
       );
+      console.log('Result:', result);
 
       // Clear OAuth params from session
-
       if (req.session?.oauth) {
         delete req.session.oauth;
       }
 
       // -------------------- OAuth2 Authorization Code Flow --------------------
-      
+      // User logged in through a client app - redirect directly to client's redirect_uri
       if ('redirect_uri' in result && result.redirect_uri) {
-        // Redirect back to IAA frontend with authorization code
+        // The redirect_uri already contains the authorization code and state
+        // This goes directly to the client app (not IAA frontend)
         return res.redirect(result.redirect_uri);
       }
 
@@ -210,7 +198,6 @@ export class AuthController {
       )}&isVerified=${encodeURIComponent(user.isVerified)}`;
 
       return res.redirect(redirectUrl);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       const frontendUrl = (
         process.env.FRONTEND_URL ||
