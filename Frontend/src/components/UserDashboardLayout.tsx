@@ -57,6 +57,7 @@ function DashboardSidebar() {
       toast.error(
         error instanceof Error ? error.message : "Logout failed"
       );
+      router.push("/auth/login");
     } finally {
       setIsLoggingOut(false);
     }

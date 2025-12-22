@@ -232,7 +232,6 @@ export const logout = async (type: "single" | "all") => {
   try {
     const token = localStorage.getItem("accessToken");
     if (!token) {
-      // No token, just clear storage and return
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
       localStorage.removeItem("user");
@@ -250,34 +249,21 @@ export const logout = async (type: "single" | "all") => {
 
     const data = await response.json().catch(() => ({}));
 
-    // Handle token version mismatch specifically
-    if (!response.ok) {
-      const error = data.message || "Logout failed";
-
-      // If token version mismatch, clear storage and redirect
-      if (error.toLowerCase().includes('token version mismatch')) {
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
-        localStorage.removeItem("user");
-        window.location.href = '/auth/login';
-        return;
-      }
-
-      throw new Error(error);
-    }
-
-    // Clear local storage on successful logout
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("user");
+
+    if (!response.ok) {
+      const error = data.message || "Logout failed";
+      return { message: error };
+    }
 
     return data;
   } catch (error) {
-    // Clear storage on any error
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("user");
-    throw error;
+    return { message: error instanceof Error ? error.message : "Logged out" };
   }
 };
 

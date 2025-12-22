@@ -26,14 +26,16 @@ import {
   SidebarProvider,
   SidebarTrigger,
   useSidebar,
-} from '@/components/ui/sidebar'; // Assuming this component is Next.js compatible
+} from '@/components/ui/sidebar'; 
 import { Button } from '@/components/ui/button';
 import Logo from './Logo';
-import { cn } from '@/lib/utils'; // For conditional classes
+import { cn } from '@/lib/utils'; 
 import { Toaster } from './ui/sonner';
 import { LogoutDialog } from '@/components/auth/LogoutDialog';
 import { logout } from '@/services/authService';
 import { toast } from 'sonner';
+import { apiClient } from '@/lib/api-client';
+
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -76,6 +78,7 @@ function AdminSidebar() {
       toast.error(
         error instanceof Error ? error.message : "Logout failed"
       );
+      router.push("/auth/login");
     } finally {
       setIsLoggingOut(false);
     }
@@ -99,7 +102,6 @@ function AdminSidebar() {
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild>
-                      {/* 6. Replace NavLink with Next.js Link */}
                       <Link
                         href={item.url}
                         className={cn(
@@ -142,14 +144,34 @@ function AdminSidebar() {
 }
 
 const AdminLayout = ({ children }: AdminLayoutProps) => {
-  const router = useRouter(); 
+  const router = useRouter();
 
   useEffect(() => {
-    const isAuthenticated = localStorage.getItem('accessToken');
-    if (!isAuthenticated) {
-      router.push('/auth/login'); 
-    }
+    const checkAuth = () => {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        router.replace('/auth/login');
+      }
+    };
+
+    checkAuth();
+    window.addEventListener('storage', checkAuth);
+
+    return () => {
+      window.removeEventListener('storage', checkAuth);
+    };
   }, [router]);
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        await apiClient('/api/auth/session');
+      } catch {
+      }
+    },1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <SidebarProvider>

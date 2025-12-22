@@ -5,10 +5,10 @@ export async function apiClient<T = any>(
   options: RequestInit = {}
 ): Promise<T> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-  
+
   const headers = new Headers(options.headers);
   headers.set('Content-Type', 'application/json');
-  
+
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
   }
@@ -27,12 +27,10 @@ export async function apiClient<T = any>(
 
       // Handle authentication errors and token version mismatch
       if (response.status === 401 || error.toLowerCase().includes('token version mismatch')) {
-        // Clear tokens and redirect to login
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
 
-        // Show appropriate message
         toast({
           title: 'Session Expired',
           description: error.toLowerCase().includes('token version mismatch')
@@ -41,9 +39,20 @@ export async function apiClient<T = any>(
           variant: 'destructive',
         });
 
-        // Redirect and return a never-resolving promise to prevent further execution
-        window.location.href = '/auth/login';
-        return new Promise(() => {}); // Never resolves, prevents further code execution
+        if (response.status === 401 || error.toLowerCase().includes('token version mismatch')) {
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('user');
+
+          toast({
+            title: 'Session Expired',
+            description: 'You have been logged out. Please login again.',
+            variant: 'destructive',
+          });
+
+          // throw new Error('UNAUTHORIZED');
+        }
+
       }
 
       toast({
