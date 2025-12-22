@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { SequelizeModule } from '@nestjs/sequelize';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 import { UsersModule } from '../models/users/users.module';
 import { AuthModule } from '../models/auth/auth.module';
 import { ChangePasswordModule } from '../models/auth/changepassword.module';
@@ -14,6 +16,10 @@ import { JwksModule } from '../models/jwks/jwks.module'
 
 @Module({
   imports: [
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', '..', 'public'),
+      serveRoot: '/',
+    }),
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',

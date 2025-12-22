@@ -9,6 +9,7 @@ export interface JwtTokenRequest {
   auth_code?: string | null;
   client_id?: string | null;
   client_secret?: string | null;
+  profilePicture?: string | null;
 }
 
 export interface JwtTokenResponse {
@@ -19,5 +20,3 @@ export interface JwtTokenResponse {
 export interface JwtTokenIssuer {
   issueTokens(payload: JwtTokenRequest): Promise<JwtTokenResponse>;
 }
-
-

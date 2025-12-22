@@ -189,8 +189,7 @@ export class AuthService {
 
   // -------------------- Authenticate --------------------
   async authenticate(authenticateDto: AuthenticateUserDto) {
-    const { email, password, client_id, redirect_uri, state } =
-      authenticateDto;
+    const { email, password, client_id, redirect_uri, state } = authenticateDto;
 
     const user = await this.userModel.findOne({ where: { email } });
     if (!user) throw new NotFoundException('User not found');
@@ -207,10 +206,6 @@ export class AuthService {
 
     // -------------------- OAuth2 Authorization Code Flow --------------------
     if (client_id && redirect_uri) {
-      console.log(
-        `[AuthService] Detected OAuth2 Authorization Code flow for client: ${client_id}`,
-      );
-
       const client = await this.clientModel.findOne({ where: { client_id } });
       if (!client) {
         throw new BadRequestException(
@@ -383,7 +378,9 @@ export class AuthService {
     // 5. Load user
     const user = await this.userModel.findByPk(authCode.userId);
     if (!user) {
-      throw new NotFoundException('User linked to authorization code not found');
+      throw new NotFoundException(
+        'User linked to authorization code not found',
+      );
     }
 
     // 6. Generate tokens
@@ -424,6 +421,154 @@ export class AuthService {
       access_token: tokenPair.accessToken,
       refresh_token: tokenPair.refreshToken,
       token_type: 'Bearer',
+    };
+  }
+
+  // -------------------- LinkedIn Login with OAuth2 Support --------------------
+
+  async linkedinLogin(
+    profile: {
+      linkedinId: string;
+      email: string;
+      firstName: string;
+      lastName: string;
+      picture: string;
+    },
+    oauthParams?: {
+      client_id?: string;
+      redirect_uri?: string;
+      state?: string;
+    },
+  ) {
+    // Find or create user
+    let user = await this.userModel.findOne({
+      where: { linkedinId: profile.linkedinId },
+    });
+
+    // Update existing user's profile picture
+    if (user) {
+      await user.update({
+        profilePicture: profile.picture,
+      });
+    }
+
+    // Link LinkedIn to existing email account
+    if (!user && profile.email) {
+      const userByEmail = await this.userModel.findOne({
+        where: { email: profile.email },
+      });
+
+      if (userByEmail) {
+        await userByEmail.update({
+          linkedinId: profile.linkedinId,
+          profilePicture: profile.picture,
+          isVerified: true,
+        });
+        user = userByEmail;
+      }
+    }
+
+    // Create new user if not found
+    if (!user) {
+      const fullName =
+        `${profile.firstName || ''} ${profile.lastName || ''}`.trim() ||
+        'LinkedIn User';
+      const domainsEnv = this.configService.get<string>('IST_DOMAINS') || '';
+      const istDomains = domainsEnv
+        .split(',')
+        .map((d) => d.trim().toLowerCase())
+        .filter((d) => d.length > 0);
+
+      const emailDomain = profile.email?.split('@')[1]?.toLowerCase();
+      const membershipStatus = istDomains.includes(emailDomain)
+        ? 'ist_member'
+        : 'ext_member';
+
+      user = await this.userModel.create({
+        linkedinId: profile.linkedinId,
+        email: profile.email,
+        name: fullName,
+        profilePicture: profile.picture,
+        isVerified: true,
+        role: 'user',
+        password: '',
+        membershipStatus,
+        verificationToken: null,
+        otp: null,
+        otpExpiresAt: null,
+      });
+    }
+
+    // -------------------- OAuth2 Authorization Code Flow --------------------
+    if (oauthParams?.client_id && oauthParams?.redirect_uri) {
+      const client = await this.clientModel.findOne({
+        where: { client_id: oauthParams.client_id },
+      });
+
+      if (!client) {
+        throw new BadRequestException(
+          'Unauthorized client: This application is not registered.',
+        );
+      }
+
+      if (client.redirect_uri !== oauthParams.redirect_uri) {
+        throw new BadRequestException(
+          `Invalid redirect URI: Expected ${client.redirect_uri}, got: ${oauthParams.redirect_uri}`,
+        );
+      }
+
+      if (client.status !== 'active') {
+        throw new BadRequestException('Client application is not active.');
+      }
+
+      const code = randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+      await this.authCodeModel.create({
+        code,
+        expiresAt,
+        userId: user.id,
+        clientId: client.id,
+      });
+
+      const iaaFrontendUrl = this.configService.get<string>(
+        'FRONTEND_URL',
+        'http://localhost:3000',
+      );
+
+      const finalRedirectUri = new URL(`${iaaFrontendUrl}/auth/callback`);
+      finalRedirectUri.searchParams.append('code', code);
+      if (oauthParams.state) {
+        finalRedirectUri.searchParams.append('state', oauthParams.state);
+      }
+
+      return {
+        redirect_uri: finalRedirectUri.toString(),
+      };
+    }
+
+    // -------------------- Direct Login (No OAuth2 Client) --------------------
+    const { accessToken, refreshToken } = await this.jwtTokenIssuer.issueTokens(
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        profilePicture: user.profilePicture,
+      },
+    );
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        membershipStatus: user.membershipStatus,
+        profilePicture: user.profilePicture,
+        isVerified: user.isVerified,
+      },
     };
   }
 }
