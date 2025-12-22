@@ -32,7 +32,7 @@ import type { Response, Request } from 'express';
 @Controller('api/auth')
 // @UseGuards(JwtAuthGuard)
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(private authService: AuthService) { }
 
   @Post('register')
   register(@Body(new ValidationPipe()) registerDto: RegisterUserDto) {
@@ -163,10 +163,10 @@ export class AuthController {
         req.user,
         oauthParams
           ? {
-              client_id: oauthParams.client_id,
-              redirect_uri: oauthParams.redirect_uri,
-              state: oauthParams.state,
-            }
+            client_id: oauthParams.client_id,
+            redirect_uri: oauthParams.redirect_uri,
+            state: oauthParams.state,
+          }
           : undefined,
       );
 
@@ -177,7 +177,7 @@ export class AuthController {
       }
 
       // -------------------- OAuth2 Authorization Code Flow --------------------
-      
+
       if ('redirect_uri' in result && result.redirect_uri) {
         // Redirect back to IAA frontend with authorization code
         return res.redirect(result.redirect_uri);
@@ -254,4 +254,10 @@ export class AuthController {
 
     throw new BadRequestException('Invalid logout type');
   }
+  @Get('session')
+  @UseGuards(AuthGuard('jwt'))
+  checkSession() {
+    return { ok: true };
+  }
+
 }
