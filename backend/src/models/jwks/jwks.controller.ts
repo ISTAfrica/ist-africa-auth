@@ -17,10 +17,8 @@ export class JwksController {
   @HttpCode(200)
   async introspect(@Body('token') token: string) {
     if (!token) {
-      // Use a standard NestJS exception for a clean error response.
       throw new UnauthorizedException('Token is required for introspection.');
     }
-    // The controller's job is simple: get the request, call the service, return the result.
     return this.jwksService.introspectToken(token);
   }
 }

@@ -34,18 +34,13 @@ export class JwksService {
 
   async introspectToken(token: string): Promise<{ active: boolean; [key: string]: any }> {
     try {
-      // Use NestJS's built-in JWT validation. This method will automatically
-      // use the secret/public keys you configured in your AuthModule's JwtModule.
       const payload = await this.jwtService.verifyAsync(token);
 
-      // If verification succeeds, the token is active.
       return {
         active: true,
-        ...payload, // Include all claims from the token (sub, email, exp, etc.)
+        ...payload, 
       };
     } catch (error) {
-      // If verifyAsync throws an error (e.g., bad signature, expired token),
-      // it means the token is not active.
       console.error('[Introspection Service] Token validation failed:', error.message);
       return { active: false };
     }
