@@ -14,7 +14,7 @@ export async function apiClient<T = any>(
   }
 
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}${endpoint}`, {
       ...options,
       headers,
       credentials: 'include',
