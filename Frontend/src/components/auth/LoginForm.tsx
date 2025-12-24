@@ -187,7 +187,7 @@ export default function LoginForm({
       const data = await authenticateUser(payload);
 
       if (data.redirect_uri) {
-        console.log("🔗 OAuth flow detected, redirect_uri:", data.redirect_uri);
+
 
         if (isPopup) {
           try {
