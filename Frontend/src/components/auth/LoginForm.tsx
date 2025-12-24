@@ -313,6 +313,21 @@ export default function LoginForm({
     ? "Enter your email to receive a password reset link"
     : "Sign in to access your account";
 
+  // Show loading state when LinkedIn authentication is in progress
+  if (linkedinLoading && !isPopup) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+        <h3 className="text-lg font-semibold text-foreground mb-2">
+          Authenticating with LinkedIn...
+        </h3>
+        <p className="text-sm text-muted-foreground text-center">
+          Please complete the authentication in the popup window.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className={isOauthFlow ? "mb-2 text-center" : "mb-4 text-center"}>
