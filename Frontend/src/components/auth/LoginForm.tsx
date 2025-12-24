@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -188,17 +187,32 @@ export default function LoginForm({
       const data = await authenticateUser(payload);
 
       if (data.redirect_uri) {
+        console.log("🔗 OAuth flow detected, redirect_uri:", data.redirect_uri);
+
         if (isPopup) {
-          if (window.opener) {
-            window.opener.postMessage(
-              {
-                type: "LINKEDIN_AUTH_SUCCESS",
-                payload: { redirect_uri: data.redirect_uri },
-              },
-              window.location.origin
-            );
+          try {
+            const url = new URL(data.redirect_uri);
+            const code = url.searchParams.get("code");
+            const state = url.searchParams.get("state");
+
+            if (code && state && window.opener) {
+              window.opener.postMessage(
+                {
+                  type: "iaa-auth-callback",
+                  code,
+                  state,
+                },
+                "*"
+              );
+              setTimeout(() => window.close(), 100);
+            } else {
+              console.error("Missing code/state or no window.opener");
+              throw new Error("Invalid OAuth response");
+            }
+          } catch (urlError) {
+            console.error("Failed to parse redirect_uri:", urlError);
+            throw new Error("Invalid redirect_uri format");
           }
-          setTimeout(() => window.close(), 100);
         } else {
           window.location.href = data.redirect_uri;
         }
@@ -221,7 +235,7 @@ export default function LoginForm({
                   refreshToken: data.refreshToken,
                 },
               },
-              window.location.origin
+              "*"
             );
           }
           setTimeout(() => window.close(), 100);
