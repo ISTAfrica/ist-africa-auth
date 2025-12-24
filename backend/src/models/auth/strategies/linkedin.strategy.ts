@@ -15,11 +15,27 @@ export class LinkedInStrategy extends PassportStrategy(Strategy, 'linkedin') {
       callbackURL: configService.get<string>('LINKEDIN_CALLBACK_URL')!,
       scope: ['openid', 'profile', 'email'],
       state: true,
-    } as StrategyOptions;
+      passReqToCallback: true, // CRITICAL: This allows us to access the request in validate()
+    };
+
     super(options);
+
+    console.log('=== LINKEDIN STRATEGY INITIALIZED ===');
+    console.log('Authorization URL:', options.authorizationURL);
+    console.log('Callback URL:', options.callbackURL);
+    console.log('Client ID:', options.clientID ? 'Set' : 'Missing');
+    console.log('Client Secret:', options.clientSecret ? 'Set' : 'Missing');
   }
 
-  async validate(accessToken: string): Promise<any> {
+  async validate(
+    req: any,
+    accessToken: string,
+    refreshToken: string,
+    profile: any,
+  ): Promise<any> {
+    console.log('=== LINKEDIN STRATEGY VALIDATE ===');
+    console.log('Access Token received:', accessToken ? 'Yes' : 'No');
+
     try {
       const response = await fetch('https://api.linkedin.com/v2/userinfo', {
         headers: {
@@ -38,20 +54,23 @@ export class LinkedInStrategy extends PassportStrategy(Strategy, 'linkedin') {
         );
       }
 
-      const profile = await response.json();
-
+      const userProfile = await response.json();
+      console.log('LinkedIn profile fetched:', userProfile.email);
 
       // LinkedIn OpenID Connect returns picture in the 'picture' field
       const userData = {
-        linkedinId: profile.sub,
-        email: profile.email,
-        firstName: profile.given_name || '',
-        lastName: profile.family_name || '',
-        // Try multiple possible field names for the profile picture
+        linkedinId: userProfile.sub,
+        email: userProfile.email,
+        firstName: userProfile.given_name || '',
+        lastName: userProfile.family_name || '',
         picture:
-          profile.picture || profile.profilePicture || profile.photo || null,
+          userProfile.picture ||
+          userProfile.profilePicture ||
+          userProfile.photo ||
+          null,
       };
 
+      console.log('User data prepared:', userData.email);
       return userData;
     } catch (error) {
       console.error(

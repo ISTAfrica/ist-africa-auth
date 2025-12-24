@@ -4,7 +4,10 @@ import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class JwksService {
-  constructor(private readonly configService: ConfigService, private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly jwtService: JwtService,
+  ) {}
 
   async getJwks() {
     try {
@@ -13,11 +16,13 @@ export class JwksService {
       const publicKeyPem = this.configService
         .get<string>('JWT_PUBLIC_KEY', '')
         .replace(/\\n/g, '\n');
-        
+
       const keyId = this.configService.get<string>('JWT_KEY_ID');
 
       if (!publicKeyPem || !keyId) {
-        throw new Error('JWT_PUBLIC_KEY or JWT_KEY_ID is not configured in environment variables.');
+        throw new Error(
+          'JWT_PUBLIC_KEY or JWT_KEY_ID is not configured in environment variables.',
+        );
       }
 
       const ecPublicKey = await importSPKI(publicKeyPem, 'RS256');
@@ -32,18 +37,22 @@ export class JwksService {
     }
   }
 
-  async introspectToken(token: string): Promise<{ active: boolean; [key: string]: any }> {
+  async introspectToken(
+    token: string,
+  ): Promise<{ active: boolean; [key: string]: any }> {
     try {
       const payload = await this.jwtService.verifyAsync(token);
 
       return {
         active: true,
-        ...payload, 
+        ...payload,
       };
     } catch (error) {
-      console.error('[Introspection Service] Token validation failed:', error.message);
+      console.error(
+        '[Introspection Service] Token validation failed:',
+        error.message,
+      );
       return { active: false };
     }
   }
-
 }

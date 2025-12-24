@@ -500,6 +500,7 @@ export class AuthService {
     }
 
     // -------------------- OAuth2 Authorization Code Flow --------------------
+    // -------------------- OAuth2 Authorization Code Flow --------------------
     if (oauthParams?.client_id && oauthParams?.redirect_uri) {
       const client = await this.clientModel.findOne({
         where: { client_id: oauthParams.client_id },
@@ -531,12 +532,8 @@ export class AuthService {
         clientId: client.id,
       });
 
-      const iaaFrontendUrl = this.configService.get<string>(
-        'FRONTEND_URL',
-        'http://localhost:3000',
-      );
-
-      const finalRedirectUri = new URL(`${iaaFrontendUrl}/auth/callback`);
+      // Redirect directly to the client app's redirect_uri (not IAA frontend)
+      const finalRedirectUri = new URL(oauthParams.redirect_uri);
       finalRedirectUri.searchParams.append('code', code);
       if (oauthParams.state) {
         finalRedirectUri.searchParams.append('state', oauthParams.state);
