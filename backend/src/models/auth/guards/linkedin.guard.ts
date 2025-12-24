@@ -20,9 +20,6 @@ export class LinkedInOAuthGuard extends AuthGuard('linkedin') {
     // Store OAuth params BEFORE Passport redirect
     const { client_id, redirect_uri, state } = request.query;
 
-    console.log('=== LINKEDIN OAUTH GUARD ===');
-    console.log('Query params:', { client_id, redirect_uri, state });
-
     if (client_id && redirect_uri) {
       request.session = request.session || {};
       request.session.oauth = {
@@ -30,8 +27,6 @@ export class LinkedInOAuthGuard extends AuthGuard('linkedin') {
         redirect_uri: redirect_uri as string,
         state: state as string,
       };
-
-      console.log('Stored in session:', request.session.oauth);
 
       // Force save session before Passport redirect
       try {
@@ -41,7 +36,6 @@ export class LinkedInOAuthGuard extends AuthGuard('linkedin') {
               console.error('Session save error:', err);
               reject(err);
             } else {
-              console.log('Session saved successfully!');
               resolve();
             }
           });
@@ -54,7 +48,6 @@ export class LinkedInOAuthGuard extends AuthGuard('linkedin') {
 
     // Now let Passport handle the redirect
     const result = await super.canActivate(context);
-    console.log('=== GUARD COMPLETED, PASSPORT SHOULD REDIRECT ===');
     return result as boolean;
   }
 }

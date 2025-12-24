@@ -117,10 +117,7 @@ export class AuthController {
 
   @Get('linkedin')
   @UseGuards(LinkedInOAuthGuard)
-  linkedinLogin() {
-    // The LinkedInOAuthGuard handles storing OAuth params and redirect
-    // This method body won't execute before the redirect, but needs to exist
-  }
+  linkedinLogin() {}
 
   @Get('linkedin/callback')
   @UseGuards(AuthGuard('linkedin'))
@@ -140,11 +137,8 @@ export class AuthController {
     }
 
     try {
-      // Extract OAuth params from session (stored during initial /linkedin call)
       const oauthParams = req.session?.oauth;
-      console.log('OAuth Params:', oauthParams);
 
-      // Call linkedinLogin with OAuth params
       const result = await this.authService.linkedinLogin(
         req.user,
         oauthParams
@@ -155,26 +149,9 @@ export class AuthController {
             }
           : undefined,
       );
-      console.log('Result:', result);
 
-      // Clear OAuth params from session
       if (req.session?.oauth) {
         delete req.session.oauth;
-      }
-
-      // -------------------- OAuth2 Authorization Code Flow --------------------
-      // User logged in through a client app - redirect directly to client's redirect_uri
-      if ('redirect_uri' in result && result.redirect_uri) {
-        // The redirect_uri already contains the authorization code and state
-        // This goes directly to the client app (not IAA frontend)
-        return res.redirect(result.redirect_uri);
-      }
-
-      // -------------------- Direct Login (No OAuth2 Client) --------------------
-      const { accessToken, refreshToken, user } = result;
-
-      if (!user || !accessToken || !refreshToken) {
-        throw new Error('Invalid response from linkedinLogin');
       }
 
       const frontendUrl = (
@@ -182,10 +159,20 @@ export class AuthController {
         process.env.NEXT_PUBLIC_FRONTEND_URL ||
         'http://localhost:3000'
       ).replace(/\/$/, '');
+      if ('redirect_uri' in result && result.redirect_uri) {
+        const callbackUrl = `${frontendUrl}/auth/linkedin/callback?redirect_uri=${encodeURIComponent(result.redirect_uri)}`;
+        return res.redirect(callbackUrl);
+      }
 
-      const redirectPath =
-        user.role === 'admin' ? '/admin/clients' : '/user/profile';
-      const redirectUrl = `${frontendUrl}${redirectPath}?accessToken=${encodeURIComponent(
+      // Direct Login (No OAuth2 Client)
+      const { accessToken, refreshToken, user } = result;
+
+      if (!user || !accessToken || !refreshToken) {
+        throw new Error('Invalid response from linkedinLogin');
+      }
+
+      // Redirect to callback page with tokens
+      const callbackUrl = `${frontendUrl}/auth/linkedin/callback?accessToken=${encodeURIComponent(
         accessToken,
       )}&refreshToken=${encodeURIComponent(refreshToken)}&userId=${encodeURIComponent(
         user.id,
@@ -197,7 +184,7 @@ export class AuthController {
         user.profilePicture || '',
       )}&isVerified=${encodeURIComponent(user.isVerified)}`;
 
-      return res.redirect(redirectUrl);
+      return res.redirect(callbackUrl);
     } catch (error) {
       const frontendUrl = (
         process.env.FRONTEND_URL ||
