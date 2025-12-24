@@ -4,7 +4,7 @@ import {
   VerifyOtpDto,
   ResendOtpDto,
 } from "@/types";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, handleGlobalLogout } from "@/lib/api-client";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -232,9 +232,7 @@ export const logout = async (type: "single" | "all") => {
   try {
     const token = localStorage.getItem("accessToken");
     if (!token) {
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
-      localStorage.removeItem("user");
+      handleGlobalLogout();
       return { message: "Logged out successfully" };
     }
 
@@ -247,23 +245,23 @@ export const logout = async (type: "single" | "all") => {
       body: JSON.stringify({ type }),
     });
 
-    const data = await response.json().catch(() => ({}));
-
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("user");
-
-    if (!response.ok) {
-      const error = data.message || "Logout failed";
-      return { message: error };
-    }
-
-    return data;
+    // Clear local data and redirect immediately
+    handleGlobalLogout();
+    return await response.json().catch(() => ({}));
   } catch (error) {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("user");
+    handleGlobalLogout();
     return { message: error instanceof Error ? error.message : "Logged out" };
+  }
+};
+
+export const validateSession = async () => {
+  const token = typeof window !== 'undefined' ? localStorage.getItem("accessToken") : null;
+  if (!token) return;
+
+  try {
+    await apiClient("/api/user/me"); 
+  } catch (error) {
+    console.warn("Session background check skipped.");
   }
 };
 

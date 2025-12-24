@@ -1,5 +1,17 @@
 import { toast } from "@/hooks/use-toast";
 
+
+export const handleGlobalLogout = (message?: string) => {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+
+    const searchParams = message ? `?message=${encodeURIComponent(message)}` : '';
+    window.location.href = `/auth/login${searchParams}`;
+  }
+};
+
 export async function apiClient<T = any>(
   endpoint: string,
   options: RequestInit = {}
@@ -20,52 +32,41 @@ export async function apiClient<T = any>(
       credentials: 'include',
     });
 
-    const data = await response.json().catch(() => ({}));
+    const responseText = await response.text();
+    let data: any = {};
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch (e) {
+      data = { message: responseText || 'Unknown error' };
+    }
 
     if (!response.ok) {
-      const error = data.message || 'Something went wrong';
+      const errorMsg = data.message || 'Something went wrong';
 
-      // Handle authentication errors and token version mismatch
-      if (response.status === 401 || error.toLowerCase().includes('token version mismatch')) {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
-
-        toast({
-          title: 'Session Expired',
-          description: error.toLowerCase().includes('token version mismatch')
-            ? 'You have been logged out from all devices. Please login again.'
-            : 'Your session has expired. Please login again.',
-          variant: 'destructive',
-        });
-
-        if (response.status === 401 || error.toLowerCase().includes('token version mismatch')) {
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
-          localStorage.removeItem('user');
-
-          toast({
-            title: 'Session Expired',
-            description: 'You have been logged out. Please login again.',
-            variant: 'destructive',
-          });
-
-          // throw new Error('UNAUTHORIZED');
-        }
-
+      if (
+        response.status === 401 || 
+        errorMsg.toLowerCase().includes('token version mismatch') ||
+        errorMsg.toLowerCase().includes('unauthorized')
+      ) {
+        handleGlobalLogout(errorMsg);
+        return new Promise(() => {}); 
       }
 
-      toast({
-        title: 'Error',
-        description: error,
-        variant: 'destructive',
-      });
-      throw new Error(error);
+      throw new Error(errorMsg);
     }
 
     return data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('API request failed:', error);
+    
+    if (typeof window !== 'undefined' && !endpoint.includes('/auth/')) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Connection failed',
+        variant: 'destructive',
+      });
+    }
+
     throw error;
   }
 }
