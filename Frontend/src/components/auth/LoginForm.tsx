@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -63,7 +62,6 @@ export default function LoginForm({
     typeof window !== "undefined" && window.opener && window.opener !== window;
   const hasProcessedAuth = useRef(false);
 
-  // Handle error from URL
   useEffect(() => {
     const errorFromUrl = searchParams.get("error");
     if (errorFromUrl) {
@@ -71,7 +69,6 @@ export default function LoginForm({
     }
   }, [searchParams]);
 
-  // Fetch client info if OAuth flow
   useEffect(() => {
     if (clientIdFromUrl) {
       setIsOauthFlow(true);
@@ -95,12 +92,15 @@ export default function LoginForm({
     }
   }, [clientIdFromUrl]);
 
-  // Handle token messages for popup
   useEffect(() => {
-    if (isPopup) return;
+    if (isPopup) {
+      return;
+    }
 
     const performRedirect = (token: string) => {
-      if (hasProcessedAuth.current) return;
+      if (hasProcessedAuth.current) {
+        return;
+      }
       hasProcessedAuth.current = true;
 
       setLinkedinLoading(false);
@@ -159,7 +159,6 @@ export default function LoginForm({
         performRedirect(e.newValue);
       }
     };
-
     window.addEventListener("message", handleAuthMessage);
     window.addEventListener("storage", handleStorageChange);
 
@@ -169,7 +168,6 @@ export default function LoginForm({
     };
   }, [router, isPopup]);
 
-  // Standard login
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -189,12 +187,32 @@ export default function LoginForm({
       const data = await authenticateUser(payload);
 
       if (data.redirect_uri) {
-        if (isPopup && window.opener) {
-          window.opener.postMessage(
-            { type: "LINKEDIN_AUTH_SUCCESS", payload: { redirect_uri: data.redirect_uri } },
-            window.location.origin
-          );
-          setTimeout(() => window.close(), 100);
+
+
+        if (isPopup) {
+          try {
+            const url = new URL(data.redirect_uri);
+            const code = url.searchParams.get("code");
+            const state = url.searchParams.get("state");
+
+            if (code && state && window.opener) {
+              window.opener.postMessage(
+                {
+                  type: "iaa-auth-callback",
+                  code,
+                  state,
+                },
+                "*"
+              );
+              setTimeout(() => window.close(), 100);
+            } else {
+              console.error("Missing code/state or no window.opener");
+              throw new Error("Invalid OAuth response");
+            }
+          } catch (urlError) {
+            console.error("Failed to parse redirect_uri:", urlError);
+            throw new Error("Invalid redirect_uri format");
+          }
         } else {
           window.location.href = data.redirect_uri;
         }
@@ -203,35 +221,42 @@ export default function LoginForm({
         localStorage.setItem("refreshToken", data.refreshToken);
 
         const decodedToken = jwtDecode<DecodedToken>(data.accessToken);
-        if (decodedToken.sub) localStorage.setItem("userId", decodedToken.sub);
+        if (decodedToken.sub) {
+          localStorage.setItem("userId", decodedToken.sub);
+        }
 
-        if (isPopup && window.opener) {
-          window.opener.postMessage(
-            {
-              type: "LINKEDIN_AUTH_SUCCESS",
-              payload: {
-                accessToken: data.accessToken,
-                refreshToken: data.refreshToken,
+        if (isPopup) {
+          if (window.opener) {
+            window.opener.postMessage(
+              {
+                type: "LINKEDIN_AUTH_SUCCESS",
+                payload: {
+                  accessToken: data.accessToken,
+                  refreshToken: data.refreshToken,
+                },
               },
-            },
-            window.location.origin
-          );
+              "*"
+            );
+          }
           setTimeout(() => window.close(), 100);
         } else {
           router.push(
-            decodedToken.role === "admin" ? "/admin/clients" : "/user/profile"
+            decodedToken.role === "admin" ? "/admin/clients" : "/user"
           );
         }
       } else {
         throw new Error("Invalid response from authentication server.");
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "An unknown error occurred");
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An unknown error occurred");
+      }
       setLoading(false);
     }
   };
 
-  // LinkedIn OAuth login
   const handleLinkedInLogin = () => {
     setLinkedinLoading(true);
     setError("");
@@ -252,17 +277,14 @@ export default function LoginForm({
       });
       linkedinUrl += `?${params.toString()}`;
     }
-
     if (isPopup) {
       window.location.replace(linkedinUrl);
       return;
     }
-
     const width = 500,
       height = 600;
     const left = window.screenX + (window.outerWidth - width) / 2;
     const top = window.screenY + (window.outerHeight - height) / 2;
-
     const popup = window.open(
       linkedinUrl,
       "linkedin-login-popup",
@@ -274,7 +296,9 @@ export default function LoginForm({
       const checkPopup = setInterval(() => {
         if (popup.closed) {
           clearInterval(checkPopup);
-          if (!hasProcessedAuth.current) setLinkedinLoading(false);
+          if (!hasProcessedAuth.current) {
+            setLinkedinLoading(false);
+          }
         }
       }, 500);
     } else {
@@ -283,7 +307,6 @@ export default function LoginForm({
     }
   };
 
-  // Password reset
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -292,7 +315,8 @@ export default function LoginForm({
       await forgotPassword({ email });
       setResetSent(true);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "An unknown error occurred");
+      if (err instanceof Error) setError(err.message);
+      else setError("An unknown error occurred");
     } finally {
       setLoading(false);
     }
@@ -303,6 +327,7 @@ export default function LoginForm({
     ? "Enter your email to receive a password reset link"
     : "Sign in to access your account";
 
+  // Show loading state when LinkedIn authentication is in progress
   if (linkedinLoading && !isPopup) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
@@ -319,7 +344,6 @@ export default function LoginForm({
 
   return (
     <>
-      {/* Header */}
       <div className={isOauthFlow ? "mb-2 text-center" : "mb-4 text-center"}>
         <h2
           className={
@@ -341,7 +365,6 @@ export default function LoginForm({
         </p>
       </div>
 
-      {/* OAuth app info */}
       {isOauthFlow && (
         <div className="mb-2">
           {isClientInfoLoading ? (
@@ -368,7 +391,6 @@ export default function LoginForm({
         </div>
       )}
 
-      {/* Form */}
       {isForgotPassword ? (
         resetSent ? (
           <div className="space-y-3">
@@ -408,7 +430,11 @@ export default function LoginForm({
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? <Loader2 className="animate-spin" /> : "Send Reset Link"}
+              {loading ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                "Send Reset Link"
+              )}
             </Button>
             <Button
               type="button"
@@ -431,6 +457,7 @@ export default function LoginForm({
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+
           {!isOauthFlow && error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -494,7 +521,6 @@ export default function LoginForm({
             {loading ? <Loader2 className="animate-spin" /> : "Sign In"}
           </Button>
 
-          {/* Separator */}
           <div className={isOauthFlow ? "relative my-2" : "relative my-4"}>
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
@@ -510,7 +536,6 @@ export default function LoginForm({
             </div>
           </div>
 
-          {/* LinkedIn OAuth Button */}
           <Button
             type="button"
             onClick={handleLinkedInLogin}
@@ -535,7 +560,6 @@ export default function LoginForm({
             Continue with LinkedIn
           </Button>
 
-          {/* Sign up link */}
           <p
             className={
               isOauthFlow
