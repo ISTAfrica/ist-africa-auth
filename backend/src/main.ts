@@ -3,7 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app/app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
-import session from 'express-session';
+import session = require('express-session');
 
 async function bootstrap() {
   console.log('JWT_PRIVATE_KEY on startup:', process.env.JWT_PRIVATE_KEY);
@@ -17,16 +17,17 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
   app.use(
     session({
-      secret:
-        process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
+      secret: process.env.SESSION_SECRET || 'your-secret-key-change-this',
       resave: false,
       saveUninitialized: false,
       cookie: {
-        maxAge: 3600000,
+        maxAge: 600000, 
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
       },
     }),
   );
@@ -36,7 +37,10 @@ async function bootstrap() {
   });
 
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: [
+      process.env.CORS_ORIGIN || 'http://localhost:3000', 
+      'http://localhost:3001'
+    ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

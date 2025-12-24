@@ -28,6 +28,9 @@ import { AuthorizationCode } from './entities/authorization-code.entity';
 
 @Injectable()
 export class AuthService {
+  getJwks() {
+    throw new Error('Method not implemented.');
+  }
   private readonly jwtTokenIssuer: JwtTokenIssuer;
 
   constructor(
@@ -310,21 +313,7 @@ export class AuthService {
     });
   }
 
-  // -------------------- JWKS --------------------
-  async getJwks() {
-    try {
-      const { importSPKI, exportJWK } = await import('jose');
-      const publicKeyPem = process.env.JWT_PUBLIC_KEY!.replace(/\\n/g, '\n');
-      const keyId = process.env.JWT_KEY_ID!;
-      const ecPublicKey = await importSPKI(publicKeyPem, 'RS256');
-      const jwk = await exportJWK(ecPublicKey);
-      return { keys: [{ ...jwk, kid: keyId, use: 'sig', alg: 'RS256' }] };
-    } catch (error) {
-      console.error('JWKS Error:', error);
-      throw new InternalServerErrorException('Could not generate JWKS');
-    }
-  }
-
+ 
   // -------------------- Refresh Tokens --------------------
   async refreshTokens(refreshToken: string) {
     const storedTokens = await this.refreshTokenModel.findAll();
@@ -519,6 +508,7 @@ export class AuthService {
     }
 
     // -------------------- OAuth2 Authorization Code Flow --------------------
+    // -------------------- OAuth2 Authorization Code Flow --------------------
     if (oauthParams?.client_id && oauthParams?.redirect_uri) {
       const client = await this.clientModel.findOne({
         where: { client_id: oauthParams.client_id },
@@ -550,12 +540,8 @@ export class AuthService {
         clientId: client.id,
       });
 
-      const iaaFrontendUrl = this.configService.get<string>(
-        'FRONTEND_URL',
-        'http://localhost:3000',
-      );
-
-      const finalRedirectUri = new URL(`${iaaFrontendUrl}/auth/callback`);
+      // Redirect directly to the client app's redirect_uri (not IAA frontend)
+      const finalRedirectUri = new URL(oauthParams.redirect_uri);
       finalRedirectUri.searchParams.append('code', code);
       if (oauthParams.state) {
         finalRedirectUri.searchParams.append('state', oauthParams.state);
