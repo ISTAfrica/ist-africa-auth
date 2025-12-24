@@ -47,11 +47,8 @@ export class AuthController {
     return this.authService.authenticate(authenticateDto);
   }
 
-  @Get('jwks')
-  getJwks() {
-    return this.authService.getJwks();
-  }
 
+  
   @Get('verify-email')
   @Redirect()
   async verifyEmail(@Query('token') token: string) {

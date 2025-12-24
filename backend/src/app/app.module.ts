@@ -12,6 +12,7 @@ import { EmailModule } from '../email/email.module';
 import { UserModule } from '../models/user/user.module';
 import { ClientsModule } from '../models/clients/clients.module';
 import { DefaultAdminModule } from '../commons/services/default-admin/default-admin.module';
+import { JwksModule } from '../models/jwks/jwks.module'
 
 @Module({
   imports: [
@@ -34,7 +35,8 @@ import { DefaultAdminModule } from '../commons/services/default-admin/default-ad
     EmailModule,
     UserModule,
     ClientsModule,
-    DefaultAdminModule
+    DefaultAdminModule,
+    JwksModule
   ],
 })
 export class AppModule {}
