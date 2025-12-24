@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation'; // <-- 1. Import Next.js routing hooks
 import Link from 'next/link'; // <-- 2. Import Next.js Link component
 import {
@@ -26,11 +26,16 @@ import {
   SidebarProvider,
   SidebarTrigger,
   useSidebar,
-} from '@/components/ui/sidebar'; // Assuming this component is Next.js compatible
+} from '@/components/ui/sidebar'; 
 import { Button } from '@/components/ui/button';
 import Logo from './Logo';
-import { cn } from '@/lib/utils'; // For conditional classes
+import { cn } from '@/lib/utils'; 
 import { Toaster } from './ui/sonner';
+import { LogoutDialog } from '@/components/auth/LogoutDialog';
+import { logout } from '@/services/authService';
+import { toast } from 'sonner';
+import { apiClient } from '@/lib/api-client';
+
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -51,11 +56,32 @@ function AdminSidebar() {
   const pathname = usePathname(); // <-- 3. Use usePathname() for the current URL
   const router = useRouter(); // <-- 4. Use useRouter() for navigation
   const collapsed = state === 'collapsed';
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const handleLogout = () => {
-    localStorage.removeItem('accessToken'); // Using consistent token names
-    localStorage.removeItem('refreshToken');
-    router.push('/auth/login'); // <-- 5. Use router.push() for navigation
+  const handleLogoutClick = () => {
+    setLogoutDialogOpen(true);
+  };
+
+  const handleLogout = async (type: "single" | "all") => {
+    setIsLoggingOut(true);
+    try {
+      await logout(type);
+      toast.success(
+        type === "single"
+          ? "Logged out from this device successfully"
+          : "Logged out from all devices successfully"
+      );
+      setLogoutDialogOpen(false);
+      router.push("/auth/login");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Logout failed"
+      );
+      router.push("/auth/login");
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   return (
@@ -76,7 +102,6 @@ function AdminSidebar() {
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild>
-                      {/* 6. Replace NavLink with Next.js Link */}
                       <Link
                         href={item.url}
                         className={cn(
@@ -101,26 +126,52 @@ function AdminSidebar() {
           <Button
             variant="ghost"
             className="w-full justify-start"
-            onClick={handleLogout}
+            onClick={handleLogoutClick}
           >
             <LogOut className="h-4 w-4" />
             {!collapsed && <span className="ml-2">Logout</span>}
           </Button>
         </div>
       </SidebarContent>
+      <LogoutDialog
+        open={logoutDialogOpen}
+        onOpenChange={setLogoutDialogOpen}
+        onLogout={handleLogout}
+        isLoading={isLoggingOut}
+      />
     </Sidebar>
   );
 }
 
 const AdminLayout = ({ children }: AdminLayoutProps) => {
-  const router = useRouter(); 
+  const router = useRouter();
 
   useEffect(() => {
-    const isAuthenticated = localStorage.getItem('accessToken');
-    if (!isAuthenticated) {
-      router.push('/auth/login'); 
-    }
+    const checkAuth = () => {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        router.replace('/auth/login');
+      }
+    };
+
+    checkAuth();
+    window.addEventListener('storage', checkAuth);
+
+    return () => {
+      window.removeEventListener('storage', checkAuth);
+    };
   }, [router]);
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        await apiClient('/api/auth/session');
+      } catch {
+      }
+    },1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <SidebarProvider>

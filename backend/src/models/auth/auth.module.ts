@@ -5,6 +5,7 @@ import { AuthService } from './auth.service';
 import { EmailModule } from '../../email/email.module';
 import { User } from '../users/entities/user.entity';
 import { RefreshToken } from '../users/entities/refresh-token.entity';
+import { BlacklistedToken } from '../users/entities/blacklisted-token.entity';
 import { Client } from '../clients/entities/client.entity';
 import { ClientAppToken } from './entities/client-app-token.entity';
 import { AuthorizationCode } from './entities/authorization-code.entity';
@@ -23,6 +24,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     SequelizeModule.forFeature([
       User,
       RefreshToken,
+      BlacklistedToken,
       Client,
       ClientAppToken,
       AuthorizationCode,

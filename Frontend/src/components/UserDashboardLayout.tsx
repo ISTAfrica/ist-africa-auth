@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -18,6 +19,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Home, User, Settings, Shield, LogOut } from "lucide-react";
 import Logo from "./Logo";
+import { LogoutDialog } from "@/components/auth/LogoutDialog";
+import { logout } from "@/services/authService";
+import { toast } from "sonner";
 
 const navigationItems = [
   { title: "Overview", url: "/user", icon: Home },
@@ -31,11 +35,32 @@ function DashboardSidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const collapsed = state === "collapsed";
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    router.push("/auth/login");
+  const handleLogoutClick = () => {
+    setLogoutDialogOpen(true);
+  };
+
+  const handleLogout = async (type: "single" | "all") => {
+    setIsLoggingOut(true);
+    try {
+      await logout(type);
+      toast.success(
+        type === "single"
+          ? "Logged out from this device successfully"
+          : "Logged out from all devices successfully"
+      );
+      setLogoutDialogOpen(false);
+      router.push("/auth/login");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Logout failed"
+      );
+      router.push("/auth/login");
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   const getNavClass = (url: string) => {
@@ -88,13 +113,19 @@ function DashboardSidebar() {
           <Button
             variant="ghost"
             className="w-full justify-start"
-            onClick={handleLogout}
+            onClick={handleLogoutClick}
           >
             <LogOut className="h-4 w-4" />
             {!collapsed && <span className="ml-2">Logout</span>}
           </Button>
         </div>
       </SidebarContent>
+      <LogoutDialog
+        open={logoutDialogOpen}
+        onOpenChange={setLogoutDialogOpen}
+        onLogout={handleLogout}
+        isLoading={isLoggingOut}
+      />
     </Sidebar>
   );
 }

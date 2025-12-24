@@ -4,6 +4,7 @@ import {
   VerifyOtpDto,
   ResendOtpDto,
 } from "@/types";
+import { apiClient, handleGlobalLogout } from "@/lib/api-client";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -75,21 +76,9 @@ export const authenticateUser = async (credentials: AuthenticateUserDto) => {
 };
 
 export const getProfile = async () => {
-  const response = await fetch(`${API_BASE_URL}/api/user/me`, {
+  return apiClient('/api/user/me', {
     method: 'GET',
-    headers: getAuthHeaders(),
   });
-
-  if (!response.ok) {
-    try {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to fetch profile');
-    } catch (e) {
-      throw new Error('Failed to fetch profile');
-    }
-  }
-
-  return response.json();
 };
 
 export const requestPasswordReset = async (email: string) => {
@@ -145,18 +134,10 @@ export const resendOtp = async (payload: ResendOtpDto) => {
 };
 
 export const updateProfile = async (data: { name: string }) => {
-  const response = await fetch(`${API_BASE_URL}/api/user/me`, {
-    method: 'PATCH', 
-    headers: getAuthHeaders(), 
-    body: JSON.stringify(data), 
+  return apiClient('/api/user/me', {
+    method: 'PATCH',
+    body: JSON.stringify(data),
   });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ message: 'Failed to update profile' }));
-    throw new Error(errorData.message);
-  }
-
-  return response.json();
 };
 
 export const uploadAvatar = async (file: File) => {
@@ -168,6 +149,7 @@ export const uploadAvatar = async (file: File) => {
     throw new Error('No access token found');
   }
 
+  // For file uploads, we need to use fetch directly but with error handling
   const response = await fetch(`${API_BASE_URL}/api/user/me/avatar`, {
     method: 'POST',
     headers: {
@@ -176,12 +158,24 @@ export const uploadAvatar = async (file: File) => {
     body: formData,
   });
 
+  const data = await response.json().catch(() => ({}));
+
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ message: 'Failed to upload avatar' }));
-    throw new Error(errorData.message);
+    const error = data.message || 'Failed to upload avatar';
+
+    // Handle token version mismatch
+    if (response.status === 401 || error.toLowerCase().includes('token version mismatch')) {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      window.location.href = '/auth/login';
+      return new Promise(() => {}); // Never resolves, allows redirect to complete
+    }
+
+    throw new Error(error);
   }
 
-  return response.json();
+  return data;
 };
 
 export const loginWithLinkedIn = async () => {
@@ -210,7 +204,7 @@ export const handleLinkedInCallback = async (code: string) => {
         'Accept': 'application/json'
       }
     });
-    
+
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.message || 'Failed to authenticate with LinkedIn');
@@ -232,4 +226,47 @@ export const handleLinkedInCallback = async (code: string) => {
     console.error('Error in handleLinkedInCallback:', error);
     throw error;
   }
+};
+
+export const logout = async (type: "single" | "all") => {
+  try {
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      handleGlobalLogout();
+      return { message: "Logged out successfully" };
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ type }),
+    });
+
+    // Clear local data and redirect immediately
+    handleGlobalLogout();
+    return await response.json().catch(() => ({}));
+  } catch (error) {
+    handleGlobalLogout();
+    return { message: error instanceof Error ? error.message : "Logged out" };
+  }
+};
+
+export const validateSession = async () => {
+  const token = typeof window !== 'undefined' ? localStorage.getItem("accessToken") : null;
+  if (!token) return;
+
+  try {
+    await apiClient("/api/user/me"); 
+  } catch (error) {
+    console.warn("Session background check skipped.");
+  }
+};
+
+export const clearAuthData = () => {
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("user");
 };

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import SessionWatcher from "@/components/SessionWatcher";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -23,6 +24,7 @@ export default function RootLayout({
           inter.variable
         )}
       >
+        <SessionWatcher />
         {children}
       </body>
     </html>

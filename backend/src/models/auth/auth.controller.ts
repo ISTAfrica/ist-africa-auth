@@ -23,14 +23,14 @@ import { RegisterUserDto } from './dto/register-user.dto';
 import { AuthenticateUserDto } from './dto/authenticate-user.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
+import { LogoutDto } from './dto/logout.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { ClientCredentialsDto } from './dto/client-credentials.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { LinkedInOAuthGuard } from './guards/linkedin.guard';
-import type { Response } from 'express';
+import type { Response, Request } from 'express';
 
 @Controller('api/auth')
-// @UseGuards(JwtAuthGuard)
 export class AuthController {
   constructor(private authService: AuthService) {}
 
@@ -47,8 +47,6 @@ export class AuthController {
     return this.authService.authenticate(authenticateDto);
   }
 
-
-  
   @Get('verify-email')
   @Redirect()
   async verifyEmail(@Query('token') token: string) {
@@ -59,7 +57,9 @@ export class AuthController {
       process.env.NEXT_PUBLIC_FRONTEND_URL ||
       'http://localhost:3000'
     ).replace(/\/$/, '');
-    const url = `${frontendUrl}/auth/verification-success?accessToken=${encodeURIComponent(accessToken)}&refreshToken=${encodeURIComponent(refreshToken)}`;
+    const url = `${frontendUrl}/auth/verification-success?accessToken=${encodeURIComponent(
+      accessToken,
+    )}&refreshToken=${encodeURIComponent(refreshToken)}`;
     return { url };
   }
 
@@ -92,7 +92,6 @@ export class AuthController {
     if (!code) {
       throw new BadRequestException('Authorization code (code) is required');
     }
-
     return this.authService.exchangeAuthCode(code, credentials);
   }
 
@@ -104,9 +103,7 @@ export class AuthController {
     @Req() req: Request & { user?: any },
   ) {
     const id = Number(userId);
-
-    const callerRole = req.user?.role || req.user?.role;
-
+    const callerRole = req.user?.role;
     return this.authService.updateUserRole(callerRole, id, role);
   }
 
@@ -122,12 +119,13 @@ export class AuthController {
     @Req() req: Request & { user?: any; session?: any },
     @Res() res: Response,
   ) {
+    const frontendUrl = (
+      process.env.FRONTEND_URL ||
+      process.env.NEXT_PUBLIC_FRONTEND_URL ||
+      'http://localhost:3000'
+    ).replace(/\/$/, '');
+
     if (!req.user) {
-      const frontendUrl = (
-        process.env.FRONTEND_URL ||
-        process.env.NEXT_PUBLIC_FRONTEND_URL ||
-        'http://localhost:3000'
-      ).replace(/\/$/, '');
       return res.redirect(
         `${frontendUrl}/auth/login?error=linkedin_auth_failed`,
       );
@@ -151,13 +149,11 @@ export class AuthController {
         delete req.session.oauth;
       }
 
-      const frontendUrl = (
-        process.env.FRONTEND_URL ||
-        process.env.NEXT_PUBLIC_FRONTEND_URL ||
-        'http://localhost:3000'
-      ).replace(/\/$/, '');
+      // OAuth2 Authorization Code Flow
       if ('redirect_uri' in result && result.redirect_uri) {
-        const callbackUrl = `${frontendUrl}/auth/linkedin/callback?redirect_uri=${encodeURIComponent(result.redirect_uri)}`;
+        const callbackUrl = `${frontendUrl}/auth/linkedin/callback?redirect_uri=${encodeURIComponent(
+          result.redirect_uri,
+        )}`;
         return res.redirect(callbackUrl);
       }
 
@@ -168,7 +164,6 @@ export class AuthController {
         throw new Error('Invalid response from linkedinLogin');
       }
 
-      // Redirect to callback page with tokens
       const callbackUrl = `${frontendUrl}/auth/linkedin/callback?accessToken=${encodeURIComponent(
         accessToken,
       )}&refreshToken=${encodeURIComponent(refreshToken)}&userId=${encodeURIComponent(
@@ -183,14 +178,45 @@ export class AuthController {
 
       return res.redirect(callbackUrl);
     } catch (error) {
-      const frontendUrl = (
-        process.env.FRONTEND_URL ||
-        process.env.NEXT_PUBLIC_FRONTEND_URL ||
-        'http://localhost:3000'
-      ).replace(/\/$/, '');
       return res.redirect(
         `${frontendUrl}/auth/login?error=linkedin_processing_failed`,
       );
     }
+  }
+
+  // -------------------- Logout Routes --------------------
+
+  @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async logout(
+    @Body(new ValidationPipe()) logoutDto: LogoutDto,
+    @Req() req: Request & { user?: any },
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new BadRequestException('User not authenticated');
+    }
+
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      throw new BadRequestException('No authorization header found');
+    }
+
+    const accessToken = authHeader.replace('Bearer ', '');
+
+    if (logoutDto.type === 'single') {
+      return this.authService.logoutSingleDevice(userId, accessToken);
+    } else if (logoutDto.type === 'all') {
+      return this.authService.logoutAllDevices(userId);
+    }
+
+    throw new BadRequestException('Invalid logout type');
+  }
+
+  @Get('session')
+  @UseGuards(AuthGuard('jwt'))
+  checkSession() {
+    return { ok: true };
   }
 }
