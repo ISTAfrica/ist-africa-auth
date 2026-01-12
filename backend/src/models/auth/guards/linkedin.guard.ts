@@ -1,8 +1,9 @@
 import { Injectable, ExecutionContext } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Request } from 'express';
+import { Session } from 'express-session';
 
-interface OAuthSession {
+interface OAuthSession extends Session {
   oauth?: {
     client_id: string;
     redirect_uri: string;
