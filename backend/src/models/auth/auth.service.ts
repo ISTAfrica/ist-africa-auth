@@ -100,7 +100,7 @@ export class AuthService {
     });
 
     const verifyUrlBase =
-      process.env.BACKEND_URL ?? process.env.APP_URL ?? 'http://localhost:5000';
+      process.env.BACKEND_URL ?? process.env.APP_URL ?? 'https://ist-africa-auth-1.onrender.com';
     const verifyUrl = `${verifyUrlBase.replace(
       /\/$/,
       '',

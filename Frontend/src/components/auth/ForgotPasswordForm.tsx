@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://ist-africa-auth-1.onrender.com";
 
 async function forgotPasswordDirect(email: string) {
   const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
