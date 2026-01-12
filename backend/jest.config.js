@@ -1,6 +1,4 @@
-import type { Config } from 'jest';
-
-const config: Config = {
+module.exports = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: 'src',
   testRegex: '.*\\.spec\\.ts$',
@@ -14,5 +12,3 @@ const config: Config = {
   forceExit: true,
   detectOpenHandles: true,
 };
-
-export default config;
