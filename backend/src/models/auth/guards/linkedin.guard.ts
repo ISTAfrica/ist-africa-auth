@@ -3,13 +3,13 @@ import { AuthGuard } from '@nestjs/passport';
 import { Request } from 'express';
 import { Session } from 'express-session';
 
-interface OAuthSession extends Session {
+type OAuthSession = Session & {
   oauth?: {
     client_id: string;
     redirect_uri: string;
     state?: string;
   };
-}
+};
 
 @Injectable()
 export class LinkedInOAuthGuard extends AuthGuard('linkedin') {
