@@ -1,7 +1,7 @@
 import { getAuthHeaders } from "./authService";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_API_BASE_URL || "https://ist-africa-auth-1.onrender.com";
 
 export interface Client {
   updated_at: string;
