@@ -3,8 +3,10 @@
   "compilerOptions": {
     "outDir": "./dist/out-tsc",
     "module": "commonjs",
+    "moduleResolution": "node",
     "target": "ES2023",
-    "types": ["jest", "node"]
+    "types": ["jest", "node"],
+    "resolvePackageJsonExports": false
   },
   "include": [
     "src/**/*.spec.ts",

@@ -4,9 +4,7 @@ module.exports = {
   testRegex: '.*\\.spec\\.ts$',
   transform: {
     '^.+\\.(t|j)s$': ['ts-jest', {
-      tsconfig: {
-        types: ['jest', 'node']
-      }
+      tsconfig: './tsconfig.spec.json'
     }],
   },
   collectCoverageFrom: ['**/*.(t|j)s'],
