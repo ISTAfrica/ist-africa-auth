@@ -137,7 +137,7 @@ export class EmailService {
                   <p>Regards,<br>The IST Africa Team</p>
               </div>
               <div class="footer">
-                  <p>&copy; ${new Date().getFullYear()} IST Africa. All rights reserved.</p>
+                  <p>&copy; ${new Date().getFullYear()} IST-Africa. All rights reserved.</p>
               </div>
           </div>
       </body>
