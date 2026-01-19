@@ -7,11 +7,29 @@ class IAAAuthWidget {
     this.clientId = config.clientId;
     this.redirectUri = config.redirectUri;
     this.iaaFrontendUrl = config.iaaFrontendUrl;
+    // Backend URL for API calls (optional - will derive from iaaFrontendUrl if not provided)
+    this.iaaBackendUrl = config.iaaBackendUrl || this.deriveBackendUrl(config.iaaFrontendUrl);
     this.checkAuthEndpoint = config.checkAuthEndpoint || '/api/auth/status';
-    
+
     this.isAuthenticated = false;
 
     this.init();
+  }
+
+  deriveBackendUrl(frontendUrl) {
+    // Try to derive backend URL from frontend URL
+    const url = frontendUrl.replace(/\/$/, '');
+    // If it's localhost:3000, change to localhost:5000
+    if (url.includes('localhost:3000')) {
+      return url.replace(':3000', ':5000');
+    }
+    // If it's a production frontend URL, try to use the backend URL pattern
+    // For ist-africa, frontend is on vercel, backend is on render
+    if (url.includes('vercel.app') || url.includes('ist-africa')) {
+      return 'https://ist-africa-auth-1.onrender.com';
+    }
+    // Default: assume backend is on port 5000
+    return url.replace(/:\d+/, ':5000');
   }
 
   async init() {
@@ -67,21 +85,95 @@ class IAAAuthWidget {
     this.attachEventListeners();
   }
 
-  // ✅ UPDATED: Logout + Redirect
-  logout() {
-    console.log('[IAA Widget] Client-side logout initiated.');
+  // Show logout options modal
+  showLogoutModal() {
+    // Remove existing modal if any
+    const existingModal = document.getElementById('iaa-logout-modal');
+    if (existingModal) existingModal.remove();
 
-    // Clear auth state
-    localStorage.setItem('iaa_authenticated', 'false');
-    localStorage.removeItem('auth_tokens');
+    const modal = document.createElement('div');
+    modal.id = 'iaa-logout-modal';
+    modal.className = 'iaa-logout-modal-overlay';
+    modal.innerHTML = `
+      <div class="iaa-logout-modal">
+        <h3 class="iaa-logout-modal-title">Logout Options</h3>
+        <p class="iaa-logout-modal-text">Choose how you want to logout:</p>
+        <div class="iaa-logout-modal-buttons">
+          <button id="iaa-logout-single" class="iaa-logout-option-btn iaa-logout-single-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+            </svg>
+            This Device Only
+          </button>
+          <button id="iaa-logout-all" class="iaa-logout-option-btn iaa-logout-all-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/>
+            </svg>
+            All Devices
+          </button>
+        </div>
+        <button id="iaa-logout-cancel" class="iaa-logout-cancel-btn">Cancel</button>
+      </div>
+    `;
 
-    this.isAuthenticated = false;
-    this.render();
-    this.notifyAuthChange();
+    document.body.appendChild(modal);
 
-    // Redirect to client app start page
-    window.location.href = window.location.origin;
+    // Event listeners
+    document.getElementById('iaa-logout-single').addEventListener('click', () => this.logout('single'));
+    document.getElementById('iaa-logout-all').addEventListener('click', () => this.logout('all'));
+    document.getElementById('iaa-logout-cancel').addEventListener('click', () => this.closeLogoutModal());
+
+    // Close on overlay click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) this.closeLogoutModal();
+    });
   }
+
+  closeLogoutModal() {
+    const modal = document.getElementById('iaa-logout-modal');
+    if (modal) modal.remove();
+  }
+
+  // Logout with backend API call
+async logout(type = 'single') {
+  this.closeLogoutModal();
+
+  const tokens = JSON.parse(localStorage.getItem('auth_tokens') || '{}');
+  const token = tokens.accessToken;
+
+  if (!token) {
+    console.warn('[IAA Widget] No access token found');
+    return;
+  }
+
+  try {
+    const response = await fetch(`${this.iaaBackendUrl}/api/auth/logout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ type }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('[IAA Widget] Logout failed:', error);
+      return;
+    }
+
+    console.log('[IAA Widget] Logout success:', await response.json());
+
+    // ✅ only now
+    localStorage.clear();
+    this.isAuthenticated = false;
+    this.notifyAuthChange();
+    window.location.href = window.location.origin;
+
+  } catch (err) {
+    console.error('[IAA Widget] Logout error:', err);
+  }
+}
 
   listenForStorageChanges() {
     window.addEventListener('storage', (e) => {
@@ -155,6 +247,109 @@ class IAAAuthWidget {
         height: 1.25rem;
         pointer-events: none;
       }
+
+      /* Logout Modal Styles */
+      .iaa-logout-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        animation: iaa-fade-in 0.2s ease-out;
+      }
+
+      .iaa-logout-modal {
+        background: white;
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+        width: 90%;
+        max-width: 360px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        animation: iaa-slide-in-from-bottom 0.3s ease-out;
+      }
+
+      .iaa-logout-modal-title {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #1f2937;
+        text-align: center;
+      }
+
+      .iaa-logout-modal-text {
+        margin: 0 0 1.25rem 0;
+        font-size: 0.875rem;
+        color: #6b7280;
+        text-align: center;
+      }
+
+      .iaa-logout-modal-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+      }
+
+      .iaa-logout-option-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1rem;
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        border: none;
+        transition: all 0.2s ease;
+      }
+
+      .iaa-logout-option-btn svg {
+        width: 1.25rem;
+        height: 1.25rem;
+      }
+
+      .iaa-logout-single-btn {
+        background-color: #f3f4f6;
+        color: #374151;
+        border: 1px solid #e5e7eb;
+      }
+
+      .iaa-logout-single-btn:hover {
+        background-color: #e5e7eb;
+      }
+
+      .iaa-logout-all-btn {
+        background-color: #fef2f2;
+        color: #dc2626;
+        border: 1px solid #fecaca;
+      }
+
+      .iaa-logout-all-btn:hover {
+        background-color: #fee2e2;
+      }
+
+      .iaa-logout-cancel-btn {
+        width: 100%;
+        padding: 0.625rem 1rem;
+        background: transparent;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+        color: #6b7280;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .iaa-logout-cancel-btn:hover {
+        background-color: #f9fafb;
+        color: #374151;
+      }
     `;
     document.head.appendChild(style);
 
@@ -195,7 +390,7 @@ class IAAAuthWidget {
     }
 
     if (logoutBtn) {
-      logoutBtn.addEventListener('click', () => this.logout());
+      logoutBtn.addEventListener('click', () => this.showLogoutModal());
     }
   }
 
