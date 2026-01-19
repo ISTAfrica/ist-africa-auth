@@ -266,7 +266,7 @@ export default function LoginForm({
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("userId");
 
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://ist-africa-auth-1.onrender.com";
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
     let linkedinUrl = `${baseUrl}/api/auth/linkedin`;
 
     if (isOauthFlow && clientIdFromUrl) {

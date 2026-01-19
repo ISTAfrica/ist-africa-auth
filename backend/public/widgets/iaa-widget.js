@@ -26,7 +26,7 @@ class IAAAuthWidget {
     // If it's a production frontend URL, try to use the backend URL pattern
     // For ist-africa, frontend is on vercel, backend is on render
     if (url.includes('vercel.app') || url.includes('ist-africa')) {
-      return 'https://ist-africa-auth-1.onrender.com';
+      return 'http://localhost:5000';
     }
     // Default: assume backend is on port 5000
     return url.replace(/:\d+/, ':5000');
