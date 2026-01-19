@@ -8,10 +8,10 @@ export const databaseConfig = (): SequelizeModuleOptions => ({
   password: process.env.DB_PASSWORD ?? 'postgres',
   database: process.env.DB_DATABASE ?? 'IAA',
   autoLoadModels: true,
-  sync: { force: false }, // or `undefined` if you don't want auto-sync
+  sync: { force: false }, 
   logging: false,
-  timezone: '+00:00', // Force UTC timezone
+  timezone: '+00:00', 
   dialectOptions: {
-    useUTC: true, // Use UTC for PostgreSQL
+    useUTC: true,
   },
 });

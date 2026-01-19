@@ -212,7 +212,18 @@ class IAAAuthWidget {
     });
 
     const loginUrl = `${this.iaaFrontendUrl}/auth/login?${params.toString()}`;
-    const popup = window.open(loginUrl, 'iaa-login-popup', 'width=450,height=500');
+
+    // Calculate center position for popup
+    const width = 450;
+    const height = 500;
+    const left = Math.round((window.screen.width - width) / 2);
+    const top = Math.round((window.screen.height - height) / 2);
+
+    const popup = window.open(
+      loginUrl,
+      'iaa-login-popup',
+      `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+    );
     if (!popup) alert('Popup blocked.');
   }
 
