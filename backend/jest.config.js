@@ -1,11 +1,11 @@
-import type { Config } from 'jest';
-
-const config: Config = {
+module.exports = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: 'src',
   testRegex: '.*\\.spec\\.ts$',
   transform: {
-    '^.+\\.(t|j)s$': 'ts-jest',
+    '^.+\\.(t|j)s$': ['ts-jest', {
+      tsconfig: './tsconfig.spec.json'
+    }],
   },
   collectCoverageFrom: ['**/*.(t|j)s'],
   coverageDirectory: '../coverage',
@@ -14,5 +14,3 @@ const config: Config = {
   forceExit: true,
   detectOpenHandles: true,
 };
-
-export default config;
