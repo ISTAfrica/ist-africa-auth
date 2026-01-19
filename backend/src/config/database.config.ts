@@ -6,17 +6,12 @@ export const databaseConfig = (): SequelizeModuleOptions => ({
   port: Number(process.env.DB_PORT) || 5432,
   username: process.env.DB_USERNAME ?? 'postgres',
   password: process.env.DB_PASSWORD ?? 'postgres',
-  database: process.env.DB_DATABASE ?? 'iaa_ndp2',
+  database: process.env.DB_DATABASE ?? 'IAA',
   autoLoadModels: true,
-  sync: { force: false },
+  sync: { force: false }, 
   logging: false,
-  timezone: '+00:00',
+  timezone: '+00:00', 
   dialectOptions: {
     useUTC: true,
-
-    ssl: process.env.DB_HOST !== 'localhost' ? {
-      require: true,
-      rejectUnauthorized: false,
-    } : false,
   },
 });
