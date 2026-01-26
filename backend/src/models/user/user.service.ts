@@ -79,7 +79,7 @@ export class UserService {
       }
     }
 
-    const baseUrl = process.env.API_BASE_URL || 'https://ist-africa-auth-1.onrender.com';
+    const baseUrl = process.env.API_BASE_URL || 'http://localhost:5000';
     const newAvatarUrl = `${baseUrl}/uploads/${file.filename}`;
 
     await user.update({ avatarUrl: newAvatarUrl });
