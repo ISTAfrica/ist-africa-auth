@@ -1,17 +1,24 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Resend } from 'resend';
+import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class EmailService {
-  private resend: Resend;
+  private transporter: nodemailer.Transporter;
 
   constructor(private configService: ConfigService) {
-    const apiKey = this.configService.get<string>('RESEND_API_KEY');
-    if (!apiKey) {
-      console.warn('⚠️  RESEND_API_KEY not found. Email sending will fail.');
-    }
-    this.resend = new Resend(apiKey);
+    this.transporter = nodemailer.createTransport({
+      host: this.configService.get<string>('SMTP_HOST'),
+      port: Number(this.configService.get<number>('SMTP_PORT')),
+      secure: this.configService.get<string>('SMTP_SECURE') === 'true',
+      auth: {
+        user: this.configService.get<string>('SMTP_USER'),
+        pass: this.configService.get<string>('SMTP_PASS'),
+      },
+      tls: {
+        rejectUnauthorized: false,
+      },
+    });
   }
 
   async sendVerificationEmail(
@@ -20,27 +27,14 @@ export class EmailService {
     verifyUrl: string,
     otp?: string,
   ) {
-    console.log(`📧 Attempting to send verification email to: ${email}`);
     const html = this.getVerifyEmailTemplate(name, verifyUrl, otp);
 
-    try {
-      const { data, error } = await this.resend.emails.send({
-        from: this.configService.get<string>('RESEND_FROM_EMAIL') || 'onboarding@resend.dev',
-        to: email,
-        subject: 'Verify your email',
-        html: html,
-      });
-
-      if (error) {
-        console.error(`❌ Failed to send verification email to ${email}:`, error);
-        throw new Error(error.message);
-      }
-
-      console.log(`✅ Verification email sent successfully to ${email}`, data?.id);
-    } catch (error) {
-      console.error(`❌ Failed to send verification email to ${email}:`, error.message);
-      throw error;
-    }
+    await this.transporter.sendMail({
+      from: `"IST Africa Auth" <${this.configService.get<string>('SMTP_USER')}>`,
+      to: email,
+      subject: 'Verify your email',
+      html: html,
+    });
   }
 
   async sendAccountDisabledEmail(name: string, email: string, reason: string) {
@@ -57,16 +51,12 @@ export class EmailService {
       </div>
     `;
 
-    const { error } = await this.resend.emails.send({
-      from: this.configService.get<string>('RESEND_FROM_EMAIL') || 'onboarding@resend.dev',
+    await this.transporter.sendMail({
+      from: `"IST Africa Auth" <${this.configService.get<string>('SMTP_USER')}>`,
       to: email,
       subject: 'Your Account Has Been Disabled',
       html,
     });
-
-    if (error) {
-      throw new Error(error.message);
-    }
   }
 
   async sendAccountReactivatedEmail(name: string, email: string) {
@@ -80,16 +70,12 @@ export class EmailService {
       </div>
     `;
 
-    const { error } = await this.resend.emails.send({
-      from: this.configService.get<string>('RESEND_FROM_EMAIL') || 'onboarding@resend.dev',
+    await this.transporter.sendMail({
+      from: `"IST Africa Auth" <${this.configService.get<string>('SMTP_USER')}>`,
       to: email,
       subject: 'Your Account Has Been Reactivated',
       html,
     });
-
-    if (error) {
-      throw new Error(error.message);
-    }
   }
 
   private getVerifyEmailTemplate(
@@ -137,7 +123,7 @@ export class EmailService {
                   <p>Regards,<br>The IST Africa Team</p>
               </div>
               <div class="footer">
-                  <p>&copy; ${new Date().getFullYear()} IST-Africa. All rights reserved.</p>
+                  <p>&copy; ${new Date().getFullYear()} IST Africa. All rights reserved.</p>
               </div>
           </div>
       </body>
