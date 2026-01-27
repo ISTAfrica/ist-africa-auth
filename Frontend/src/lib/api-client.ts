@@ -69,7 +69,7 @@ export async function apiClient<T = unknown>(
     return data as T;
   } catch (error: unknown) {
     console.error("API request failed:", error);
-
+ 
     if (
       typeof window !== "undefined" &&
       !endpoint.includes("/auth/") &&
