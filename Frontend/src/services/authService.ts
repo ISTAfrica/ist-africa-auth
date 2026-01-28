@@ -8,6 +8,15 @@ import { apiClient, handleGlobalLogout } from "@/lib/api-client";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
+export interface UserProfile {
+  id: number;
+  name: string | null;
+  email: string;
+  createdAt: string;
+  profilePicture?: string;
+}
+
+
 export const getAuthHeaders = () => {
   const token = localStorage.getItem("accessToken");
   if (!token) {
@@ -20,7 +29,6 @@ export const getAuthHeaders = () => {
   };
 };
 
-// Helper function to extract tokens from URL and store them
 export const extractAndStoreTokensFromURL = () => {
   if (typeof window === 'undefined') return false;
   

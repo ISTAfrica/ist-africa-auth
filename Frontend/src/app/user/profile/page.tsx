@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, ChangeEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
-import { jwtDecode } from "jwt-decode";
+
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -36,45 +36,22 @@ import {
 } from "@/services/authService";
 import LinkedInPopupHandler from "@/components/LinkedInPopupHandler";
 
-// --- Types ---
-interface DecodedToken {
-  sub: string;
-  role: "user" | "admin";
-  iat?: number;
-  exp?: number;
-}
-
+/* ===================== TYPES ===================== */
 type UserProfile = {
   id: number;
   name: string | null;
   email: string;
   createdAt: string;
-  profilePicture?: string;
+  profilePicture?: string | null;
 };
 
 export default function ProfilePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // =========================================================================
-  // 1. POPUP INTERCEPTOR
-  // If we have a token in the URL, render the Handler immediately.
-  // This prevents the dashboard from flashing in the popup.
-  // =========================================================================
-  const accessTokenParam = searchParams.get("accessToken");
-  const errorParam = searchParams.get("error");
-
-  if (accessTokenParam || errorParam) {
-    return <LinkedInPopupHandler />;
-  }
-  // =========================================================================
-
-  // --- 2. Normal Dashboard Logic ---
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(
-    null
-  );
+  const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
 
   const [editedName, setEditedName] = useState("");
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
@@ -82,10 +59,14 @@ export default function ProfilePage() {
 
   const [isUploading, setIsUploading] = useState(false);
   const [avatarError, setAvatarError] = useState("");
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editDialogCloseRef = useRef<HTMLButtonElement>(null);
 
-  // Fetch Profile Data
+  const accessTokenParam = searchParams.get("accessToken");
+  const errorParam = searchParams.get("error");
+
+  /* ===================== FETCH PROFILE ===================== */
   useEffect(() => {
     const fetchProfileData = async () => {
       try {
@@ -94,16 +75,18 @@ export default function ProfilePage() {
           setProfilePictureUrl(storedPicture);
         }
 
-        const profileData = await getProfile();
+        // 🔥 FIX: Explicitly type the response
+        const profileData = (await getProfile()) as UserProfile;
+
         setUser(profileData);
-        setEditedName(profileData.name || "");
+        setEditedName(profileData.name ?? "");
 
         if (!storedPicture && profileData.profilePicture) {
           setProfilePictureUrl(profileData.profilePicture);
           localStorage.setItem("profilePicture", profileData.profilePicture);
         }
       } catch (error) {
-        console.error("Failed to fetch profile, redirecting...", error);
+        console.error(error);
         router.push("/auth/login");
       } finally {
         setIsLoading(false);
@@ -113,16 +96,21 @@ export default function ProfilePage() {
     fetchProfileData();
   }, [router]);
 
+  /* ===================== HANDLERS ===================== */
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setEditError("");
     setIsUpdatingProfile(true);
+
     try {
-      const updatedUser = await updateProfile({ name: editedName });
+      const updatedUser = (await updateProfile({
+        name: editedName,
+      })) as UserProfile;
+
       setUser(updatedUser);
       editDialogCloseRef.current?.click();
-    } catch (err: any) {
-      setEditError(err.message || "Failed to update profile.");
+    } catch {
+      setEditError("Failed to update profile.");
     } finally {
       setIsUpdatingProfile(false);
     }
@@ -131,27 +119,35 @@ export default function ProfilePage() {
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
     setIsUploading(true);
     setAvatarError("");
 
     try {
-      const updatedUser = await uploadAvatar(file);
+      const updatedUser = (await uploadAvatar(file)) as UserProfile;
       setUser(updatedUser);
+
       if (updatedUser.profilePicture) {
         setProfilePictureUrl(updatedUser.profilePicture);
         localStorage.setItem("profilePicture", updatedUser.profilePicture);
       }
-    } catch (err: any) {
-      setAvatarError(err.message || "Upload failed.");
+    } catch {
+      setAvatarError("Upload failed.");
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
+  /* ===================== LINKEDIN HANDLER ===================== */
+  if (accessTokenParam || errorParam) {
+    return <LinkedInPopupHandler />;
+  }
+
+  /* ===================== LOADING ===================== */
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
@@ -159,8 +155,9 @@ export default function ProfilePage() {
 
   if (!user) return null;
 
-  const displayPictureUrl = profilePictureUrl || user.profilePicture;
+  const displayPictureUrl = profilePictureUrl ?? user.profilePicture ?? "";
 
+  /* ===================== UI ===================== */
   return (
     <div className="space-y-6">
       <Card>
@@ -170,24 +167,28 @@ export default function ProfilePage() {
           </CardTitle>
           <CardDescription>Your account information</CardDescription>
         </CardHeader>
+
         <CardContent className="flex flex-col md:flex-row gap-6">
+          {/* Avatar */}
           <div className="flex flex-col items-center gap-4">
             <Avatar className="h-32 w-32">
-              <AvatarImage src={displayPictureUrl} alt={user.name || "User"} />
+              <AvatarImage src={displayPictureUrl} alt={user.name ?? "User"} />
               <AvatarFallback>
                 {user.name
                   ?.split(" ")
                   .map((n) => n[0])
                   .join("")
-                  .toUpperCase()}
+                  .toUpperCase() ?? "U"}
               </AvatarFallback>
             </Avatar>
+
             <input
               type="file"
               ref={fileInputRef}
               onChange={handleFileChange}
               className="hidden"
             />
+
             <Button
               variant="outline"
               size="sm"
@@ -201,37 +202,45 @@ export default function ProfilePage() {
               )}
               {isUploading ? "Uploading..." : "Change Photo"}
             </Button>
+
             {avatarError && (
               <p className="text-sm text-destructive">{avatarError}</p>
             )}
           </div>
 
+          {/* Info */}
           <div className="flex-1 space-y-4">
             <div>
               <Label className="text-muted-foreground text-xs">Full Name</Label>
-              <p className="text-foreground font-medium">{user.name}</p>
+              <p className="font-medium">{user.name}</p>
             </div>
+
             <Separator />
+
             <div>
               <Label className="text-muted-foreground text-xs">Email</Label>
-              <p className="text-foreground font-medium">{user.email}</p>
+              <p className="font-medium">{user.email}</p>
             </div>
+
             <Separator />
+
             <div>
               <Label className="text-muted-foreground text-xs">
                 Member Since
               </Label>
-              <p className="text-foreground font-medium">
+              <p className="font-medium">
                 {format(new Date(user.createdAt), "MMMM d, yyyy")}
               </p>
             </div>
 
+            {/* Edit Dialog */}
             <Dialog>
               <DialogTrigger asChild>
-                <Button variant="default">
+                <Button>
                   <Edit className="h-4 w-4 mr-2" /> Edit Profile
                 </Button>
               </DialogTrigger>
+
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Edit Profile</DialogTitle>
@@ -239,12 +248,17 @@ export default function ProfilePage() {
                     Update your personal information
                   </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleProfileUpdate} className="space-y-4 py-4">
+
+                <form
+                  onSubmit={handleProfileUpdate}
+                  className="space-y-4 py-4"
+                >
                   {editError && (
                     <Alert variant="destructive">
                       <AlertDescription>{editError}</AlertDescription>
                     </Alert>
                   )}
+
                   <div className="space-y-2">
                     <Label htmlFor="name">Full Name</Label>
                     <Input
@@ -253,10 +267,12 @@ export default function ProfilePage() {
                       onChange={(e) => setEditedName(e.target.value)}
                     />
                   </div>
+
                   <DialogFooter>
                     <DialogClose asChild>
                       <Button variant="ghost">Cancel</Button>
                     </DialogClose>
+
                     <Button type="submit" disabled={isUpdatingProfile}>
                       {isUpdatingProfile ? (
                         <Loader2 className="animate-spin" />
@@ -266,6 +282,7 @@ export default function ProfilePage() {
                     </Button>
                   </DialogFooter>
                 </form>
+
                 <DialogClose ref={editDialogCloseRef} className="hidden" />
               </DialogContent>
             </Dialog>
