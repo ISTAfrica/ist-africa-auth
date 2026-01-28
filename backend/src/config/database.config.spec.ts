@@ -39,6 +39,7 @@ describe('DatabaseConfig', () => {
       },
     });
   });
+  
 
   it('should correctly read and apply configuration from environment variables', () => {
     process.env.DB_HOST = 'test-host';
