@@ -29,12 +29,20 @@ export class EmailService {
   ) {
     const html = this.getVerifyEmailTemplate(name, verifyUrl, otp);
 
-    await this.transporter.sendMail({
-      from: `"IST Africa Auth" <${this.configService.get<string>('SMTP_USER')}>`,
-      to: email,
-      subject: 'Verify your email',
-      html: html,
-    });
+    try {
+      await this.transporter.sendMail({
+        from: `"IST Africa Auth" <${this.configService.get<string>('SMTP_USER')}>`,
+        to: email,
+        subject: 'Verify your email',
+        html: html,
+      });
+      console.log(`✅ Verification email sent to ${email}`);
+    } catch (error) {
+      console.error(`❌ Failed to send verification email to ${email}:`, error);
+      if (otp) {
+        console.log(`⚠️ Email failed. Backup OTP for ${email}: ${otp}`);
+      }
+    }
   }
 
   async sendAccountDisabledEmail(name: string, email: string, reason: string) {
@@ -51,12 +59,16 @@ export class EmailService {
       </div>
     `;
 
-    await this.transporter.sendMail({
-      from: `"IST Africa Auth" <${this.configService.get<string>('SMTP_USER')}>`,
-      to: email,
-      subject: 'Your Account Has Been Disabled',
-      html,
-    });
+    try {
+      await this.transporter.sendMail({
+        from: `"IST Africa Auth" <${this.configService.get<string>('SMTP_USER')}>`,
+        to: email,
+        subject: 'Your Account Has Been Disabled',
+        html,
+      });
+    } catch (error) {
+      console.error(`❌ Failed to send disabled account email to ${email}:`, error);
+    }
   }
 
   async sendAccountReactivatedEmail(name: string, email: string) {
@@ -70,12 +82,16 @@ export class EmailService {
       </div>
     `;
 
-    await this.transporter.sendMail({
-      from: `"IST Africa Auth" <${this.configService.get<string>('SMTP_USER')}>`,
-      to: email,
-      subject: 'Your Account Has Been Reactivated',
-      html,
-    });
+    try {
+      await this.transporter.sendMail({
+        from: `"IST Africa Auth" <${this.configService.get<string>('SMTP_USER')}>`,
+        to: email,
+        subject: 'Your Account Has Been Reactivated',
+        html,
+      });
+    } catch (error) {
+      console.error(`❌ Failed to send reactivated account email to ${email}:`, error);
+    }
   }
 
   private getVerifyEmailTemplate(
@@ -110,12 +126,11 @@ export class EmailService {
               <div class="content">
                   <h2>Hello ${name},</h2>
                   <p>Thank you for registering. Please click the button below to verify your email address and complete your setup.</p>
-                  ${
-                    otp
-                      ? `<p>Your One-Time Password (OTP):</p>
+                  ${otp
+        ? `<p>Your One-Time Password (OTP):</p>
                   <div class="otp-code">${otp}</div>`
-                      : ''
-                  }
+        : ''
+      }
                   <p class="text-center">
                     <a class="btn" href="${verifyUrl}">Verify my email</a>
                   </p>
