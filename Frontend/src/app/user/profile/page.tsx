@@ -35,6 +35,7 @@ import {
   uploadAvatar,
 } from "@/services/authService";
 import LinkedInPopupHandler from "@/components/LinkedInPopupHandler";
+import AvatarCropper from "@/components/AvatarCropper";
 
 /* ===================== TYPES ===================== */
 type UserProfile = {
@@ -59,6 +60,7 @@ export default function ProfilePage() {
 
   const [isUploading, setIsUploading] = useState(false);
   const [avatarError, setAvatarError] = useState("");
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editDialogCloseRef = useRef<HTMLButtonElement>(null);
@@ -116,15 +118,26 @@ export default function ProfilePage() {
     }
   };
 
-  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCropImageSrc(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleCroppedUpload = async (croppedFile: File) => {
+    setCropImageSrc(null);
     setIsUploading(true);
     setAvatarError("");
 
     try {
-      const updatedUser = (await uploadAvatar(file)) as UserProfile;
+      const updatedUser = (await uploadAvatar(croppedFile)) as UserProfile;
       setUser(updatedUser);
 
       if (updatedUser.profilePicture) {
@@ -135,7 +148,6 @@ export default function ProfilePage() {
       setAvatarError("Upload failed.");
     } finally {
       setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -205,6 +217,15 @@ export default function ProfilePage() {
 
             {avatarError && (
               <p className="text-sm text-destructive">{avatarError}</p>
+            )}
+
+            {cropImageSrc && (
+              <AvatarCropper
+                imageSrc={cropImageSrc}
+                open={!!cropImageSrc}
+                onClose={() => setCropImageSrc(null)}
+                onCropComplete={handleCroppedUpload}
+              />
             )}
           </div>
 

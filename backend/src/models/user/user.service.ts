@@ -56,33 +56,33 @@ export class UserService {
       throw new NotFoundException('User not found');
     }
 
-    const oldAvatarUrl = user.avatarUrl;
+    const oldPicture = user.profilePicture;
 
-    if (oldAvatarUrl) {
+    if (oldPicture) {
       try {
-        const oldFilename = path.basename(new URL(oldAvatarUrl).pathname);
+        const oldFilename = path.basename(new URL(oldPicture).pathname);
         const oldAvatarPath = path.join(process.cwd(), 'uploads', oldFilename);
         await fs.access(oldAvatarPath);
         await fs.unlink(oldAvatarPath);
       } catch (error: unknown) {
         if (error instanceof Error) {
           console.error(
-            `Could not delete old avatar at ${oldAvatarUrl}:`,
+            `Could not delete old avatar at ${oldPicture}:`,
             error.message,
           );
         } else {
           console.error(
-            `Could not delete old avatar at ${oldAvatarUrl}:`,
+            `Could not delete old avatar at ${oldPicture}:`,
             error,
           );
         }
       }
     }
 
-    const baseUrl = process.env.API_BASE_URL || 'http://localhost:5000';
+    const baseUrl = process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 3003}`;
     const newAvatarUrl = `${baseUrl}/uploads/${file.filename}`;
 
-    await user.update({ avatarUrl: newAvatarUrl });
+    await user.update({ profilePicture: newAvatarUrl });
 
     return user.toJSON();
   }

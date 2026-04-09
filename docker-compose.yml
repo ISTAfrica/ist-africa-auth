@@ -3,14 +3,14 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: ist-africa-postgres
+    container_name: ist-africa-auth-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 1234
-      POSTGRES_DB: IAA
+      POSTGRES_PASSWORD: 12345
+      POSTGRES_DB: postgres
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -18,6 +18,43 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ist-africa-backend
+    restart: unless-stopped
+    ports:
+      - "3003:3003"
+    env_file:
+      - ./backend/.env
+    environment:
+      DB_HOST: postgres
+      DB_SSL: "false"
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+    container_name: ist-africa-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./Frontend/.env.local
+    volumes:
+      - ./Frontend/src:/app/src
+      - ./Frontend/public:/app/public
+      - ./Frontend/.env.local:/app/.env.local
+    depends_on:
+      - backend
 
 volumes:
   postgres_data:

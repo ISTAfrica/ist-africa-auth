@@ -9,8 +9,9 @@ import { SequelizeModuleOptions } from '@nestjs/sequelize';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    SequelizeModule.forRoot(databaseConfig() as SequelizeModuleOptions),
+    SequelizeModule.forRootAsync({
+      useFactory: () => databaseConfig() as SequelizeModuleOptions,
+    }),
     AuthModule,
     ChangePasswordModule,
   ],
