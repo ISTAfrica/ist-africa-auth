@@ -3,6 +3,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Post,
   HttpCode,
@@ -28,6 +29,7 @@ import { ClientCredentialsDto } from './dto/client-credentials.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { LinkedInOAuthGuard } from './guards/linkedin.guard';
 import type { Response, Request } from 'express';
+import { extractDeviceInfo } from '../../utils/device-info';
 
 @Controller('api/auth')
 export class AuthController {
@@ -42,8 +44,9 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   authenticate(
     @Body(new ValidationPipe()) authenticateDto: AuthenticateUserDto,
+    @Req() req: Request,
   ) {
-    return this.authService.authenticate(authenticateDto);
+    return this.authService.authenticate(authenticateDto, extractDeviceInfo(req));
   }
 
   @Get('verify-email')
@@ -64,8 +67,8 @@ export class AuthController {
 
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
-  verifyOtp(@Body(new ValidationPipe()) verifyOtpDto: VerifyOtpDto) {
-    return this.authService.verifyOtp(verifyOtpDto);
+  verifyOtp(@Body(new ValidationPipe()) verifyOtpDto: VerifyOtpDto, @Req() req: Request) {
+    return this.authService.verifyOtp(verifyOtpDto, extractDeviceInfo(req));
   }
 
   @Post('resend-otp')
@@ -181,6 +184,28 @@ export class AuthController {
         `${frontendUrl}/auth/login?error=linkedin_processing_failed`,
       );
     }
+  }
+
+  // -------------------- Session Routes --------------------
+
+  @Get('sessions')
+  @UseGuards(JwtAuthGuard)
+  async getSessions(@Req() req: Request & { user?: any }) {
+    const userId = req.user?.id;
+    if (!userId) throw new BadRequestException('User not authenticated');
+    return this.authService.getSessions(userId);
+  }
+
+  @Delete('sessions/:id')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async terminateSession(
+    @Param('id') sessionId: string,
+    @Req() req: Request & { user?: any },
+  ) {
+    const userId = req.user?.id;
+    if (!userId) throw new BadRequestException('User not authenticated');
+    return this.authService.terminateSession(userId, Number(sessionId));
   }
 
   // -------------------- Logout Routes --------------------

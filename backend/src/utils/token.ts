@@ -1,5 +1,12 @@
 export type UserRole = 'user' | 'admin';
 
+export interface DeviceInfo {
+  browser?: string | null;
+  os?: string | null;
+  deviceType?: string | null;
+  ipAddress?: string | null;
+}
+
 export interface JwtTokenRequest {
   email: string;
   userId: number;
@@ -11,6 +18,7 @@ export interface JwtTokenRequest {
   client_id?: string | null;
   client_secret?: string | null;
   profilePicture?: string | null;
+  deviceInfo?: DeviceInfo | null;
 }
 
 export interface JwtTokenResponse {

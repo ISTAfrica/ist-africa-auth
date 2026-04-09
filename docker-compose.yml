@@ -35,6 +35,9 @@ services:
     volumes:
       - ./backend/src:/app/src
       - ./backend/uploads:/app/uploads
+      - ./backend/config:/app/config
+      - ./backend/migrations:/app/migrations
+      - ./backend/.sequelizerc:/app/.sequelizerc
     depends_on:
       postgres:
         condition: service_healthy

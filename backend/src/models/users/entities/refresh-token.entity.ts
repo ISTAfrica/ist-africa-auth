@@ -44,4 +44,34 @@ export class RefreshToken extends Model {
     allowNull: false,
   })
   declare expiresAt: Date;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+  })
+  declare browser: string | null;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+  })
+  declare os: string | null;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+  })
+  declare deviceType: string | null;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+  })
+  declare ipAddress: string | null;
+
+  @Column({
+    type: DataType.DATE,
+    allowNull: true,
+  })
+  declare lastActiveAt: Date | null;
 }

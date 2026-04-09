@@ -11,4 +11,4 @@ RUN npm run build
 
 EXPOSE 5000
 
-CMD ["npm", "run", "start:dev"]
+CMD ["sh", "-c", "npx sequelize-cli db:migrate && npm run start:dev"]

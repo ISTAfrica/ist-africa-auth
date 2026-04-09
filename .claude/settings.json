@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/denisniwemugisha/ist/apps/ats-system/backend/**)",
+      "Bash(find /Users/denisniwemugisha/ist/apps/ats-system/backend/src -name *Auth* -o -name *auth*)",
+      "Read(//Users/denisniwemugisha/ist/apps/ats-system/frontend/src/**)"
+    ]
+  }
+}

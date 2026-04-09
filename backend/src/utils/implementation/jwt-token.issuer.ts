@@ -1,4 +1,4 @@
-import { JwtTokenIssuer, JwtTokenRequest, JwtTokenResponse } from '../token';
+import { JwtTokenIssuer, JwtTokenRequest, JwtTokenResponse, DeviceInfo } from '../token';
 import { ConfigService } from '@nestjs/config';
 import { RefreshToken } from '../../models/users/entities/refresh-token.entity';
 import { hash } from 'bcryptjs';
@@ -72,7 +72,7 @@ export class JwtTokenIssuerImpl implements JwtTokenIssuer {
       .setExpirationTime(accessExpiration)
       .sign(privateKey);
 
-    const refreshToken = await this.createAndStoreRefreshToken(payload.userId);
+    const refreshToken = await this.createAndStoreRefreshToken(payload.userId, payload.deviceInfo);
 
     return {
       accessToken,
@@ -99,7 +99,7 @@ export class JwtTokenIssuerImpl implements JwtTokenIssuer {
     return `${safeSeconds}s`;
   }
 
-  private async createAndStoreRefreshToken(userId: number): Promise<string> {
+  private async createAndStoreRefreshToken(userId: number, deviceInfo?: DeviceInfo | null): Promise<string> {
     const refreshToken = randomUUID();
     const hashedRefresh = await hash(refreshToken, 12);
 
@@ -115,6 +115,11 @@ export class JwtTokenIssuerImpl implements JwtTokenIssuer {
       hashedToken: hashedRefresh,
       userId,
       expiresAt,
+      browser: deviceInfo?.browser ?? null,
+      os: deviceInfo?.os ?? null,
+      deviceType: deviceInfo?.deviceType ?? null,
+      ipAddress: deviceInfo?.ipAddress ?? null,
+      lastActiveAt: new Date(),
     });
 
     return refreshToken;

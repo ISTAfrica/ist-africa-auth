@@ -25,6 +25,7 @@ import { JwtTokenIssuer } from '../../utils/token';
 import { JwtTokenIssuerImpl } from '../../utils/implementation/jwt-token.issuer';
 import { ClientAppToken } from './entities/client-app-token.entity';
 import { AuthorizationCode } from './entities/authorization-code.entity';
+import { DeviceInfo } from '../../utils/token';
 
 @Injectable()
 export class AuthService {
@@ -151,7 +152,7 @@ export class AuthService {
   }
 
   // -------------------- OTP Verification --------------------
-  async verifyOtp(verifyOtpDto: VerifyOtpDto) {
+  async verifyOtp(verifyOtpDto: VerifyOtpDto, deviceInfo?: DeviceInfo) {
     const { email, otp } = verifyOtpDto;
 
     const user = await this.userModel.findOne({ where: { email } });
@@ -182,6 +183,7 @@ export class AuthService {
       role: user.role,
       name: user.name,
       tokenVersion: user.tokenVersion,
+      deviceInfo,
     });
 
     return {
@@ -192,7 +194,7 @@ export class AuthService {
   }
 
   // -------------------- Authenticate --------------------
-  async authenticate(authenticateDto: AuthenticateUserDto) {
+  async authenticate(authenticateDto: AuthenticateUserDto, deviceInfo?: DeviceInfo) {
     const { email, password, client_id, redirect_uri, state } = authenticateDto;
 
     const user = await this.userModel.findOne({ where: { email } });
@@ -257,6 +259,7 @@ export class AuthService {
       role: user.role,
       name: user.name,
       tokenVersion: user.tokenVersion,
+      deviceInfo,
     });
   }
 
@@ -333,6 +336,14 @@ export class AuthService {
     const user = await this.userModel.findByPk(matched.userId);
     if (!user) throw new NotFoundException('User not found for this token.');
 
+    // Carry forward device info from the old token
+    const previousDeviceInfo: DeviceInfo = {
+      browser: matched.browser,
+      os: matched.os,
+      deviceType: matched.deviceType,
+      ipAddress: matched.ipAddress,
+    };
+
     await this.refreshTokenModel.destroy({ where: { id: matched.id } });
 
     return this.jwtTokenIssuer.issueTokens({
@@ -342,6 +353,7 @@ export class AuthService {
       role: user.role,
       name: user.name,
       tokenVersion: user.tokenVersion,
+      deviceInfo: previousDeviceInfo,
     });
   }
 
@@ -576,6 +588,39 @@ export class AuthService {
         isVerified: user.isVerified,
       },
     };
+  }
+
+  // -------------------- Get Active Sessions --------------------
+  async getSessions(userId: number) {
+    const sessions = await this.refreshTokenModel.findAll({
+      where: { userId, revoked: false },
+      attributes: ['id', 'browser', 'os', 'deviceType', 'ipAddress', 'lastActiveAt', 'createdAt'],
+      order: [['lastActiveAt', 'DESC']],
+    });
+
+    return sessions.map((s) => ({
+      id: s.id,
+      device: [s.browser, s.os].filter(Boolean).join(' on ') || 'Unknown device',
+      deviceType: s.deviceType || 'desktop',
+      ipAddress: s.ipAddress || 'Unknown',
+      lastActiveAt: s.lastActiveAt || s.createdAt,
+      createdAt: s.createdAt,
+    }));
+  }
+
+  // -------------------- Terminate Specific Session --------------------
+  async terminateSession(userId: number, sessionId: number) {
+    const token = await this.refreshTokenModel.findOne({
+      where: { id: sessionId, userId },
+    });
+
+    if (!token) {
+      throw new NotFoundException('Session not found');
+    }
+
+    await this.refreshTokenModel.destroy({ where: { id: sessionId } });
+
+    return { message: 'Session terminated successfully' };
   }
 
   // -------------------- Logout on Single Device --------------------
