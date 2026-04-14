@@ -38,6 +38,7 @@ services:
       - ./backend/config:/app/config
       - ./backend/migrations:/app/migrations
       - ./backend/.sequelizerc:/app/.sequelizerc
+      - ./backend/public:/app/public
     depends_on:
       postgres:
         condition: service_healthy

@@ -60,6 +60,8 @@ export default function LoginForm({
 
   const isPopup =
     typeof window !== "undefined" && window.opener && window.opener !== window;
+  const isIframe =
+    typeof window !== "undefined" && window.parent !== window;
   const hasProcessedAuth = useRef(false);
 
   useEffect(() => {
@@ -187,33 +189,39 @@ export default function LoginForm({
       const data = await authenticateUser(payload);
 
       if (data.redirect_uri) {
-
-
-        if (isPopup) {
+        if (isIframe) {
+          // Inside an iframe (widget modal) — send code to parent via postMessage
           try {
             const url = new URL(data.redirect_uri);
             const code = url.searchParams.get("code");
             const state = url.searchParams.get("state");
-
-            if (code && state && window.opener) {
+            if (code) {
+              window.parent.postMessage(
+                { type: "iaa-auth-callback", code, state },
+                "*"
+              );
+            }
+          } catch (e) {
+            console.error("Failed to parse redirect_uri:", e);
+          }
+        } else if (isPopup) {
+          // Inside a popup — send code to opener via postMessage
+          try {
+            const url = new URL(data.redirect_uri);
+            const code = url.searchParams.get("code");
+            const state = url.searchParams.get("state");
+            if (code && window.opener) {
               window.opener.postMessage(
-                {
-                  type: "iaa-auth-callback",
-                  code,
-                  state,
-                },
+                { type: "iaa-auth-callback", code, state },
                 "*"
               );
               setTimeout(() => window.close(), 100);
-            } else {
-              console.error("Missing code/state or no window.opener");
-              throw new Error("Invalid OAuth response");
             }
-          } catch (urlError) {
-            console.error("Failed to parse redirect_uri:", urlError);
-            throw new Error("Invalid redirect_uri format");
+          } catch (e) {
+            console.error("Failed to parse redirect_uri:", e);
           }
         } else {
+          // Normal redirect flow
           window.location.href = data.redirect_uri;
         }
       } else if (data.accessToken) {

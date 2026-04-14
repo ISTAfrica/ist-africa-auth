@@ -237,12 +237,7 @@ export class AuthService {
         clientId: client.id,
       });
 
-      const iaaFrontendUrl = this.configService.get<string>(
-        'FRONTEND_URL',
-        'http://localhost:3000',
-      );
-
-      const finalRedirectUri = new URL(`${iaaFrontendUrl}/auth/callback`);
+      const finalRedirectUri = new URL(redirect_uri);
       finalRedirectUri.searchParams.append('code', code);
       if (state) finalRedirectUri.searchParams.append('state', state);
 

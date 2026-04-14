@@ -36,13 +36,13 @@
 
 | # | Story | Accepted | Notes |
 |---|-------|----------|-------|
-| 18 | Register client app (admin) | No | |
-| 19 | List clients (admin) | No | |
+| 18 | Register client app (admin) | Yes | Registered test Book App client |
+| 19 | List clients (admin) | Yes | |
 | 20 | Update client (admin) | No | |
 | 21 | Regenerate client secret (admin) | No | |
 | 22 | Delete client (admin) | No | |
-| 23 | Authorization code flow | No | |
-| 24 | Token exchange (code -> tokens) | No | |
+| 23 | Authorization code flow | Yes | Full flow via IAA widget (iframe modal) |
+| 24 | Token exchange (code -> tokens) | Yes | Client backend exchanges code with client_secret |
 | 25 | JWKS public key endpoint | No | |
 | 26 | Token introspection | No | |
 
