@@ -530,9 +530,9 @@ export default function AdminClientsPage() {
     <AdminLayout>
       <div className="space-y-6">
         {/* HEADER */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-3xl font-bold">Client Management</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold">Client Management</h2>
             <p className="text-muted-foreground">
               Manage OAuth2 client applications
             </p>
@@ -575,7 +575,7 @@ export default function AdminClientsPage() {
             <CardTitle>Registered Clients</CardTitle>
           </CardHeader>
 
-          <CardContent>
+          <CardContent className="overflow-x-auto">
             {isLoading && (
               <div className="text-center p-8">
                 <Loader2 className="animate-spin h-8 w-8 mx-auto" />
@@ -603,77 +603,68 @@ export default function AdminClientsPage() {
             )}
 
             {!isLoading && !fetchError && clients.length > 0 && (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Client ID</TableHead>
-                    <TableHead>Redirect URI</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
+              <>
+                {/* Desktop table */}
+                <div className="hidden md:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Client ID</TableHead>
+                        <TableHead>Redirect URI</TableHead>
+                        <TableHead>Created</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {clients.map((client) => (
+                        <TableRow key={client.id}>
+                          <TableCell className="font-medium">{client.name}</TableCell>
+                          <TableCell className="font-mono text-sm">{client.client_id}</TableCell>
+                          <TableCell className="text-sm">{client.redirect_uri}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {format(new Date(client.created_at), "yyyy-MM-dd")}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button variant="ghost" size="icon" onClick={() => handleView(client)}><Eye className="h-4 w-4" /></Button>
+                              <Button variant="ghost" size="icon" onClick={() => handleEdit(client)}><Edit className="h-4 w-4" /></Button>
+                              <Button variant="ghost" size="icon" onClick={() => openConfirmDialog({ id: client.id, name: client.name })} disabled={isRegenerating}>
+                                <RefreshCcw className={`h-4 w-4 ${isRegenerating ? "animate-spin" : ""}`} />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => handleDelete(client)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
 
-                <TableBody>
+                {/* Mobile cards */}
+                <div className="md:hidden space-y-3">
                   {clients.map((client) => (
-                    <TableRow key={client.id}>
-                      <TableCell className="font-medium">{client.name}</TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {client.client_id}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {client.redirect_uri}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {format(new Date(client.created_at), "yyyy-MM-dd")}
-                      </TableCell>
-
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleView(client)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(client)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() =>
-                              openConfirmDialog({
-                                id: client.id,
-                                name: client.name,
-                              })
-                            }
-                            disabled={isRegenerating}
-                          >
-                            <RefreshCcw
-                              className={`h-4 w-4 ${
-                                isRegenerating ? "animate-spin" : ""
-                              }`}
-                            />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(client)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                    <div key={client.id} className="border rounded-lg p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="font-medium">{client.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(client.created_at), "yyyy-MM-dd")}
+                        </p>
+                      </div>
+                      <p className="text-xs font-mono text-muted-foreground break-all">{client.client_id}</p>
+                      <p className="text-xs text-muted-foreground break-all">{client.redirect_uri}</p>
+                      <div className="flex gap-2 pt-2 border-t">
+                        <Button variant="ghost" size="sm" onClick={() => handleView(client)}><Eye className="h-4 w-4 mr-1" />View</Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleEdit(client)}><Edit className="h-4 w-4 mr-1" />Edit</Button>
+                        <Button variant="ghost" size="sm" onClick={() => openConfirmDialog({ id: client.id, name: client.name })} disabled={isRegenerating}>
+                          <RefreshCcw className={`h-4 w-4 mr-1 ${isRegenerating ? "animate-spin" : ""}`} />Key
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDelete(client)}><Trash2 className="h-4 w-4 mr-1 text-destructive" /></Button>
+                      </div>
+                    </div>
                   ))}
-                </TableBody>
-              </Table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>

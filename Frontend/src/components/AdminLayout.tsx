@@ -1,8 +1,8 @@
 'use client';
 
 import { ReactNode, useEffect, useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation'; // <-- 1. Import Next.js routing hooks
-import Link from 'next/link'; // <-- 2. Import Next.js Link component
+import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
 import {
   LayoutDashboard,
   Users,
@@ -26,16 +26,14 @@ import {
   SidebarProvider,
   SidebarTrigger,
   useSidebar,
-} from '@/components/ui/sidebar'; 
+} from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import Logo from './Logo';
-import { cn } from '@/lib/utils'; 
+import { cn } from '@/lib/utils';
 import { Toaster } from './ui/sonner';
 import { LogoutDialog } from '@/components/auth/LogoutDialog';
 import { logout } from '@/services/authService';
 import { toast } from 'sonner';
-import { apiClient } from '@/lib/api-client';
-
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -52,16 +50,11 @@ const menuItems = [
 ];
 
 function AdminSidebar() {
-  const { state } = useSidebar();
-  const pathname = usePathname(); // <-- 3. Use usePathname() for the current URL
-  const router = useRouter(); // <-- 4. Use useRouter() for navigation
-  const collapsed = state === 'collapsed';
+  const { isMobile, setOpenMobile } = useSidebar();
+  const pathname = usePathname();
+  const router = useRouter();
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-
-  const handleLogoutClick = () => {
-    setLogoutDialogOpen(true);
-  };
 
   const handleLogout = async (type: "single" | "all") => {
     setIsLoggingOut(true);
@@ -85,11 +78,11 @@ function AdminSidebar() {
   };
 
   return (
-    <Sidebar className={cn('transition-all duration-300', collapsed ? 'w-16' : 'w-64')} collapsible="icon">
+    <Sidebar collapsible="offcanvas">
       <SidebarContent>
         <div className="p-4 border-b border-border">
           <div className="flex items-center justify-center">
-            {!collapsed && <Logo />}
+            <Logo />
           </div>
         </div>
 
@@ -104,6 +97,7 @@ function AdminSidebar() {
                     <SidebarMenuButton asChild>
                       <Link
                         href={item.url}
+                        onClick={() => { if (isMobile) setOpenMobile(false); }}
                         className={cn(
                           'flex items-center gap-3',
                           isActive
@@ -112,7 +106,7 @@ function AdminSidebar() {
                         )}
                       >
                         <item.icon className="h-4 w-4" />
-                        {!collapsed && <span>{item.title}</span>}
+                        <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -126,10 +120,10 @@ function AdminSidebar() {
           <Button
             variant="ghost"
             className="w-full justify-start"
-            onClick={handleLogoutClick}
+            onClick={() => setLogoutDialogOpen(true)}
           >
             <LogOut className="h-4 w-4" />
-            {!collapsed && <span className="ml-2">Logout</span>}
+            <span className="ml-2">Logout</span>
           </Button>
         </div>
       </SidebarContent>
@@ -156,35 +150,44 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
 
     checkAuth();
     window.addEventListener('storage', checkAuth);
-
-    return () => {
-      window.removeEventListener('storage', checkAuth);
-    };
+    return () => window.removeEventListener('storage', checkAuth);
   }, [router]);
 
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        await apiClient('/api/auth/session');
+        const token = localStorage.getItem('accessToken');
+        if (!token) return;
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/session`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.status === 401) {
+          const { refreshAccessToken } = await import('@/services/authService');
+          const newToken = await refreshAccessToken();
+          if (!newToken) {
+            router.replace('/auth/login');
+          }
+        }
       } catch {
+        // Silently ignore network errors
       }
-    },1000);
+    }, 30000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [router]);
 
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
         <AdminSidebar />
-        <main className="flex-1 flex flex-col">
-          <header className="h-16 border-b border-border flex items-center px-6 bg-card sticky top-0 z-10">
-            <SidebarTrigger className="mr-4">
+        <main className="flex-1 flex flex-col min-w-0">
+          <header className="h-14 border-b border-border flex items-center px-4 sm:px-6 bg-card sticky top-0 z-10">
+            <SidebarTrigger className="mr-3">
               <Menu className="h-5 w-5" />
             </SidebarTrigger>
-            <h1 className="text-lg font-semibold text-foreground">Admin Dashboard</h1>
+            <h1 className="text-base sm:text-lg font-semibold text-foreground truncate">Admin Dashboard</h1>
           </header>
-          <div className="flex-1 p-6 bg-background overflow-auto">{children}</div>
+          <div className="flex-1 p-3 sm:p-6 bg-background overflow-auto">{children}</div>
         </main>
         <Toaster position="top-right" />
       </div>

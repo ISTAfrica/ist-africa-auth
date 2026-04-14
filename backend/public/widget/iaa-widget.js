@@ -228,7 +228,8 @@ class IAAAuthWidget {
     }
   }
 
-  // ==================== Public API ====================
+
+  // ==================== Public API =====================
 
   async logout(type) {
     type = type || 'single';

@@ -41,6 +41,13 @@ All colors MUST be HSL.
 
     --radius: 0.75rem;
 
+    --sidebar: 0 0% 98%;
+    --sidebar-foreground: 220 15% 15%;
+    --sidebar-border: 220 15% 90%;
+    --sidebar-accent: 220 15% 93%;
+    --sidebar-accent-foreground: 220 15% 15%;
+    --sidebar-ring: 220 85% 45%;
+
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(220 85% 45%), hsl(220 85% 55%));
     --gradient-accent: linear-gradient(135deg, hsl(220 85% 45%), hsl(25 90% 55%));
@@ -88,6 +95,13 @@ All colors MUST be HSL.
     --border: 220 20% 20%;
     --input: 220 20% 20%;
     --ring: 220 85% 55%;
+
+    --sidebar: 220 20% 12%;
+    --sidebar-foreground: 220 15% 95%;
+    --sidebar-border: 220 20% 20%;
+    --sidebar-accent: 220 20% 18%;
+    --sidebar-accent-foreground: 220 15% 95%;
+    --sidebar-ring: 220 85% 55%;
 
     --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.15);
     --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.2);

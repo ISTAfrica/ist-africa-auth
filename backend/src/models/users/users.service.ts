@@ -104,15 +104,16 @@ async toggleUserStatus(
   user.statusReason = statusReason || 'No reason provided';
   await user.save();
 
-  // Send email notifications
+  // Send email notifications (fire-and-forget)
   if (!isActive) {
-    await this.emailService.sendAccountDisabledEmail(
+    this.emailService.sendAccountDisabledEmail(
       user.name,
       user.email,
       user.statusReason,
-    );
+    ).catch((err) => console.error('Failed to send deactivation email:', err));
   } else {
-    await this.emailService.sendAccountReactivatedEmail(user.name, user.email);
+    this.emailService.sendAccountReactivatedEmail(user.name, user.email)
+      .catch((err) => console.error('Failed to send reactivation email:', err));
   }
 
   return user;

@@ -112,27 +112,22 @@ const AdminUsers = () => {
 
   const confirmStatusChange = async () => {
     if (!selectedUser) return;
+    const user = selectedUser;
+    const newIsActive = !user.isActive;
+    const currentReason = reason;
+
+    // Close dialog immediately
+    setStatusDialogOpen(false);
+    setSelectedUser(null);
+    setReason("");
+
     try {
-      const newIsActive = !selectedUser.isActive;
-      const updatedUser = await updateUserStatus(
-        selectedUser.id,
-        newIsActive,
-        reason
-      );
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === selectedUser.id ? { ...u, ...updatedUser } : u
-        )
-      );
+      await updateUserStatus(user.id, newIsActive, currentReason);
+      const refreshedUsers = await fetchUsers();
+      setUsers(refreshedUsers);
       toast({
         title: "Status Updated",
-        description: `User ${updatedUser.name} has been ${
-          updatedUser.isActive ? "activated" : "deactivated"
-        }${
-          updatedUser.statusReason
-            ? `. Reason: ${updatedUser.statusReason}`
-            : ""
-        }`,
+        description: `User ${user.name} has been ${newIsActive ? "activated" : "deactivated"}`,
       });
     } catch (error) {
       console.error(error);
@@ -143,26 +138,24 @@ const AdminUsers = () => {
         description: errorMessage,
         variant: "destructive",
       });
-    } finally {
-      setStatusDialogOpen(false);
-      setSelectedUser(null);
-      setReason("");
     }
   };
 
   const confirmRoleChange = async () => {
     if (!selectedUserForRole) return;
+    const user = selectedUserForRole;
+    const newRole = user.role === "user" ? "admin" : "user";
+
+    setRoleDialogOpen(false);
+    setSelectedUserForRole(null);
+
     try {
-      const newRole = selectedUserForRole.role === "user" ? "admin" : "user";
-      const updatedUser = await updateUserRole(selectedUserForRole.id, newRole);
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === selectedUserForRole.id ? { ...u, role: newRole } : u
-        )
-      );
+      await updateUserRole(user.id, newRole);
+      const refreshedUsers = await fetchUsers();
+      setUsers(refreshedUsers);
       toast({
         title: "Role Updated",
-        description: `User ${selectedUserForRole.name}'s role changed to ${newRole}`,
+        description: `User ${user.name}'s role changed to ${newRole}`,
       });
     } catch (error) {
       console.error(error);
@@ -173,10 +166,6 @@ const AdminUsers = () => {
         description: errorMessage,
         variant: "destructive",
       });
-    } finally {
-      setRoleDialogOpen(false);
-      setSelectedUserForRole(null);
-      setReason("");
     }
   };
 
@@ -184,7 +173,7 @@ const AdminUsers = () => {
     <AdminLayout>
       <div className="space-y-6">
         <div>
-          <h2 className="text-3xl font-bold text-foreground">
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
             User Management
           </h2>
           <p className="text-muted-foreground">
@@ -212,93 +201,100 @@ const AdminUsers = () => {
           </CardHeader>
 
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.map((user) => {
-                  const isCurrentUser =
-                    String(user.id) === String(loggedInUserId);
-                  return (
-                    <TableRow key={user.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {user.name}
-                          {isCurrentUser && (
-                            <Badge variant="outline" className="text-xs">
-                              You
-                            </Badge>
+            {/* Desktop table */}
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredUsers.map((user) => {
+                    const isCurrentUser = String(user.id) === String(loggedInUserId);
+                    return (
+                      <TableRow key={user.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {user.name}
+                            {isCurrentUser && <Badge variant="outline" className="text-xs">You</Badge>}
+                          </div>
+                        </TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          <Badge variant={user.role === "admin" ? "default" : "secondary"}>{user.role}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={user.isActive ? "default" : "destructive"}>
+                            {user.isActive ? "active" : "inactive"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{format(new Date(user.createdAt), "yyyy-MM-dd")}</TableCell>
+                        <TableCell className="text-right">
+                          {!isCurrentUser ? (
+                            <div className="flex justify-end gap-2">
+                              <Button variant="ghost" size="icon" onClick={() => handleRoleChange(user)} title="Change role">
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => handleStatusChange(user)} title={user.isActive ? "Deactivate user" : "Activate user"}>
+                                {user.isActive ? <Lock className="h-4 w-4 text-destructive" /> : <Unlock className="h-4 w-4 text-success" />}
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground italic">Cannot modify</span>
                           )}
-                        </div>
-                      </TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            user.role === "admin" ? "default" : "secondary"
-                          }
-                        >
-                          {user.role}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={user.isActive ? "default" : "destructive"}
-                        >
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Mobile cards */}
+            <div className="md:hidden space-y-3">
+              {filteredUsers.map((user) => {
+                const isCurrentUser = String(user.id) === String(loggedInUserId);
+                return (
+                  <div key={user.id} className="border rounded-lg p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{user.name}</p>
+                        {isCurrentUser && <Badge variant="outline" className="text-xs">You</Badge>}
+                      </div>
+                      <div className="flex gap-1">
+                        <Badge variant={user.role === "admin" ? "default" : "secondary"} className="text-xs">{user.role}</Badge>
+                        <Badge variant={user.isActive ? "default" : "destructive"} className="text-xs">
                           {user.isActive ? "active" : "inactive"}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {format(new Date(user.createdAt), "yyyy-MM-dd")}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {!isCurrentUser ? (
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleRoleChange(user)}
-                              title="Change role"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleStatusChange(user)}
-                              title={
-                                user.isActive
-                                  ? "Deactivate user"
-                                  : "Activate user"
-                              }
-                            >
-                              {user.isActive ? (
-                                <Lock className="h-4 w-4 text-destructive" />
-                              ) : (
-                                <Unlock className="h-4 w-4 text-success" />
-                              )}
-                            </Button>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-muted-foreground italic">
-                            Cannot modify own account
-                          </span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                    <div className="flex items-center justify-between pt-2 border-t">
+                      <p className="text-xs text-muted-foreground">{format(new Date(user.createdAt), "yyyy-MM-dd")}</p>
+                      {!isCurrentUser ? (
+                        <div className="flex gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => handleRoleChange(user)}>
+                            <Edit className="h-4 w-4 mr-1" />Role
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleStatusChange(user)}>
+                            {user.isActive ? <Lock className="h-4 w-4 mr-1 text-destructive" /> : <Unlock className="h-4 w-4 mr-1" />}
+                            {user.isActive ? "Deactivate" : "Activate"}
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground italic">Cannot modify</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
 

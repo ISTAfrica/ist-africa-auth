@@ -20,7 +20,7 @@
 | # | Story | Accepted | Notes |
 |---|-------|----------|-------|
 | 11 | View profile (name, email, date) | Yes | |
-| 12 | View user type (ist_member/ext_member) | No | Not visible on profile page |
+| 12 | View user type (ist_member/ext_member) | Yes | Shows as "IST Member" or "External Member" on profile |
 | 13 | Edit profile name | Yes | |
 | 14 | Upload profile picture (with crop) | Yes | Added react-easy-crop |
 
@@ -38,14 +38,14 @@
 |---|-------|----------|-------|
 | 18 | Register client app (admin) | Yes | Registered test Book App client |
 | 19 | List clients (admin) | Yes | |
-| 20 | Update client (admin) | No | |
-| 21 | Regenerate client secret (admin) | No | |
-| 22 | Delete client (admin) | No | |
+| 20 | Update client (admin) | Yes | |
+| 21 | Regenerate client secret (admin) | Yes | |
+| 22 | Delete client (admin) | Yes | |
 | 23 | Authorization code flow | Yes | Full flow via IAA widget (iframe modal) |
 | 24 | Token exchange (code -> tokens + user) | Yes | Client backend exchanges code with client_secret. Response includes user object |
 | 25 | JWKS public key endpoint | Yes | Public endpoint, used by client backends to verify JWTs |
 | 26 | UserInfo endpoint | Yes | GET /api/auth/userinfo returns full profile (sub, email, name, picture, user_type) |
-| 27 | Token introspection | No | |
+| 27 | Token introspection | Skipped | Not needed — client apps verify JWTs locally via JWKS |
 
 ## Admin
 

@@ -13,6 +13,27 @@ export const handleGlobalLogout = (message?: string) => {
   }
 };
 
+async function tryRefreshToken(): Promise<string | null> {
+  const { refreshAccessToken } = await import("@/services/authService");
+  return refreshAccessToken();
+}
+
+async function makeRequest(
+  endpoint: string,
+  options: RequestInit,
+  token: string | null
+) {
+  const headers = new Headers(options.headers);
+  headers.set("Content-Type", "application/json");
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+
+  return fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers,
+    credentials: "include",
+  });
+}
+
 export async function apiClient<T = unknown>(
   endpoint: string,
   options: RequestInit = {}
@@ -22,22 +43,19 @@ export async function apiClient<T = unknown>(
       ? localStorage.getItem("accessToken")
       : null;
 
-  const headers = new Headers(options.headers);
-  headers.set("Content-Type", "application/json");
-
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
-
   try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}${endpoint}`,
-      {
-        ...options,
-        headers,
-        credentials: "include",
+    let response = await makeRequest(endpoint, options, token);
+
+    // On 401, try refreshing the token and retry once
+    if (response.status === 401) {
+      const newToken = await tryRefreshToken();
+      if (newToken) {
+        response = await makeRequest(endpoint, options, newToken);
+      } else {
+        handleGlobalLogout("Session expired");
+        return new Promise(() => {});
       }
-    );
+    }
 
     const responseText = await response.text();
     let data: unknown = {};
@@ -54,11 +72,7 @@ export async function apiClient<T = unknown>(
           ? String((data as { message?: unknown }).message)
           : "Something went wrong";
 
-      if (
-        response.status === 401 ||
-        errorMsg.toLowerCase().includes("token version mismatch") ||
-        errorMsg.toLowerCase().includes("unauthorized")
-      ) {
+      if (response.status === 401) {
         handleGlobalLogout(errorMsg);
         return new Promise(() => {});
       }
@@ -69,7 +83,7 @@ export async function apiClient<T = unknown>(
     return data as T;
   } catch (error: unknown) {
     console.error("API request failed:", error);
- 
+
     if (
       typeof window !== "undefined" &&
       !endpoint.includes("/auth/") &&

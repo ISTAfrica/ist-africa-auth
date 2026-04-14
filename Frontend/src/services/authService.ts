@@ -273,6 +273,35 @@ export const validateSession = async () => {
   }
 };
 
+export const refreshAccessToken = async (): Promise<string | null> => {
+  const refreshToken = localStorage.getItem("refreshToken");
+  if (!refreshToken) return null;
+
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/refresh`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken }),
+      }
+    );
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const newAccessToken = data.access_token || data.accessToken;
+    const newRefreshToken = data.refresh_token || data.refreshToken;
+
+    if (newAccessToken) localStorage.setItem("accessToken", newAccessToken);
+    if (newRefreshToken) localStorage.setItem("refreshToken", newRefreshToken);
+
+    return newAccessToken;
+  } catch {
+    return null;
+  }
+};
+
 export const clearAuthData = () => {
   localStorage.removeItem("accessToken");
   localStorage.removeItem("refreshToken");
