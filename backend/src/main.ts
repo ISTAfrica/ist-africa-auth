@@ -47,6 +47,22 @@ async function bootstrap() {
     'http://localhost:3001',
   ];
 
+  // Iframe security — only allow registered client origins to embed IAA
+  app.use(async (req: any, res: any, next: any) => {
+    try {
+      const allClients = await Client.findAll({
+        where: { status: 'active' },
+        attributes: ['allowed_origins'],
+      });
+      const clientOrigins = allClients.flatMap((c: any) => c.allowed_origins || []);
+      const allowedFrameAncestors = ["'self'", ...staticOrigins, ...clientOrigins].join(' ');
+      res.setHeader('Content-Security-Policy', 'frame-ancestors ' + allowedFrameAncestors);
+    } catch (e) {
+      res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
+    }
+    next();
+  });
+
   app.enableCors({
     origin: async (origin, callback) => {
       // Allow requests with no origin (server-to-server, curl, etc.)
