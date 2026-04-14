@@ -341,7 +341,7 @@ export class AuthService {
 
     await this.refreshTokenModel.destroy({ where: { id: matched.id } });
 
-    return this.jwtTokenIssuer.issueTokens({
+    const tokens = await this.jwtTokenIssuer.issueTokens({
       email: user.email,
       password: user.password,
       userId: user.id,
@@ -350,6 +350,12 @@ export class AuthService {
       tokenVersion: user.tokenVersion,
       deviceInfo: previousDeviceInfo,
     });
+
+    return {
+      access_token: tokens.accessToken,
+      refresh_token: tokens.refreshToken,
+      token_type: 'Bearer',
+    };
   }
 
   // -------------------- Auth Code Token Exchange --------------------
