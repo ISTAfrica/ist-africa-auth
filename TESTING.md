@@ -44,7 +44,7 @@
 | 23 | Authorization code flow | Yes | Full flow via IAA widget (iframe modal) |
 | 24 | Token exchange (code -> tokens + user) | Yes | Client backend exchanges code with client_secret. Response includes user object |
 | 25 | JWKS public key endpoint | Yes | Public endpoint, used by client backends to verify JWTs |
-| 26 | UserInfo endpoint | No | GET /api/auth/userinfo returns full profile (picture, user_type) |
+| 26 | UserInfo endpoint | Yes | GET /api/auth/userinfo returns full profile (sub, email, name, picture, user_type) |
 | 27 | Token introspection | No | |
 
 ## Admin

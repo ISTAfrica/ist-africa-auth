@@ -44,6 +44,7 @@ type UserProfile = {
   email: string;
   createdAt: string;
   profilePicture?: string | null;
+  membershipStatus?: 'ist_member' | 'ext_member';
 };
 
 export default function ProfilePage() {
@@ -241,6 +242,15 @@ export default function ProfilePage() {
             <div>
               <Label className="text-muted-foreground text-xs">Email</Label>
               <p className="font-medium">{user.email}</p>
+            </div>
+
+            <Separator />
+
+            <div>
+              <Label className="text-muted-foreground text-xs">Membership</Label>
+              <p className="font-medium">
+                {user.membershipStatus === 'ist_member' ? 'IST Member' : 'External Member'}
+              </p>
             </div>
 
             <Separator />
