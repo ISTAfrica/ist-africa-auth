@@ -42,29 +42,30 @@
 | 21 | Regenerate client secret (admin) | No | |
 | 22 | Delete client (admin) | No | |
 | 23 | Authorization code flow | Yes | Full flow via IAA widget (iframe modal) |
-| 24 | Token exchange (code -> tokens) | Yes | Client backend exchanges code with client_secret |
-| 25 | JWKS public key endpoint | No | |
-| 26 | Token introspection | No | |
+| 24 | Token exchange (code -> tokens + user) | Yes | Client backend exchanges code with client_secret. Response includes user object |
+| 25 | JWKS public key endpoint | Yes | Public endpoint, used by client backends to verify JWTs |
+| 26 | UserInfo endpoint | No | GET /api/auth/userinfo returns full profile (picture, user_type) |
+| 27 | Token introspection | No | |
 
 ## Admin
 
 | # | Story | Accepted | Notes |
 |---|-------|----------|-------|
-| 27 | Update user role (admin) | No | |
-| 28 | Default admin auto-disable | No | |
+| 28 | Update user role (admin) | No | |
+| 29 | Default admin auto-disable | No | |
 
 ## Security
 
 | # | Story | Accepted | Notes |
 |---|-------|----------|-------|
-| 29 | CORS enforcement | Yes | Fixed origin/port mismatch |
-| 30 | JWT RS256 signing | Yes | Working via login flow |
-| 31 | Brute force protection | No | README mentions 5 failed logins -> 10-min lockout |
+| 30 | CORS enforcement | Yes | Fixed origin/port mismatch. Dynamic CORS from client allowed_origins |
+| 31 | JWT RS256 signing | Yes | Working via login flow |
+| 32 | Brute force protection | No | README mentions 5 failed logins -> 10-min lockout |
 
 ## Infrastructure
 
 | # | Story | Accepted | Notes |
 |---|-------|----------|-------|
-| 32 | Docker Compose (local dev) | Yes | Fixed SSL, ports, volume mounts |
-| 33 | Hot reload (FE + BE) | Yes | Source volumes mounted |
-| 34 | Database migrations | Yes | Sequelize CLI, auto-run on startup |
+| 33 | Docker Compose (local dev) | Yes | Fixed SSL, ports, volume mounts |
+| 34 | Hot reload (FE + BE) | Yes | Source volumes mounted |
+| 35 | Database migrations | Yes | Sequelize CLI, auto-run on startup |

@@ -230,7 +230,30 @@ class IAAAuthWidget {
 
   // ==================== Public API ====================
 
-  logout() {
+  async logout(type) {
+    type = type || 'single';
+    var iaaBackend = this.iaaBackendUrl || this._detectBackendUrl();
+
+    // Get a valid token (refreshes if expired) to ensure logout succeeds
+    if (iaaBackend) {
+      try {
+        var token = await this.getValidToken();
+        if (token) {
+          await fetch(iaaBackend + '/api/auth/logout', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + token,
+            },
+            body: JSON.stringify({ type: type }),
+          });
+        }
+      } catch (e) {
+        console.error('[IAA Widget] Server logout failed:', e);
+      }
+    }
+
+    // Clear local state
     localStorage.removeItem('iaa_access_token');
     localStorage.removeItem('iaa_refresh_token');
     this.isAuthenticated = false;
@@ -248,6 +271,15 @@ class IAAAuthWidget {
    * Returns a valid token. Refreshes automatically if expired or about to expire.
    * Use this before every API call.
    */
+  getUser() {
+    var token = localStorage.getItem('iaa_access_token');
+    if (!token) return null;
+    try {
+      var payload = JSON.parse(atob(token.split('.')[1]));
+      return { sub: payload.sub, email: payload.email, name: payload.name };
+    } catch (e) { return null; }
+  }
+
   async getValidToken() {
     var token = localStorage.getItem('iaa_access_token');
     if (token && !this.isTokenExpired(token)) return token;
@@ -424,6 +456,7 @@ window.IAAAuthWidget = IAAAuthWidget;
 window.iaa = {
   engine: null,
   getToken: function() { return window.iaa.engine ? window.iaa.engine.getToken() : null; },
+  getUser: function() { return window.iaa.engine ? window.iaa.engine.getUser() : null; },
   getValidToken: function() { return window.iaa.engine ? window.iaa.engine.getValidToken() : Promise.resolve(null); },
   refreshToken: function() { return window.iaa.engine ? window.iaa.engine.refreshToken() : Promise.resolve(null); },
   isAuthenticated: function() { return window.iaa.engine ? window.iaa.engine.isAuthenticated : false; },

@@ -109,6 +109,14 @@ export class AuthController {
     return this.authService.updateUserRole(callerRole, id, role);
   }
 
+  // -------------------- UserInfo (OIDC Standard) --------------------
+
+  @Get('userinfo')
+  @UseGuards(JwtAuthGuard)
+  async getUserInfo(@Req() req: Request & { user?: any }) {
+    return this.authService.getUserInfo(req.user?.id);
+  }
+
   // -------------------- LinkedIn OAuth2 Routes --------------------
 
   @Get('linkedin')

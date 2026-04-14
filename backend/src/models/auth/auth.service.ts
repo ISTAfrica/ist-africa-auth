@@ -436,6 +436,13 @@ export class AuthService {
       access_token: tokenPair.accessToken,
       refresh_token: tokenPair.refreshToken,
       token_type: 'Bearer',
+      user: {
+        sub: user.id.toString(),
+        email: user.email,
+        name: user.name,
+        picture: user.profilePicture,
+        user_type: user.membershipStatus,
+      },
     };
   }
 
@@ -601,6 +608,24 @@ export class AuthService {
       lastActiveAt: s.lastActiveAt || s.createdAt,
       createdAt: s.createdAt,
     }));
+  }
+
+  // -------------------- UserInfo (OIDC Standard) --------------------
+  async getUserInfo(userId: number) {
+    const user = await this.userModel.findByPk(userId, {
+      attributes: ['id', 'email', 'name', 'profilePicture', 'membershipStatus', 'createdAt'],
+    });
+
+    if (!user) throw new NotFoundException('User not found');
+
+    return {
+      sub: user.id.toString(),
+      email: user.email,
+      name: user.name,
+      picture: user.profilePicture,
+      user_type: user.membershipStatus,
+      created_at: user.createdAt,
+    };
   }
 
   // -------------------- Terminate Specific Session --------------------

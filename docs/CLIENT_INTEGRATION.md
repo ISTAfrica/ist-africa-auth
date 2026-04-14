@@ -45,10 +45,45 @@ After initialization, the SDK exposes global helpers:
 ```js
 iaa.getValidToken()     // (async) Returns a valid token — auto-refreshes if expired
 iaa.getToken()          // (sync) Returns current token or null — does NOT refresh
+iaa.getUser()           // (sync) Returns { sub, email, name } from the token
 iaa.refreshToken()      // (async) Forces a token refresh, returns new token or null
 iaa.isAuthenticated()   // Returns true/false
 iaa.logout()            // Clears tokens, shows login button
 ```
+
+### Getting User Info
+
+**Basic info** (no API call — decoded from the token):
+
+```js
+const user = iaa.getUser();
+// { sub: "2", email: "denis@ist.africa", name: "Denis Niwemugisha" }
+```
+
+**Full profile** (API call to IAA — includes picture, user_type):
+
+```js
+const token = await iaa.getValidToken();
+const res = await fetch('IAA_BACKEND_URL/api/auth/userinfo', {
+  headers: { Authorization: 'Bearer ' + token }
+});
+const profile = await res.json();
+// { sub: "2", email: "...", name: "...", picture: "...", user_type: "ist_member", created_at: "..." }
+```
+
+### Logout
+
+Logout is the client app's responsibility — build your own logout button and call `iaa.logout()`:
+
+```js
+// Logout from this device
+await iaa.logout();
+
+// Logout from all devices
+await iaa.logout('all');
+```
+
+`iaa.logout()` automatically invalidates the token on IAA's server (even if expired — it refreshes first), then clears local state and re-shows the login button.
 
 ### Auth Change Event
 
