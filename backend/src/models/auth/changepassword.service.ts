@@ -8,14 +8,14 @@ export class ChangePasswordService {
   constructor(@InjectModel(User) private userModel: typeof User) {}
 
   async changePassword(
-    userId: number,
+    userId: string,
     currentPassword: string,
     newPassword: string,
     confirmPassword: string,
   ): Promise<{ message: string }> {
     try {
       // Validate user ID
-      if (!userId || isNaN(Number(userId))) {
+      if (!userId) {
         throw new BadRequestException('Invalid user ID');
       }
 
@@ -30,7 +30,7 @@ export class ChangePasswordService {
       }
 
       // Find user
-      const user = await this.userModel.findByPk(Number(userId), {
+      const user = await this.userModel.findByPk(userId, {
         attributes: ['id', 'password'],
       });
 

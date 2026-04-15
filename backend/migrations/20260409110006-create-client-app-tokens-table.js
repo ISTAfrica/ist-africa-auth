@@ -8,7 +8,7 @@ module.exports = {
 
     await queryInterface.createTable('client_app_tokens', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
-      userId: { type: Sequelize.INTEGER, allowNull: false, references: { model: 'users', key: 'id' }, onUpdate: 'CASCADE', onDelete: 'CASCADE' },
+      userId: { type: Sequelize.UUID, allowNull: false, references: { model: 'users', key: 'id' }, onUpdate: 'CASCADE', onDelete: 'CASCADE' },
       clientId: { type: Sequelize.STRING, allowNull: false },
       hashedClientSecret: { type: Sequelize.STRING, allowNull: false },
       accessToken: { type: Sequelize.TEXT, allowNull: false },

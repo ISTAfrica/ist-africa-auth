@@ -22,8 +22,8 @@ export class ClientAppToken extends Model {
 
   @ForeignKey(() => User)
   @AllowNull(false)
-  @Column(DataType.INTEGER)
-  declare userId: number;
+  @Column(DataType.UUID)
+  declare userId: string;
 
   @AllowNull(false)
   @Column(DataType.STRING)

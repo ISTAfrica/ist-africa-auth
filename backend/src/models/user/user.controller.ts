@@ -29,7 +29,7 @@ export class UserController {
   // -------------------- User self routes --------------------
   @Get('me')
   getProfile(@Req() req: Request) {
-    const user = req.user as { id: number };
+    const user = req.user as { id: string };
     return this.userService.getProfile(user.id);
   }
 
@@ -38,7 +38,7 @@ export class UserController {
     @Req() req: Request,
     @Body(new ValidationPipe()) updateUserDto: UpdateUserDto,
   ) {
-    const user = req.user as { id: number };
+    const user = req.user as { id: string };
     return this.userService.updateProfile(user.id, updateUserDto);
   }
 
@@ -64,7 +64,7 @@ export class UserController {
     }),
   )
   uploadAvatar(@Req() req: Request, @UploadedFile() file: Express.Multer.File) {
-    const user = req.user as { id: number };
+    const user = req.user as { id: string };
     return this.userService.updateAvatar(user.id, file);
   }
   @Patch(':id/role')
@@ -74,7 +74,7 @@ export class UserController {
     @Param('id') userId: string,
     @Body('role') role: 'user' | 'admin',
   ) {
-    const updatedUser = await this.userService.updateProfile(+userId, { role });
+    const updatedUser = await this.userService.updateProfile(userId, { role });
     return {
       message: `User role updated to ${role}`,
       user: updatedUser,

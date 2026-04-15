@@ -28,10 +28,10 @@ export class RefreshToken extends Model {
 
   @ForeignKey(() => User)
   @Column({
-    type: DataType.INTEGER,
+    type: DataType.UUID,
     allowNull: false,
   })
-  declare userId: number;
+  declare userId: string;
 
   @Column({
     type: DataType.BOOLEAN,

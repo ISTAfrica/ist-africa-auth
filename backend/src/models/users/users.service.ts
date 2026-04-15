@@ -35,7 +35,7 @@ export class UsersService {
     });
   }
 
-  async findOne(id: number): Promise<User> {
+  async findOne(id: string): Promise<User> {
     const user = await this.userModel.findByPk(id, {
       attributes: {
         exclude: ['password'],
@@ -60,9 +60,9 @@ export class UsersService {
   }
 
   async updateUserRole(
-  userId: number,
+  userId: string,
   role: 'user' | 'admin',
-  loggedInUserId: number,
+  loggedInUserId: string,
 ): Promise<User> {
   if (userId === loggedInUserId) {
     throw new BadRequestException('You cannot update your own role.');
@@ -83,9 +83,9 @@ export class UsersService {
 }
 
 async toggleUserStatus(
-  userId: number,
+  userId: string,
   isActive: boolean,
-  loggedInUserId: number,
+  loggedInUserId: string,
   statusReason?: string,
 ): Promise<User> {
   if (userId === loggedInUserId) {

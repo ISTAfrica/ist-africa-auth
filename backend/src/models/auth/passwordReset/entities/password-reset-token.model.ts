@@ -9,7 +9,7 @@ import { User } from '../../../users/entities/user.entity';
 
 // Define creation attributes interface
 export interface PasswordResetTokenCreationAttributes {
-  userId: number;
+  userId: string;
   token: string;
   expiresAt: Date;
 }
@@ -27,8 +27,8 @@ export class PasswordResetToken extends Model<
   declare id: number;
 
   @ForeignKey(() => User)
-  @Column({ type: DataType.INTEGER, allowNull: false, field: 'user_id' })
-  declare userId: number;
+  @Column({ type: DataType.UUID, allowNull: false, field: 'user_id' })
+  declare userId: string;
 
   @Column({ type: DataType.TEXT, allowNull: false })
   declare token: string;

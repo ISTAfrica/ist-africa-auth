@@ -55,7 +55,7 @@ export class AuthService {
   }
 
   // -------------------- OTP Utility --------------------
-  private async generateAndSaveOtp(userId: number): Promise<string> {
+  private async generateAndSaveOtp(userId: string): Promise<string> {
     const otp = randomInt(100000, 999999).toString();
     const hashedOtp = await hash(otp, 10);
     const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
@@ -128,7 +128,7 @@ export class AuthService {
   // -------------------- Role Update --------------------
   async updateUserRole(
     callerRole: 'user' | 'admin' | 'admin_user',
-    userId: number,
+    userId: string,
     newRole: 'user' | 'admin',
   ) {
     if (callerRole !== 'admin' && callerRole !== 'admin_user') {
@@ -443,7 +443,7 @@ export class AuthService {
       refresh_token: tokenPair.refreshToken,
       token_type: 'Bearer',
       user: {
-        sub: user.id.toString(),
+        sub: user.id,
         email: user.email,
         name: user.name,
         picture: user.profilePicture,
@@ -599,7 +599,7 @@ export class AuthService {
   }
 
   // -------------------- Get Active Sessions --------------------
-  async getSessions(userId: number) {
+  async getSessions(userId: string) {
     const sessions = await this.refreshTokenModel.findAll({
       where: { userId, revoked: false },
       attributes: ['id', 'browser', 'os', 'deviceType', 'ipAddress', 'lastActiveAt', 'createdAt'],
@@ -617,7 +617,7 @@ export class AuthService {
   }
 
   // -------------------- UserInfo (OIDC Standard) --------------------
-  async getUserInfo(userId: number) {
+  async getUserInfo(userId: string) {
     const user = await this.userModel.findByPk(userId, {
       attributes: ['id', 'email', 'name', 'profilePicture', 'membershipStatus', 'createdAt'],
     });
@@ -625,7 +625,7 @@ export class AuthService {
     if (!user) throw new NotFoundException('User not found');
 
     return {
-      sub: user.id.toString(),
+      sub: user.id,
       email: user.email,
       name: user.name,
       picture: user.profilePicture,
@@ -635,7 +635,7 @@ export class AuthService {
   }
 
   // -------------------- Terminate Specific Session --------------------
-  async terminateSession(userId: number, sessionId: number) {
+  async terminateSession(userId: string, sessionId: number) {
     const token = await this.refreshTokenModel.findOne({
       where: { id: sessionId, userId },
     });
@@ -650,7 +650,7 @@ export class AuthService {
   }
 
   // -------------------- Logout on Single Device --------------------
-  async logoutSingleDevice(userId: number, accessToken: string) {
+  async logoutSingleDevice(userId: string, accessToken: string) {
     const { jwtVerify, importSPKI } = await import('jose');
 
     try {
@@ -683,7 +683,7 @@ export class AuthService {
   }
 
   // -------------------- Logout on All Devices --------------------
-  async logoutAllDevices(userId: number) {
+  async logoutAllDevices(userId: string) {
     const user = await this.userModel.findByPk(userId);
     if (!user) {
       throw new NotFoundException('User not found');

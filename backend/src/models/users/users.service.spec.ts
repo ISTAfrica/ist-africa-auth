@@ -7,8 +7,8 @@ import { CreateUserDto } from './dto/create-user.dto';
 
 // Mock User data
 const mockUserList = [
-  { id: 1, name: 'Alice', email: 'alice@example.com', password: 'hashed1', role: 'user', isActive: true },
-  { id: 2, name: 'Bob', email: 'bob@example.com', password: 'hashed2', role: 'user', isActive: true },
+  { id: 'a1111111-1111-1111-1111-111111111111', name: 'Alice', email: 'alice@example.com', password: 'hashed1', role: 'user', isActive: true },
+  { id: 'b2222222-2222-2222-2222-222222222222', name: 'Bob', email: 'bob@example.com', password: 'hashed2', role: 'user', isActive: true },
 ];
 
 const mockCreateUserDto: CreateUserDto = {
@@ -20,9 +20,9 @@ const mockCreateUserDto: CreateUserDto = {
 
 // Mocked Sequelize model
 const mockUserModel = {
-  create: jest.fn().mockResolvedValue({ id: 3, ...mockCreateUserDto }),
+  create: jest.fn().mockResolvedValue({ id: 'c3333333-3333-3333-3333-333333333333', ...mockCreateUserDto }),
   findAll: jest.fn().mockResolvedValue(mockUserList),
-  findByPk: jest.fn((id: number) =>
+  findByPk: jest.fn((id: string) =>
     Promise.resolve(mockUserList.find(u => u.id === id) || null)
   ),
   findOne: jest.fn((options) => 
@@ -67,7 +67,7 @@ describe('UsersService', () => {
     it('should create a new user', async () => {
       const result = await service.create(mockCreateUserDto);
       expect(userModel.create).toHaveBeenCalledWith(mockCreateUserDto);
-      expect(result).toEqual({ id: 3, ...mockCreateUserDto });
+      expect(result).toEqual({ id: 'c3333333-3333-3333-3333-333333333333', ...mockCreateUserDto });
     });
   });
 
@@ -81,16 +81,18 @@ describe('UsersService', () => {
 
   describe('findOne', () => {
     it('should return a user by id', async () => {
-      const result = await service.findOne(1);
-      expect(userModel.findByPk).toHaveBeenCalledWith(1, {
+      const aliceId = 'a1111111-1111-1111-1111-111111111111';
+      const result = await service.findOne(aliceId);
+      expect(userModel.findByPk).toHaveBeenCalledWith(aliceId, {
         attributes: { exclude: ['password'], include: ['role'] },
       });
       expect(result).toEqual(mockUserList[0]);
     });
 
     it('should throw NotFoundException if user not found', async () => {
+      const missingId = '99999999-9999-9999-9999-999999999999';
       jest.spyOn(userModel, 'findByPk').mockResolvedValueOnce(null);
-      await expect(service.findOne(999)).rejects.toThrow('User with ID 999 not found');
+      await expect(service.findOne(missingId)).rejects.toThrow(`User with ID ${missingId} not found`);
     });
   });
 

@@ -19,10 +19,10 @@ export interface ResendOtpDto {
 }
 
 export interface UserProfile {
-  id: number;
+  id: string;
   name: string | null;
   email: string;
   createdAt: string;
   profilePicture: string;
-  
+
 }

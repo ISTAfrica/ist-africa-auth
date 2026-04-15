@@ -39,7 +39,7 @@ import AvatarCropper from "@/components/AvatarCropper";
 
 /* ===================== TYPES ===================== */
 type UserProfile = {
-  id: number;
+  id: string;
   name: string | null;
   email: string;
   createdAt: string;

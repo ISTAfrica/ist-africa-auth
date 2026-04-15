@@ -3,14 +3,18 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 
+const ALICE_ID = 'a1111111-1111-1111-1111-111111111111';
+const BOB_ID = 'b2222222-2222-2222-2222-222222222222';
+const CHARLIE_ID = 'c3333333-3333-3333-3333-333333333333';
+
 const mockUserList = [
   {
-    id: 1,
+    id: ALICE_ID,
     name: 'Alice',
     email: 'alice@example.com',
     password: 'hashedpassword1',
   },
-  { id: 2, name: 'Bob', email: 'bob@example.com', password: 'hashedpassword2' },
+  { id: BOB_ID, name: 'Bob', email: 'bob@example.com', password: 'hashedpassword2' },
 ];
 
 const mockCreateUserDto: CreateUserDto = {
@@ -21,7 +25,7 @@ const mockCreateUserDto: CreateUserDto = {
 };
 
 const mockCreatedUser = {
-  id: 3,
+  id: CHARLIE_ID,
   ...mockCreateUserDto,
 };
 
@@ -39,7 +43,7 @@ describe('UsersController', () => {
     jest.clearAllMocks();
 
     mockUsersService.findAll.mockResolvedValue(mockUserList);
-    mockUsersService.findOne.mockImplementation((id: number) =>
+    mockUsersService.findOne.mockImplementation((id: string) =>
       Promise.resolve(mockUserList.find((u) => u.id === id) || null),
     );
     mockUsersService.create.mockResolvedValue(mockCreatedUser);
@@ -81,23 +85,21 @@ describe('UsersController', () => {
   });
 
   describe('findOne', () => {
-    it('should call usersService.findOne with the parsed ID and return a single user', async () => {
-      const idToFind = '1';
+    it('should call usersService.findOne with the ID and return a single user', async () => {
+      const result = await controller.findOne(ALICE_ID);
 
-      const result = await controller.findOne(idToFind);
-
-      expect(service.findOne).toHaveBeenCalledWith(+idToFind);
-      expect(result).toEqual(mockUserList.find((u) => u.id === 1));
+      expect(service.findOne).toHaveBeenCalledWith(ALICE_ID);
+      expect(result).toEqual(mockUserList.find((u) => u.id === ALICE_ID));
     });
 
     it('should return null or undefined if the user is not found', async () => {
-      const nonExistentId = '999';
+      const nonExistentId = '99999999-9999-9999-9999-999999999999';
 
       service.findOne.mockResolvedValueOnce(null);
 
       const result = await controller.findOne(nonExistentId);
 
-      expect(service.findOne).toHaveBeenCalledWith(+nonExistentId);
+      expect(service.findOne).toHaveBeenCalledWith(nonExistentId);
       expect(result).toBeNull();
     });
   });

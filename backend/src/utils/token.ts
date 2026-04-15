@@ -9,7 +9,7 @@ export interface DeviceInfo {
 
 export interface JwtTokenRequest {
   email: string;
-  userId: number;
+  userId: string;
   role: UserRole;
   tokenVersion: number;
   name?: string | null;

@@ -104,9 +104,8 @@ export class AuthController {
     @Body('role') role: 'user' | 'admin',
     @Req() req: Request & { user?: any },
   ) {
-    const id = Number(userId);
     const callerRole = req.user?.role;
-    return this.authService.updateUserRole(callerRole, id, role);
+    return this.authService.updateUserRole(callerRole, userId, role);
   }
 
   // -------------------- UserInfo (OIDC Standard) --------------------

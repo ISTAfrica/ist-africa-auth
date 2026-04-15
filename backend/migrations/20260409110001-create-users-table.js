@@ -7,7 +7,7 @@ module.exports = {
     if (tableExists) return;
 
     await queryInterface.createTable('users', {
-      id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
+      id: { type: Sequelize.UUID, defaultValue: Sequelize.UUIDV4, primaryKey: true },
       email: { type: Sequelize.STRING, allowNull: false, unique: true },
       name: { type: Sequelize.STRING, allowNull: false },
       password: { type: Sequelize.STRING, allowNull: false },

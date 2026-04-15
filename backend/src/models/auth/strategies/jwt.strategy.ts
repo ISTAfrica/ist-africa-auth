@@ -15,7 +15,7 @@ interface JwtPayload {
 }
 
 interface ValidatedUser {
-  id: number;
+  id: string;
   role: string;
 }
 
@@ -37,7 +37,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(req: Request, payload: JwtPayload): Promise<ValidatedUser> {
-    const userId = parseInt(payload.sub, 10);
+    const userId = payload.sub;
 
     // Extract token from Authorization header
     const authHeader = req.headers.authorization;

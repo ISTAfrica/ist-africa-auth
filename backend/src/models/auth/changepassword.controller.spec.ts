@@ -51,10 +51,11 @@ describe('ChangePasswordController', () => {
 
   describe('changePassword', () => {
     it('should call changePasswordService.changePassword with correct parameters and return success message', async () => {
+      const userId = 'a1111111-1111-1111-1111-111111111111';
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const mockRequest = {
         user: {
-          id: 1,
+          id: userId,
           resolve: 'user',
         },
       } as unknown as any;
@@ -66,7 +67,7 @@ describe('ChangePasswordController', () => {
 
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(service.changePassword).toHaveBeenCalledWith(
-        1,
+        userId,
         mockChangePasswordDto.currentPassword,
         mockChangePasswordDto.newPassword,
         mockChangePasswordDto.confirmPassword,
@@ -115,10 +116,11 @@ describe('ChangePasswordController', () => {
     });
 
     it('should pass correct user id to service', async () => {
+      const userId = 'd4444444-4444-4444-4444-444444444444';
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const mockRequest = {
         user: {
-          id: 42,
+          id: userId,
           role: 'admin',
         },
       } as unknown as any;
@@ -127,7 +129,7 @@ describe('ChangePasswordController', () => {
 
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(service.changePassword).toHaveBeenCalledWith(
-        42,
+        userId,
         expect.any(String),
         expect.any(String),
         expect.any(String),
@@ -138,7 +140,7 @@ describe('ChangePasswordController', () => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const mockRequest = {
         user: {
-          id: 1,
+          id: 'a1111111-1111-1111-1111-111111111111',
           role: 'user',
         },
       } as unknown as any;
@@ -154,10 +156,11 @@ describe('ChangePasswordController', () => {
     });
 
     it('should pass all password fields correctly to service', async () => {
+      const userId = 'a1111111-1111-1111-1111-111111111111';
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const mockRequest = {
         user: {
-          id: 1,
+          id: userId,
           role: 'user',
         },
       } as unknown as any;
@@ -172,7 +175,7 @@ describe('ChangePasswordController', () => {
 
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(service.changePassword).toHaveBeenCalledWith(
-        1,
+        userId,
         'Current123',
         'NewPass456',
         'NewPass456',

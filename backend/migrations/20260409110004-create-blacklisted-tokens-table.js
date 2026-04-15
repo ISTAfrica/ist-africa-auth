@@ -9,7 +9,7 @@ module.exports = {
     await queryInterface.createTable('blacklisted_tokens', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
       token: { type: Sequelize.TEXT, allowNull: false, unique: true },
-      userId: { type: Sequelize.INTEGER, allowNull: false, references: { model: 'users', key: 'id' }, onUpdate: 'CASCADE', onDelete: 'CASCADE' },
+      userId: { type: Sequelize.UUID, allowNull: false, references: { model: 'users', key: 'id' }, onUpdate: 'CASCADE', onDelete: 'CASCADE' },
       expiresAt: { type: Sequelize.DATE, allowNull: false },
       deviceInfo: { type: Sequelize.STRING, allowNull: true },
       createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },

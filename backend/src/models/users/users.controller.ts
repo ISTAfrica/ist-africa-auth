@@ -21,7 +21,7 @@ export class UsersController {
   }
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.usersService.findOne(+id);
+    return this.usersService.findOne(id);
   }
   // PATCH /api/users/:id/status
   @Patch(':id/status')
@@ -33,7 +33,7 @@ export class UsersController {
   ): Promise<User> {
     try {
       return await this.usersService.toggleUserStatus(
-        +id,
+        id,
         isActive,
         loggedInUser.id,
         statusReason,
@@ -52,7 +52,7 @@ export class UsersController {
   ): Promise<User> {
     try {
       return await this.usersService.updateUserRole(
-        +id,
+        id,
         role,
         loggedInUser.id,
       );

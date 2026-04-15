@@ -46,7 +46,7 @@ export class JwtTokenIssuerImpl implements JwtTokenIssuer {
       Boolean(payload.userId);
 
     const claims: Record<string, unknown> = {
-      sub: payload.userId.toString(),
+      sub: payload.userId,
       email: payload.email,
       role: payload.role,
       tokenVersion: payload.tokenVersion,
@@ -67,7 +67,7 @@ export class JwtTokenIssuerImpl implements JwtTokenIssuer {
       .setAudience(
         isClientToken && payload.client_id ? payload.client_id : defaultAudience,
       )
-      .setSubject(payload.userId.toString())
+      .setSubject(payload.userId)
       .setIssuedAt()
       .setExpirationTime(accessExpiration)
       .sign(privateKey);
@@ -85,7 +85,7 @@ export class JwtTokenIssuerImpl implements JwtTokenIssuer {
     return `${ttl}s`;
   }
 
-  private async createAndStoreRefreshToken(userId: number, deviceInfo?: DeviceInfo | null): Promise<string> {
+  private async createAndStoreRefreshToken(userId: string, deviceInfo?: DeviceInfo | null): Promise<string> {
     const refreshToken = randomUUID();
     const hashedRefresh = await hash(refreshToken, 12);
 

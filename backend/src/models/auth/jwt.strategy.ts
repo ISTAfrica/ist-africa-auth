@@ -26,8 +26,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: { sub: string; email: string; role?: 'user' | 'admin' }) {
-    const userId = parseInt(payload.sub, 10);
-    if (isNaN(userId)) {
+    const userId = payload.sub;
+    if (!userId) {
       throw new UnauthorizedException('Invalid token subject.');
     }
 

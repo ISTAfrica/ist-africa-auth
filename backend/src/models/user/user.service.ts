@@ -12,7 +12,7 @@ export class UserService {
     private readonly userModel: typeof User,
   ) {}
 
-  async getProfile(userId: number): Promise<ReturnType<User['toJSON']>> {
+  async getProfile(userId: string): Promise<ReturnType<User['toJSON']>> {
     const user = await this.userModel.findByPk(userId, {
       attributes: { exclude: ['password'] },
     });
@@ -25,7 +25,7 @@ export class UserService {
   }
 
   async updateProfile(
-    userId: number,
+    userId: string,
     updateUserDto: UpdateUserDto,
   ): Promise<ReturnType<User['toJSON']>> {
     const user = await this.userModel.findByPk(userId);
@@ -47,7 +47,7 @@ export class UserService {
   }
 
   async updateAvatar(
-    userId: number,
+    userId: string,
     file: Express.Multer.File,
   ): Promise<ReturnType<User['toJSON']>> {
     const user = await this.userModel.findByPk(userId);
