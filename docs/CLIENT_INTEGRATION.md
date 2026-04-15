@@ -41,7 +41,7 @@ The widget POSTs the auth code to your backend; your backend swaps it for tokens
 
 **Env vars:**
 ```env
-IAA_BASE_URL=https://YOUR_IAA_BACKEND
+IAA_BASE_URL=https://IAA_BACKEND
 IAA_CLIENT_ID=...
 IAA_CLIENT_SECRET=...
 ```

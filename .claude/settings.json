@@ -6,7 +6,8 @@
       "Read(//Users/denisniwemugisha/ist/apps/ats-system/frontend/src/**)",
       "Bash(npx tsc:*)",
       "Bash(echo \"EXIT=$?\")",
-      "Read(//Users/denisniwemugisha/ist/apps/**)"
+      "Read(//Users/denisniwemugisha/ist/apps/**)",
+      "Bash(echo EXIT=$?)"
     ]
   }
 }

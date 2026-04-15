@@ -9,6 +9,7 @@ import { BlacklistedToken } from '../users/entities/blacklisted-token.entity';
 import { Client } from '../clients/entities/client.entity';
 import { ClientAppToken } from './entities/client-app-token.entity';
 import { AuthorizationCode } from './entities/authorization-code.entity';
+import { ClientUser } from './entities/client-user.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -28,6 +29,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       Client,
       ClientAppToken,
       AuthorizationCode,
+      ClientUser,
     ]),
     EmailModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),

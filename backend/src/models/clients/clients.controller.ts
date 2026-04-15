@@ -10,7 +10,10 @@ import {
   Get,
   Delete,
   Put,
+  Query,
+  Req,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { ClientsService } from './clients.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
@@ -133,6 +136,52 @@ export class ClientsController {
   })
   regenerateClientSecret(@Param('id') id: string) {
     return this.clientsService.regenerateClientSecret(id);
+  }
+
+  // -------------------- Members --------------------
+
+  @Get(':id/users')
+  @UseGuards(AdminGuard)
+  @ApiOperation({ summary: 'List users assigned to a client' })
+  listMembers(@Param('id') id: string, @Query('q') q?: string) {
+    return this.clientsService.listMembers(id, q);
+  }
+
+  @Post(':id/users')
+  @UseGuards(AdminGuard)
+  @ApiOperation({ summary: 'Assign one or more users to a client' })
+  assignMembers(
+    @Param('id') id: string,
+    @Body() body: { userIds: string[] },
+    @Req() req: Request,
+  ) {
+    const adminId = req.user?.id ?? '';
+    return this.clientsService.assignMembers(id, body.userIds ?? [], adminId);
+  }
+
+  @Delete(':id/users')
+  @UseGuards(AdminGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Remove one or more users from a client' })
+  removeMembers(
+    @Param('id') id: string,
+    @Body() body: { userIds: string[] },
+  ) {
+    return this.clientsService.removeMembers(id, body.userIds ?? []);
+  }
+
+  @Get(':id/users/assignable')
+  @UseGuards(AdminGuard)
+  @ApiOperation({
+    summary: 'List active users not yet assigned to this client',
+  })
+  listAssignableUsers(
+    @Param('id') id: string,
+    @Query('q') q?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const lim = limit ? Math.min(Number(limit) || 50, 200) : 50;
+    return this.clientsService.listAssignableUsers(id, q, lim);
   }
 
   @Delete(':id')

@@ -30,7 +30,8 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Search, Edit, Lock, Unlock } from "lucide-react";
+import { Search, Edit, Lock, Unlock, AppWindow } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import {
   fetchUsers,
@@ -42,6 +43,7 @@ import { format } from "date-fns";
 
 const AdminUsers = () => {
   const { toast } = useToast();
+  const router = useRouter();
 
   const [users, setUsers] = useState<User[]>([]);
   const [loggedInUserId, setLoggedInUserId] = useState<string | null>(null);
@@ -236,18 +238,21 @@ const AdminUsers = () => {
                         </TableCell>
                         <TableCell>{format(new Date(user.createdAt), "yyyy-MM-dd")}</TableCell>
                         <TableCell className="text-right">
-                          {!isCurrentUser ? (
-                            <div className="flex justify-end gap-2">
-                              <Button variant="ghost" size="icon" onClick={() => handleRoleChange(user)} title="Change role">
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" onClick={() => handleStatusChange(user)} title={user.isActive ? "Deactivate user" : "Activate user"}>
-                                {user.isActive ? <Lock className="h-4 w-4 text-destructive" /> : <Unlock className="h-4 w-4 text-success" />}
-                              </Button>
-                            </div>
-                          ) : (
-                            <span className="text-sm text-muted-foreground italic">Cannot modify</span>
-                          )}
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon" onClick={() => router.push(`/admin/users/${encodeURIComponent(user.id)}`)} title="Manage app access">
+                              <AppWindow className="h-4 w-4" />
+                            </Button>
+                            {!isCurrentUser && (
+                              <>
+                                <Button variant="ghost" size="icon" onClick={() => handleRoleChange(user)} title="Change role">
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => handleStatusChange(user)} title={user.isActive ? "Deactivate user" : "Activate user"}>
+                                  {user.isActive ? <Lock className="h-4 w-4 text-destructive" /> : <Unlock className="h-4 w-4 text-success" />}
+                                </Button>
+                              </>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -277,19 +282,22 @@ const AdminUsers = () => {
                     <p className="text-sm text-muted-foreground">{user.email}</p>
                     <div className="flex items-center justify-between pt-2 border-t">
                       <p className="text-xs text-muted-foreground">{format(new Date(user.createdAt), "yyyy-MM-dd")}</p>
-                      {!isCurrentUser ? (
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleRoleChange(user)}>
-                            <Edit className="h-4 w-4 mr-1" />Role
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleStatusChange(user)}>
-                            {user.isActive ? <Lock className="h-4 w-4 mr-1 text-destructive" /> : <Unlock className="h-4 w-4 mr-1" />}
-                            {user.isActive ? "Deactivate" : "Activate"}
-                          </Button>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground italic">Cannot modify</span>
-                      )}
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => router.push(`/admin/users/${encodeURIComponent(user.id)}`)}>
+                          <AppWindow className="h-4 w-4 mr-1" />Apps
+                        </Button>
+                        {!isCurrentUser && (
+                          <>
+                            <Button variant="ghost" size="sm" onClick={() => handleRoleChange(user)}>
+                              <Edit className="h-4 w-4 mr-1" />Role
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleStatusChange(user)}>
+                              {user.isActive ? <Lock className="h-4 w-4 mr-1 text-destructive" /> : <Unlock className="h-4 w-4 mr-1" />}
+                              {user.isActive ? "Deactivate" : "Activate"}
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

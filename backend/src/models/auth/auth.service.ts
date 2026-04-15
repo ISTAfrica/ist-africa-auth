@@ -25,6 +25,7 @@ import { JwtTokenIssuer } from '../../utils/token';
 import { JwtTokenIssuerImpl } from '../../utils/implementation/jwt-token.issuer';
 import { ClientAppToken } from './entities/client-app-token.entity';
 import { AuthorizationCode } from './entities/authorization-code.entity';
+import { ClientUser } from './entities/client-user.entity';
 import { DeviceInfo } from '../../utils/token';
 
 @Injectable()
@@ -45,6 +46,8 @@ export class AuthService {
     private readonly clientAppTokenModel: typeof ClientAppToken,
     @InjectModel(AuthorizationCode)
     private readonly authCodeModel: typeof AuthorizationCode,
+    @InjectModel(ClientUser)
+    private readonly clientUserModel: typeof ClientUser,
     private readonly configService: ConfigService,
     private emailService: EmailService,
   ) {
@@ -52,6 +55,22 @@ export class AuthService {
       this.configService,
       this.refreshTokenModel,
     );
+  }
+
+  // -------------------- Client Access Check --------------------
+  private async assertUserHasClientAccess(user: User, client: Client): Promise<void> {
+    // IAA admins can access any registered client without explicit assignment.
+    if (user.role === 'admin') return;
+
+    const assignment = await this.clientUserModel.findOne({
+      where: { clientId: client.id, userId: user.id },
+    });
+
+    if (!assignment) {
+      throw new ForbiddenException(
+        `You do not have access to ${client.name}. Contact an administrator.`,
+      );
+    }
   }
 
   // -------------------- OTP Utility --------------------
@@ -226,6 +245,8 @@ export class AuthService {
       if (client.status !== 'active') {
         throw new BadRequestException('Client application is not active.');
       }
+
+      await this.assertUserHasClientAccess(user, client);
 
       const code = randomBytes(32).toString('hex');
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
@@ -549,6 +570,8 @@ export class AuthService {
       if (client.status !== 'active') {
         throw new BadRequestException('Client application is not active.');
       }
+
+      await this.assertUserHasClientAccess(user, client);
 
       const code = randomBytes(32).toString('hex');
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);

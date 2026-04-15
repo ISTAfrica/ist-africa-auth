@@ -15,6 +15,12 @@ export async function fetchUsers(): Promise<User[]> {
       });
 }
 
+export async function fetchUser(userId: string): Promise<User> {
+      return apiClient<User>(`/api/users/${userId}`, {
+        method: "GET",
+      });
+}
+
 export async function updateUserStatus(userId: string, isActive: boolean, statusReason: string): Promise<User> {
       return apiClient<User>(`/api/users/${userId}/status`, {
         method: "PATCH",

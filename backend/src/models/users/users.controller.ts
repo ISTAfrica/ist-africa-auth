@@ -1,13 +1,55 @@
-import { Controller, Get, Param, Patch, Body, BadRequestException, Post, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Param, Patch, Body, BadRequestException, Post, UseGuards, Req, Delete, Query } from '@nestjs/common';
+import type { Request } from 'express';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { User as UserDecorator } from '../../commons/decorators/user.decorator';
+import { AdminGuard } from '../auth/guards/admin.guard';
 @Controller('api/users')
 @UseGuards(AuthGuard('jwt'))
 export class UsersController {
   constructor(private readonly usersService: UsersService) { }
+
+  // -------------------- User → Apps (admin) --------------------
+
+  @Get(':id/clients')
+  @UseGuards(AdminGuard)
+  listUserClients(@Param('id') id: string) {
+    return this.usersService.listUserClients(id);
+  }
+
+  @Post(':id/clients')
+  @UseGuards(AdminGuard)
+  assignUserClients(
+    @Param('id') id: string,
+    @Body() body: { clientIds: string[] },
+    @Req() req: Request,
+  ) {
+    const adminId = req.user?.id ?? '';
+    return this.usersService.assignUserClients(id, body.clientIds ?? [], adminId);
+  }
+
+  @Delete(':id/clients')
+  @UseGuards(AdminGuard)
+  removeUserClients(
+    @Param('id') id: string,
+    @Body() body: { clientIds: string[] },
+  ) {
+    return this.usersService.removeUserClients(id, body.clientIds ?? []);
+  }
+
+  @Get(':id/clients/assignable')
+  @UseGuards(AdminGuard)
+  listAssignableClients(
+    @Param('id') id: string,
+    @Query('q') q?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const lim = limit ? Math.min(Number(limit) || 50, 200) : 50;
+    return this.usersService.listAssignableClients(id, q, lim);
+  }
+
   @Post()
   create(@Body() createUserDto: CreateUserDto) {
     return this.usersService.create(createUserDto);

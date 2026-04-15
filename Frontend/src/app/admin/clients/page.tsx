@@ -40,6 +40,7 @@ import {
   CheckCircle,
   X,
   RefreshCcw,
+  Users,
 } from "lucide-react";
 
 import {
@@ -628,6 +629,7 @@ export default function AdminClientsPage() {
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
                               <Button variant="ghost" size="icon" onClick={() => handleView(client)}><Eye className="h-4 w-4" /></Button>
+                              <Button variant="ghost" size="icon" title="Manage members" onClick={() => router.push(`/admin/clients/${encodeURIComponent(client.id)}`)}><Users className="h-4 w-4" /></Button>
                               <Button variant="ghost" size="icon" onClick={() => handleEdit(client)}><Edit className="h-4 w-4" /></Button>
                               <Button variant="ghost" size="icon" onClick={() => openConfirmDialog({ id: client.id, name: client.name })} disabled={isRegenerating}>
                                 <RefreshCcw className={`h-4 w-4 ${isRegenerating ? "animate-spin" : ""}`} />
@@ -655,6 +657,7 @@ export default function AdminClientsPage() {
                       <p className="text-xs text-muted-foreground break-all">{client.redirect_uri}</p>
                       <div className="flex gap-2 pt-2 border-t">
                         <Button variant="ghost" size="sm" onClick={() => handleView(client)}><Eye className="h-4 w-4 mr-1" />View</Button>
+                        <Button variant="ghost" size="sm" onClick={() => router.push(`/admin/clients/${encodeURIComponent(client.id)}`)}><Users className="h-4 w-4 mr-1" />Members</Button>
                         <Button variant="ghost" size="sm" onClick={() => handleEdit(client)}><Edit className="h-4 w-4 mr-1" />Edit</Button>
                         <Button variant="ghost" size="sm" onClick={() => openConfirmDialog({ id: client.id, name: client.name })} disabled={isRegenerating}>
                           <RefreshCcw className={`h-4 w-4 mr-1 ${isRegenerating ? "animate-spin" : ""}`} />Key
