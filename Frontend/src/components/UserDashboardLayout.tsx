@@ -17,7 +17,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { Home, User, Settings, Shield, LogOut } from "lucide-react";
+import { Home, User, Settings, Shield, LogOut, AppWindow } from "lucide-react";
 import Logo from "./Logo";
 import { LogoutDialog } from "@/components/auth/LogoutDialog";
 import { logout } from "@/services/authService";
@@ -25,6 +25,7 @@ import { toast } from "sonner";
 
 const navigationItems = [
   { title: "Overview", url: "/user", icon: Home },
+  { title: "Apps", url: "/user/apps", icon: AppWindow },
   { title: "Profile", url: "/user/profile", icon: User },
   { title: "Sessions", url: "/user/sessions", icon: Shield },
   { title: "Settings", url: "/user/settings", icon: Settings },

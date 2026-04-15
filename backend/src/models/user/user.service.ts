@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { User } from '../users/entities/user.entity';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { ClientUser } from '../auth/entities/client-user.entity';
+import { Client } from '../clients/entities/client.entity';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 
@@ -10,7 +12,65 @@ export class UserService {
   constructor(
     @InjectModel(User)
     private readonly userModel: typeof User,
+    @InjectModel(ClientUser)
+    private readonly clientUserModel: typeof ClientUser,
+    @InjectModel(Client)
+    private readonly clientModel: typeof Client,
   ) {}
+
+  // -------------------- My Apps --------------------
+  /**
+   * Lists apps the current user has access to.
+   * - IAA admins see every active client (they can log into any).
+   * - Regular users see only clients they've been explicitly assigned.
+   */
+  async listMyApps(userId: string) {
+    const user = await this.userModel.findByPk(userId, {
+      attributes: ['id', 'role'],
+    });
+    if (!user) throw new NotFoundException('User not found');
+
+    let clients: Client[];
+    if (user.role === 'admin') {
+      clients = await this.clientModel.findAll({
+        where: { status: 'active' },
+        attributes: ['id', 'client_id', 'name', 'description', 'redirect_uri'],
+        order: [['name', 'ASC']],
+      });
+    } else {
+      const assignments = await this.clientUserModel.findAll({
+        where: { userId },
+        attributes: ['clientId'],
+      });
+      const clientIds = assignments.map((a) => a.clientId);
+      if (clientIds.length === 0) return [];
+
+      clients = await this.clientModel.findAll({
+        where: { id: clientIds, status: 'active' },
+        attributes: ['id', 'client_id', 'name', 'description', 'redirect_uri'],
+        order: [['name', 'ASC']],
+      });
+    }
+
+    return clients.map((c) => {
+      let homeUrl = '#';
+      let faviconUrl: string | null = null;
+      try {
+        const u = new URL(c.redirect_uri);
+        homeUrl = u.origin;
+        faviconUrl = `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=64`;
+      } catch {
+        // invalid redirect_uri — leave defaults
+      }
+      return {
+        client_id: c.client_id,
+        name: c.name,
+        description: c.description,
+        home_url: homeUrl,
+        favicon_url: faviconUrl,
+      };
+    });
+  }
 
   async getProfile(userId: string): Promise<ReturnType<User['toJSON']>> {
     const user = await this.userModel.findByPk(userId, {

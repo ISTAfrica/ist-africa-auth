@@ -33,6 +33,12 @@ export class UserController {
     return this.userService.getProfile(user.id);
   }
 
+  @Get('apps')
+  listMyApps(@Req() req: Request) {
+    const user = req.user as { id: string };
+    return this.userService.listMyApps(user.id);
+  }
+
   @Patch('me')
   updateProfile(
     @Req() req: Request,
