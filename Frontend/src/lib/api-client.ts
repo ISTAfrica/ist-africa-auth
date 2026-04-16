@@ -5,6 +5,8 @@ export const handleGlobalLogout = (message?: string) => {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("user");
+    localStorage.removeItem("profilePicture");
+    localStorage.removeItem("userId");
 
     const searchParams = message
       ? `?message=${encodeURIComponent(message)}`

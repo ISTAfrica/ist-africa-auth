@@ -494,8 +494,8 @@ export class AuthService {
       where: { linkedinId: profile.linkedinId },
     });
 
-    // Update existing user's profile picture
-    if (user) {
+    // Only set LinkedIn picture if user has no custom picture yet
+    if (user && !user.profilePicture && profile.picture) {
       await user.update({
         profilePicture: profile.picture,
       });

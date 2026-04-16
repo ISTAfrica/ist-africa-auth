@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, StrategyOptions } from 'passport-oauth2';
 import { ConfigService } from '@nestjs/config';
+import * as https from 'https';
 
 @Injectable()
 export class LinkedInStrategy extends PassportStrategy(Strategy, 'linkedin') {
@@ -27,6 +28,43 @@ export class LinkedInStrategy extends PassportStrategy(Strategy, 'linkedin') {
     console.log('Client Secret:', options.clientSecret ? 'Set' : 'Missing');
   }
 
+  /**
+   * Fetches the LinkedIn userinfo endpoint using Node's https module
+   * with family:4 (IPv4) to avoid IPv6 connectivity issues in Docker.
+   */
+  private fetchLinkedInProfile(accessToken: string): Promise<Record<string, unknown>> {
+    return new Promise((resolve, reject) => {
+      const req = https.get(
+        'https://api.linkedin.com/v2/userinfo',
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          family: 4,
+          timeout: 15000,
+        },
+        (res) => {
+          let body = '';
+          res.on('data', (chunk: string) => { body += chunk; });
+          res.on('end', () => {
+            if (!res.statusCode || res.statusCode >= 400) {
+              console.error('[LinkedInStrategy] LinkedIn API error:', body);
+              return reject(new Error(`LinkedIn API ${res.statusCode}: ${body}`));
+            }
+            try {
+              resolve(JSON.parse(body));
+            } catch {
+              reject(new Error('Failed to parse LinkedIn profile response'));
+            }
+          });
+        },
+      );
+      req.on('error', reject);
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('LinkedIn API request timed out'));
+      });
+    });
+  }
+
   async validate(
     req: any,
     accessToken: string,
@@ -37,24 +75,7 @@ export class LinkedInStrategy extends PassportStrategy(Strategy, 'linkedin') {
     console.log('Access Token received:', accessToken ? 'Yes' : 'No');
 
     try {
-      const response = await fetch('https://api.linkedin.com/v2/userinfo', {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(
-          '[LinkedInStrategy] LinkedIn API error response:',
-          errorText,
-        );
-        throw new Error(
-          `Failed to fetch LinkedIn user profile: ${response.status} - ${errorText}`,
-        );
-      }
-
-      const userProfile = await response.json();
+      const userProfile = await this.fetchLinkedInProfile(accessToken);
       console.log('LinkedIn profile fetched:', userProfile.email);
 
       // LinkedIn OpenID Connect returns picture in the 'picture' field

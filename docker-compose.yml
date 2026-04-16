@@ -32,6 +32,7 @@ services:
     environment:
       DB_HOST: postgres
       DB_SSL: "false"
+      NODE_OPTIONS: "--dns-result-order=ipv4first"
     volumes:
       - ./backend/src:/app/src
       - ./backend/uploads:/app/uploads

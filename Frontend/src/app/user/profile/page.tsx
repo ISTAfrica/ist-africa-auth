@@ -73,20 +73,19 @@ export default function ProfilePage() {
   useEffect(() => {
     const fetchProfileData = async () => {
       try {
-        const storedPicture = localStorage.getItem("profilePicture");
-        if (storedPicture) {
-          setProfilePictureUrl(storedPicture);
-        }
-
-        // 🔥 FIX: Explicitly type the response
         const profileData = (await getProfile()) as UserProfile;
 
         setUser(profileData);
         setEditedName(profileData.name ?? "");
 
-        if (!storedPicture && profileData.profilePicture) {
+        // Always use the API's picture — localStorage may hold a stale value
+        // from a previous user session.
+        if (profileData.profilePicture) {
           setProfilePictureUrl(profileData.profilePicture);
           localStorage.setItem("profilePicture", profileData.profilePicture);
+        } else {
+          setProfilePictureUrl(null);
+          localStorage.removeItem("profilePicture");
         }
       } catch (error) {
         console.error(error);
