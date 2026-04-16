@@ -187,6 +187,8 @@ export class AuthController {
 
       return res.redirect(callbackUrl);
     } catch (error) {
+      console.error('[LinkedIn Callback] Processing failed:', error instanceof Error ? error.message : error);
+      console.error('[LinkedIn Callback] Stack:', error instanceof Error ? error.stack : '');
       return res.redirect(
         `${frontendUrl}/auth/login?error=linkedin_processing_failed`,
       );

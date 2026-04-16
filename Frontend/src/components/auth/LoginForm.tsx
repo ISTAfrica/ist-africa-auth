@@ -122,6 +122,15 @@ export default function LoginForm({
     };
 
     const handleAuthMessage = (event: MessageEvent) => {
+      // Relay iaa-auth-callback from LinkedIn popup to the parent window (widget)
+      // when this login page is running inside an iframe.
+      if (event.data?.type === "iaa-auth-callback" && event.data.code) {
+        if (isIframe) {
+          window.parent.postMessage(event.data, "*");
+        }
+        return;
+      }
+
       if (
         !event.data?.payload?.redirect_uri &&
         event.origin !== window.location.origin
