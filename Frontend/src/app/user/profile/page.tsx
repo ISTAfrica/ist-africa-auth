@@ -36,6 +36,7 @@ import {
 } from "@/services/authService";
 import LinkedInPopupHandler from "@/components/LinkedInPopupHandler";
 import AvatarCropper from "@/components/AvatarCropper";
+import { storage } from "@/lib/storage";
 
 /* ===================== TYPES ===================== */
 type UserProfile = {
@@ -82,10 +83,10 @@ export default function ProfilePage() {
         // from a previous user session.
         if (profileData.profilePicture) {
           setProfilePictureUrl(profileData.profilePicture);
-          localStorage.setItem("profilePicture", profileData.profilePicture);
+          storage.set("profilePicture", profileData.profilePicture);
         } else {
           setProfilePictureUrl(null);
-          localStorage.removeItem("profilePicture");
+          storage.remove("profilePicture");
         }
       } catch (error) {
         console.error(error);
@@ -142,7 +143,7 @@ export default function ProfilePage() {
 
       if (updatedUser.profilePicture) {
         setProfilePictureUrl(updatedUser.profilePicture);
-        localStorage.setItem("profilePicture", updatedUser.profilePicture);
+        storage.set("profilePicture", updatedUser.profilePicture);
       }
     } catch {
       setAvatarError("Upload failed.");

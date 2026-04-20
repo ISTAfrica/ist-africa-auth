@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { storage } from '@/lib/storage';
 import { verifyOtp, resendOtp } from '@/services/authService';
 import { jwtDecode } from 'jwt-decode';
 
@@ -47,14 +48,14 @@ export default function VerifyEmailPage() {
 
     try {
       const { accessToken, refreshToken } = await verifyOtp({ email, otp });
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
+      storage.set('accessToken', accessToken);
+      storage.set('refreshToken', refreshToken);
       localStorage.removeItem('pendingEmail');
 
       // Store userId from token's 'sub' field (subject)
       const decodedToken = jwtDecode<DecodedToken>(accessToken);
       if (decodedToken.sub) {
-        localStorage.setItem('userId', decodedToken.sub);
+        storage.set('userId', decodedToken.sub);
       }
 
       setSuccess('Verification successful! Redirecting to dashboard...');

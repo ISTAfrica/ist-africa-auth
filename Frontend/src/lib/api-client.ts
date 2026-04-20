@@ -1,12 +1,9 @@
 import { toast } from "@/hooks/use-toast";
+import { storage } from "@/lib/storage";
 
 export const handleGlobalLogout = (message?: string) => {
   if (typeof window !== "undefined") {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("user");
-    localStorage.removeItem("profilePicture");
-    localStorage.removeItem("userId");
+    storage.clear();
 
     const searchParams = message
       ? `?message=${encodeURIComponent(message)}`
@@ -40,10 +37,7 @@ export async function apiClient<T = unknown>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("accessToken")
-      : null;
+  const token = storage.get("accessToken");
 
   try {
     let response = await makeRequest(endpoint, options, token);

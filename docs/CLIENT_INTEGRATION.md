@@ -1,106 +1,273 @@
-# IAA — Client Integration
+# IAA — Client Integration Guide
 
-Two steps: drop a script in your frontend, add one endpoint in your backend.
+Three steps: load the widget on your frontend, add one exchange endpoint on your backend, verify JWTs.
 
-## 1. Register Your App
+---
 
-In the IAA admin panel (`/admin/clients`), register your app to get a `client_id` and `client_secret`. The secret is shown **once** — save it.
+## Step 1 — Register Your App
 
-## 2. Frontend (any framework)
+Go to the IAA admin panel (`/admin/clients`) and create a new client application. You will receive:
+
+| Field | Description |
+|-------|-------------|
+| `client_id` | Public identifier for your app |
+| `client_secret` | Private key for server-side token exchange — **shown once, save it** |
+
+You will also configure:
+- **Redirect URI** — e.g. `https://yourapp.com/callback` (where the widget sends the auth code)
+- **Allowed Origins** — your app's origin(s) for CORS and iframe embedding
+
+---
+
+## Step 2 — Frontend: Add the Widget
+
+The IAA widget is a single JS file served from the IAA backend. Add it to any page:
 
 ```html
-<script src="IAA_BACKEND_URL/sdk/iaa-widget.js"></script>
+<script src="https://IAA_BACKEND_URL/sdk/iaa-widget.js"></script>
 <script>
   new IAAAuthWidget({
     clientId: 'YOUR_CLIENT_ID',
-    redirectUri: 'http://YOUR_APP/callback',
-    iaaFrontendUrl: 'IAA_FRONTEND_URL',
-    backendUrl: 'http://IAA_BACKEND', // optional, only if different origin
+    redirectUri: 'https://yourapp.com/callback',
+    iaaFrontendUrl: 'https://IAA_FRONTEND_URL',
+    backendUrl: 'https://yourapp.com',  // your app's backend (optional — defaults to redirectUri origin)
   });
 </script>
 ```
 
-The widget renders a login button, handles the OAuth flow, and stores tokens. It exposes a global `iaa` object:
+**What it does:** renders a "Login with IAA" button. When clicked, it opens a modal with the IAA login page (email/password or LinkedIn). After login, the widget automatically exchanges the auth code via your backend and stores tokens in `localStorage`.
+
+### Widget API
+
+Once loaded, a global `iaa` object is available:
 
 ```js
-await iaa.getValidToken()   // token string, auto-refreshes if expired — USE THIS for API calls
-iaa.getUser()               // { sub, email, name } from JWT (sync)
-iaa.isAuthenticated()       // boolean
-await iaa.logout()          // logout this device. Pass 'all' for all devices.
+// Get a valid access token (auto-refreshes if expired) — use this before every API call
+const token = await iaa.getValidToken();
 
-window.addEventListener('iaa-auth-change', (e) => { /* e.detail.isAuthenticated, e.detail.token */ });
-```
+// Get basic user info decoded from the JWT (sync, no network call)
+const user = iaa.getUser();   // { sub, email, name }
 
-For full profile (picture, user_type), call `GET IAA_BACKEND_URL/api/auth/userinfo` with `Authorization: Bearer <token>`.
+// Check if user is logged in
+iaa.isAuthenticated();         // boolean
 
-> **Don't** read `localStorage` directly — always use `iaa.getValidToken()` so expired tokens auto-refresh.
+// Logout (clears tokens, revokes session on IAA server)
+await iaa.logout();            // single device
+await iaa.logout('all');       // all devices
 
-## 3. Backend — Code Exchange Endpoint
-
-The widget POSTs the auth code to your backend; your backend swaps it for tokens using your client secret. This is the only IAA-specific endpoint you need.
-
-**Env vars:**
-```env
-IAA_BASE_URL=https://IAA_BACKEND
-IAA_CLIENT_ID=...
-IAA_CLIENT_SECRET=...
-```
-
-**Node.js (Express):**
-```js
-app.post('/api/auth/exchange', async (req, res) => {
-  const r = await fetch(`${process.env.IAA_BASE_URL}/api/auth/tokens?code=${req.body.code}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_id: process.env.IAA_CLIENT_ID,
-      client_secret: process.env.IAA_CLIENT_SECRET,
-    }),
-  });
-  res.status(r.status).json(await r.json());
+// Listen for auth state changes (login/logout, including cross-tab)
+window.addEventListener('iaa-auth-change', (e) => {
+  console.log(e.detail.isAuthenticated, e.detail.token);
 });
 ```
 
-**Spring Boot:**
-```java
-@PostMapping("/api/auth/exchange")
-public Mono<ResponseEntity<String>> exchange(@RequestBody Map<String, String> body) {
-  return WebClient.create().post()
-    .uri(iaaBaseUrl + "/api/auth/tokens?code=" + body.get("code"))
-    .bodyValue(Map.of("client_id", clientId, "client_secret", clientSecret))
-    .retrieve().toEntity(String.class);
-}
-```
+> **Important:** Always use `iaa.getValidToken()` instead of reading `localStorage` directly — it handles token refresh automatically.
 
-## 4. Backend — Verify JWTs on Protected Routes
-
-Verify tokens against IAA's JWKS endpoint: `IAA_BASE_URL/api/auth/jwks` (RS256).
-
-**Node.js:**
+For full profile data (picture, user_type, etc.), call the userinfo endpoint:
 ```js
-const jwt = require('jsonwebtoken');
-const jwks = require('jwks-rsa')({ jwksUri: process.env.IAA_BASE_URL + '/api/auth/jwks', cache: true });
-
-const verifyToken = (req, res, next) => {
-  const token = (req.headers.authorization || '').replace('Bearer ', '');
-  jwt.verify(token,
-    (h, cb) => jwks.getSigningKey(h.kid, (e, k) => cb(e, k?.getPublicKey())),
-    { algorithms: ['RS256'] },
-    (err, decoded) => err ? res.status(401).json({ message: 'Invalid token' }) : (req.user = decoded, next())
-  );
-};
-
-app.get('/api/me', verifyToken, (req, res) => res.json(req.user)); // { sub, email, role, ... }
+const res = await fetch('https://IAA_BACKEND_URL/api/auth/userinfo', {
+  headers: { Authorization: `Bearer ${await iaa.getValidToken()}` }
+});
+const profile = await res.json();
 ```
-
-**Spring Boot:** add `spring-boot-starter-oauth2-resource-server` and one property:
-```properties
-spring.security.oauth2.resourceserver.jwt.jwk-set-uri=${iaa.base-url}/api/auth/jwks
-```
-Then access claims via `@AuthenticationPrincipal Jwt jwt` in any controller.
-
-**Other languages:** any standard JWT library that supports JWKS + RS256 will work.
 
 ---
 
-That's it. Total client work: 1 script tag, 1 exchange endpoint, 1 JWT-verify middleware.
+## Step 3 — Backend: Token Exchange Endpoint
+
+The widget sends the authorization code to **your** backend, which exchanges it for tokens using your client secret. This keeps the secret server-side.
+
+**Flow:** Widget → `POST /api/auth/exchange` (your backend) → `POST IAA_BACKEND/api/auth/tokens?code=...` → tokens returned to widget.
+
+### Environment Variables
+
+```env
+IAA_BASE_URL=https://IAA_BACKEND_URL
+IAA_CLIENT_ID=your_client_id
+IAA_CLIENT_SECRET=your_client_secret
+```
+
+### Node.js / Express
+
+```js
+app.post('/api/auth/exchange', async (req, res) => {
+  const { code } = req.body;
+  if (!code) return res.status(400).json({ message: 'Missing authorization code' });
+
+  try {
+    const response = await fetch(
+      `${process.env.IAA_BASE_URL}/api/auth/tokens?code=${encodeURIComponent(code)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: process.env.IAA_CLIENT_ID,
+          client_secret: process.env.IAA_CLIENT_SECRET,
+        }),
+      }
+    );
+
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch (err) {
+    console.error('IAA token exchange failed:', err);
+    res.status(502).json({ message: 'Token exchange failed' });
+  }
+});
+```
+
+### Spring Boot
+
+```java
+@RestController
+public class AuthController {
+
+    @Value("${iaa.base-url}") private String iaaBaseUrl;
+    @Value("${iaa.client-id}") private String clientId;
+    @Value("${iaa.client-secret}") private String clientSecret;
+
+    @PostMapping("/api/auth/exchange")
+    public ResponseEntity<?> exchange(@RequestBody Map<String, String> body) {
+        String code = body.get("code");
+        if (code == null) return ResponseEntity.badRequest().body(Map.of("message", "Missing code"));
+
+        return WebClient.create()
+            .post()
+            .uri(iaaBaseUrl + "/api/auth/tokens?code=" + URLEncoder.encode(code, StandardCharsets.UTF_8))
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(Map.of("client_id", clientId, "client_secret", clientSecret))
+            .retrieve()
+            .toEntity(String.class)
+            .block();
+    }
+}
+```
+
+### Python / Flask
+
+```python
+@app.route('/api/auth/exchange', methods=['POST'])
+def exchange():
+    code = request.json.get('code')
+    if not code:
+        return jsonify(message='Missing authorization code'), 400
+
+    resp = requests.post(
+        f"{os.environ['IAA_BASE_URL']}/api/auth/tokens",
+        params={'code': code},
+        json={
+            'client_id': os.environ['IAA_CLIENT_ID'],
+            'client_secret': os.environ['IAA_CLIENT_SECRET'],
+        }
+    )
+    return jsonify(resp.json()), resp.status_code
+```
+
+---
+
+## Step 4 — Backend: Verify JWTs on Protected Routes
+
+IAA tokens are RS256-signed JWTs. Verify them against IAA's public keys:
+
+**JWKS endpoint:** `GET IAA_BASE_URL/api/auth/jwks`
+
+### Node.js / Express
+
+```bash
+npm install jsonwebtoken jwks-rsa
+```
+
+```js
+const jwt = require('jsonwebtoken');
+const jwksClient = require('jwks-rsa');
+
+const client = jwksClient({
+  jwksUri: `${process.env.IAA_BASE_URL}/api/auth/jwks`,
+  cache: true,
+  rateLimit: true,
+});
+
+function getKey(header, callback) {
+  client.getSigningKey(header.kid, (err, key) => {
+    callback(err, key?.getPublicKey());
+  });
+}
+
+function verifyToken(req, res, next) {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  if (!token) return res.status(401).json({ message: 'No token provided' });
+
+  jwt.verify(token, getKey, { algorithms: ['RS256'] }, (err, decoded) => {
+    if (err) return res.status(401).json({ message: 'Invalid token' });
+    req.user = decoded; // { sub, email, name, role, ... }
+    next();
+  });
+}
+
+// Usage
+app.get('/api/me', verifyToken, (req, res) => res.json(req.user));
+```
+
+### Spring Boot
+
+```bash
+# Add dependency: spring-boot-starter-oauth2-resource-server
+```
+
+```properties
+# application.properties
+spring.security.oauth2.resourceserver.jwt.jwk-set-uri=${IAA_BASE_URL}/api/auth/jwks
+```
+
+Spring auto-validates tokens on protected endpoints. Access claims via:
+
+```java
+@GetMapping("/api/me")
+public Map<String, Object> me(@AuthenticationPrincipal Jwt jwt) {
+    return jwt.getClaims(); // { sub, email, name, role, ... }
+}
+```
+
+### Python / Flask
+
+```bash
+pip install PyJWT cryptography requests
+```
+
+```python
+import jwt
+from jwt import PyJWKClient
+
+jwks_client = PyJWKClient(f"{os.environ['IAA_BASE_URL']}/api/auth/jwks")
+
+def verify_token(token):
+    signing_key = jwks_client.get_signing_key_from_jwt(token)
+    return jwt.decode(token, signing_key.key, algorithms=['RS256'])
+
+# Usage in a route
+@app.route('/api/me')
+def me():
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    try:
+        user = verify_token(token)
+        return jsonify(user)
+    except jwt.InvalidTokenError:
+        return jsonify(message='Invalid token'), 401
+```
+
+---
+
+## Quick Reference
+
+| What | URL |
+|------|-----|
+| Widget script | `GET IAA_BACKEND_URL/sdk/iaa-widget.js` |
+| Token exchange | `POST IAA_BACKEND_URL/api/auth/tokens?code=AUTH_CODE` |
+| JWKS (public keys) | `GET IAA_BACKEND_URL/api/auth/jwks` |
+| User info | `GET IAA_BACKEND_URL/api/auth/userinfo` (Bearer token) |
+| Token refresh | `POST IAA_BACKEND_URL/api/auth/refresh` |
+| Introspect token | `POST IAA_BACKEND_URL/api/auth/introspect` |
+
+---
+
+**Total client work:** 1 script tag + 1 exchange endpoint + 1 JWT middleware.

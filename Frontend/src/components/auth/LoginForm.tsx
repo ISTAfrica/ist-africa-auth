@@ -18,6 +18,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { authenticateUser } from "@/services/authService";
 import { forgotPassword } from "@/services/resetPasswordService";
 import { getClientPublicInfo } from "@/services/clientsService";
+import { storage } from "@/lib/storage";
 
 interface DecodedToken {
   sub: string;
@@ -110,8 +111,8 @@ export default function LoginForm({
 
       try {
         const decoded = jwtDecode<DecodedToken>(token);
-        if (decoded.sub && !localStorage.getItem("userId")) {
-          localStorage.setItem("userId", decoded.sub);
+        if (decoded.sub && !storage.get("userId")) {
+          storage.set("userId", decoded.sub);
         }
         router.push(
           decoded.role === "admin" ? "/admin/clients" : "/user/profile"
@@ -158,8 +159,8 @@ export default function LoginForm({
         }
 
         if (accessToken) {
-          localStorage.setItem("accessToken", accessToken);
-          if (refreshToken) localStorage.setItem("refreshToken", refreshToken);
+          storage.set("accessToken", accessToken);
+          if (refreshToken) storage.set("refreshToken", refreshToken);
           performRedirect(accessToken);
         }
       }
@@ -234,12 +235,12 @@ export default function LoginForm({
           window.location.href = data.redirect_uri;
         }
       } else if (data.accessToken) {
-        localStorage.setItem("accessToken", data.accessToken);
-        localStorage.setItem("refreshToken", data.refreshToken);
+        storage.set("accessToken", data.accessToken);
+        storage.set("refreshToken", data.refreshToken);
 
         const decodedToken = jwtDecode<DecodedToken>(data.accessToken);
         if (decodedToken.sub) {
-          localStorage.setItem("userId", decodedToken.sub);
+          storage.set("userId", decodedToken.sub);
         }
 
         if (isPopup) {
@@ -279,9 +280,9 @@ export default function LoginForm({
     setError("");
     hasProcessedAuth.current = false;
 
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("userId");
+    storage.remove("accessToken");
+    storage.remove("refreshToken");
+    storage.remove("userId");
 
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
     let linkedinUrl = `${baseUrl}/api/auth/linkedin`;

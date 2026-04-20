@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+import { storage } from '@/lib/storage';
 
 export default function LinkedInCallbackPage() {
   const searchParams = useSearchParams();
@@ -87,9 +88,9 @@ export default function LinkedInCallbackPage() {
       }
 
       if (accessToken && refreshToken) {
-        localStorage.setItem('accessToken', accessToken);
-        localStorage.setItem('refreshToken', refreshToken);
-        if (userId) localStorage.setItem('userId', userId);
+        storage.set('accessToken', accessToken);
+        storage.set('refreshToken', refreshToken);
+        if (userId) storage.set('userId', userId);
         
         const redirectPath = role === 'admin' ? '/admin/clients' : '/user/profile';
         window.location.href = redirectPath;

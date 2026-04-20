@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { jwtDecode } from 'jwt-decode';
+import { storage } from '@/lib/storage';
 
 interface DecodedToken {
   sub: string;
@@ -17,13 +18,13 @@ export default function VerificationSuccessPage() {
     const refreshToken = url.searchParams.get('refreshToken');
     if (accessToken && refreshToken) {
       try {
-        localStorage.setItem('accessToken', accessToken);
-        localStorage.setItem('refreshToken', refreshToken);
-        
+        storage.set('accessToken', accessToken);
+        storage.set('refreshToken', refreshToken);
+
         // Store userId from token's 'sub' field (subject)
         const decodedToken = jwtDecode<DecodedToken>(accessToken);
         if (decodedToken.sub) {
-          localStorage.setItem('userId', decodedToken.sub);
+          storage.set('userId', decodedToken.sub);
         }
       } catch {}
       const appBase = process.env.NEXT_PUBLIC_APP_BASE_URL?.replace(/\/$/, '') || '';

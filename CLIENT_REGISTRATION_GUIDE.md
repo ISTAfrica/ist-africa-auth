@@ -1,174 +1,69 @@
-# Client Registration Guide for IAA Backend
+# IAA — Client Registration Guide
 
-## Problem
-Your client app with `client_id: c30b03b35a608c161d041bacf4771bf3` is being detected but the request is likely failing because:
-1. The client is not registered in the database, OR
-2. The `redirect_uri` doesn't match what's stored in the database
+How to register your application with IST Africa Auth and configure it for integration.
 
-## Solution: Register Your Client
+---
 
-### Option 1: Using the Admin API (Recommended)
+## 1. Create a Client Application [IAA Admin]
 
-If you have admin access, use the admin interface or API to register your client:
+1. Log in to the IAA admin panel at `IAA_FRONTEND_URL/admin/clients`
+2. Click **"Create Client"**
+3. Fill in:
 
-**Endpoint:** `POST /api/clients`
+| Field | Example | Notes |
+|-------|---------|-------|
+| **Name** | My App | Display name shown to users during login |
+| **Description** | Production web app | Internal reference |
+| **Redirect URI** | `https://myapp.com/callback` | Must match **exactly** what your frontend sends (protocol, domain, path, no trailing slash) |
+| **Allowed Origins** | `https://myapp.com` | Your app's origin(s) — used for CORS and iframe embedding |
 
-**Request Body:**
-```json
-{
-  "name": "Your Client App Name",
-  "description": "Description of your client application",
-  "redirect_uri": "https://your-client-app.com/callback",
-  "allowed_origins": ["https://your-client-app.com"]
-}
+4. Save. You will receive:
+   - `client_id` — public, safe to embed in frontend code
+   - `client_secret` — **shown once**. Copy and store it securely (e.g. in your backend's environment variables)
+
+---
+
+## 2. Configure Your App [Client app manager]
+
+Set these environment variables on your **backend**:
+
+```env
+IAA_BASE_URL=https://iaa-backend
+IAA_CLIENT_ID=your_client_id_here
+IAA_CLIENT_SECRET=your_client_secret_here
 ```
 
-**Response:**
-```json
-{
-  "id": "client:...",
-  "client_id": "c30b03b35a608c161d041bacf4771bf3",
-  "client_secret": "YOUR_CLIENT_SECRET_HERE",
-  "name": "Your Client App Name",
-  "description": "Description of your client application",
-  "redirect_uri": "https://your-client-app.com/callback",
-  "allowed_origins": ["https://your-client-app.com"],
-  "status": "active"
-}
+Add the widget to your **frontend**:
+
+```html
+<script src="https://your-iaa-backend.com/sdk/iaa-widget.js"></script>
+<script>
+  new IAAAuthWidget({
+    clientId: 'your_client_id_here',
+    redirectUri: 'https://myapp.com/callback',
+    iaaFrontendUrl: 'https://iaa-frontend-url',
+  });
+</script>
 ```
 
-**Important:** Save the `client_secret` immediately - it's only shown once!
+For full backend integration (token exchange, JWT verification), see **[docs/CLIENT_INTEGRATION.md](docs/CLIENT_INTEGRATION.md)**.
 
-### Option 2: Using SQL (Direct Database)
-
-If you need to register directly in the database:
-
-```sql
--- First, generate a client secret hash (you'll need to hash it with bcrypt)
--- For testing, you can use a tool or the backend to generate the hash
-
-INSERT INTO clients (
-  id,
-  client_id,
-  client_secret,
-  name,
-  description,
-  redirect_uri,
-  allowed_origins,
-  status,
-  created_at
-) VALUES (
-  'client:' || gen_random_uuid()::text,
-  'c30b03b35a608c161d041bacf4771bf3',
-  '$2a$12$YOUR_BCRYPT_HASHED_SECRET_HERE',  -- Must be bcrypt hashed
-  'Your Client App Name',
-  'Description of your client application',
-  'https://your-client-app.com/callback',  -- Must match exactly what your app sends
-  ARRAY['https://your-client-app.com'],
-  'active',
-  NOW()
-);
-```
-
-**Note:** The `client_secret` must be bcrypt hashed. You can use the backend's client creation endpoint to generate it properly.
-
-### Option 3: Update Existing Client
-
-If the client already exists but the `redirect_uri` is wrong:
-
-```sql
-UPDATE clients
-SET redirect_uri = 'https://your-client-app.com/callback'
-WHERE client_id = 'c30b03b35a608c161d041bacf4771bf3';
-```
-
-## Verify Your Client Registration
-
-Check if your client is registered:
-
-```sql
-SELECT 
-  id,
-  client_id,
-  name,
-  redirect_uri,
-  allowed_origins,
-  status,
-  created_at
-FROM clients
-WHERE client_id = 'c30b03b35a608c161d041bacf4771bf3';
-```
+---
 
 ## Common Issues
 
-### 1. Client Not Found
-**Error:** `Unauthorized client: This application is not registered.`
+### "Unauthorized client: This application is not registered"
+- The `client_id` is not in the database. Ask IAA Admin to register your app via the iaa admin panel.
 
-**Solution:** Register the client using one of the methods above.
+### "Invalid redirect URI"
+- The `redirect_uri` your app sends doesn't match what's stored. They must be **identical** — including protocol, domain, port, path, and trailing slash.
 
-### 2. Redirect URI Mismatch
-**Error:** `Invalid redirect URI: The provided redirect URI does not match...`
+### "Client application is not active"
+- The client was deactivated. IAA admin should reactivate it in the admin panel.
 
-**Solution:** 
-- Check what `redirect_uri` your client app is sending
-- Update the database to match exactly (including protocol, domain, path, trailing slashes)
-- Example: `https://app.com/callback` ≠ `https://app.com/callback/` (trailing slash matters)
+### Widget doesn't load / CORS error
+- Your app's origin must be listed in the iaa client's **Allowed Origins**.
+- Example: if your app runs at `https://myapp.com`, that exact origin must be in the list.
 
-### 3. Client Not Active
-**Error:** `Client application is not active.`
-
-**Solution:**
-```sql
-UPDATE clients
-SET status = 'active'
-WHERE client_id = 'c30b03b35a608c161d041bacf4771bf3';
-```
-
-## Testing the Flow
-
-1. **Send authentication request:**
-```bash
-POST /api/auth/authenticate
-Content-Type: application/json
-
-{
-  "email": "user@example.com",
-  "password": "password",
-  "client_id": "c30b03b35a608c161d041bacf4771bf3",
-  "redirect_uri": "https://your-client-app.com/callback",
-  "state": "optional-state-value"
-}
-```
-
-2. **Expected response:**
-```json
-{
-  "redirect_uri": "http://localhost:3000/auth/callback?code=AUTHORIZATION_CODE&state=optional-state-value"
-}
-```
-
-3. **Exchange code for tokens:**
-```bash
-POST /api/auth/tokens?code=AUTHORIZATION_CODE
-Content-Type: application/json
-
-{
-  "client_id": "c30b03b35a608c161d041bacf4771bf3",
-  "client_secret": "YOUR_CLIENT_SECRET"
-}
-```
-
-## Debugging
-
-Check the backend logs for detailed information:
-- Client lookup results
-- Redirect URI comparisons
-- Client status checks
-
-The improved logging will show:
-- `[AuthService] Detected OAuth2 Authorization Code flow for client: ...`
-- `[AuthService] Redirect URI provided: ...`
-- `[AuthService] Client found: ...`
-- `[AuthService] Registered redirect URI: ...`
-- Any error messages with specific details
-
+### Lost your client secret
+- Secrets cannot be recovered. Generate a new one from the admin panel and update your backend environment variables.

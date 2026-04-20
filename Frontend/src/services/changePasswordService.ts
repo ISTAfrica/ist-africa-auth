@@ -1,18 +1,19 @@
+import { storage } from "@/lib/storage";
 
 interface ChangePasswordRequest {
     currentPassword: string;
     newPassword: string;
     confirmPassword:string;
   }
-  
+
   interface ChangePasswordResponse {
     message: string;
   }
-  
+
   export const changePassword = async (
     data: ChangePasswordRequest
   ): Promise<ChangePasswordResponse> => {
-    const accessToken = localStorage.getItem('accessToken');
+    const accessToken = storage.get('accessToken');
   
     if (!accessToken) {
       throw new Error('Not authenticated. Please log in again.');

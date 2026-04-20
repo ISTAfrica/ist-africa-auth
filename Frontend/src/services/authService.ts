@@ -5,6 +5,7 @@ import {
   ResendOtpDto,
 } from "@/types";
 import { apiClient, handleGlobalLogout } from "@/lib/api-client";
+import { storage } from "@/lib/storage";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -18,7 +19,7 @@ export interface UserProfile {
 
 
 export const getAuthHeaders = () => {
-  const token = localStorage.getItem("accessToken");
+  const token = storage.get("accessToken");
   if (!token) {
     throw new Error("No access token found. Please log in.");
   }
@@ -31,37 +32,35 @@ export const getAuthHeaders = () => {
 
 export const extractAndStoreTokensFromURL = () => {
   if (typeof window === 'undefined') return false;
-  
+
   const params = new URLSearchParams(window.location.search);
-  
+
   const accessToken = params.get('accessToken');
   const refreshToken = params.get('refreshToken');
   const role = params.get('role');
   const userId = params.get('userId');
   const name = params.get('name');
   const email = params.get('email');
-  
+
   if (accessToken && refreshToken) {
-    // Store tokens
-    localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('refreshToken', refreshToken);
-    
-    // Store user data
+    storage.set('accessToken', accessToken);
+    storage.set('refreshToken', refreshToken);
+
     const user = {
       id: userId,
       name: name,
       email: email,
       role: role,
     };
-    localStorage.setItem('user', JSON.stringify(user));
-    
+    storage.set('user', JSON.stringify(user));
+
     // Clean URL (remove sensitive data)
     window.history.replaceState({}, document.title, window.location.pathname);
-    
-    console.log('✅ Tokens stored successfully! User role:', role);
+
+    console.log('Tokens stored successfully! User role:', role);
     return true;
   }
-  
+
   return false;
 };
 
@@ -152,7 +151,7 @@ export const uploadAvatar = async (file: File) => {
   const formData = new FormData();
   formData.append('file', file);
 
-  const token = localStorage.getItem('accessToken');
+  const token = storage.get('accessToken');
   if (!token) {
     throw new Error('No access token found');
   }
@@ -173,10 +172,7 @@ export const uploadAvatar = async (file: File) => {
 
     // Handle token version mismatch
     if (response.status === 401 || error.toLowerCase().includes('token version mismatch')) {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
-      window.location.href = '/auth/login';
+      handleGlobalLogout();
       return new Promise(() => {}); // Never resolves, allows redirect to complete
     }
 
@@ -189,15 +185,15 @@ export const uploadAvatar = async (file: File) => {
 export const loginWithLinkedIn = async () => {
   try {
     const redirectAfterLogin = window.location.pathname;
-    localStorage.setItem('redirectAfterLogin', redirectAfterLogin);
-    
+    storage.set('redirectAfterLogin', redirectAfterLogin);
+
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/linkedin/url`);
     const { url } = await response.json();
-    
+
     if (!url) {
       throw new Error('Could not get LinkedIn authorization URL');
     }
-    
+
     window.location.href = url;
   } catch (error) {
     console.error('Error in loginWithLinkedIn:', error);
@@ -221,10 +217,10 @@ export const handleLinkedInCallback = async (code: string) => {
     const { accessToken, refreshToken, user } = await response.json();
 
     if (accessToken && refreshToken) {
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
+      storage.set('accessToken', accessToken);
+      storage.set('refreshToken', refreshToken);
       if (user) {
-        localStorage.setItem('user', JSON.stringify(user));
+        storage.set('user', JSON.stringify(user));
       }
       return { accessToken, refreshToken, user };
     }
@@ -238,7 +234,7 @@ export const handleLinkedInCallback = async (code: string) => {
 
 export const logout = async (type: "single" | "all") => {
   try {
-    const token = localStorage.getItem("accessToken");
+    const token = storage.get("accessToken");
     if (!token) {
       handleGlobalLogout();
       return { message: "Logged out successfully" };
@@ -263,18 +259,18 @@ export const logout = async (type: "single" | "all") => {
 };
 
 export const validateSession = async () => {
-  const token = typeof window !== 'undefined' ? localStorage.getItem("accessToken") : null;
+  const token = storage.get("accessToken");
   if (!token) return;
 
   try {
-    await apiClient("/api/user/me"); 
+    await apiClient("/api/user/me");
   } catch (error) {
     console.warn("Session background check skipped.");
   }
 };
 
 export const refreshAccessToken = async (): Promise<string | null> => {
-  const refreshToken = localStorage.getItem("refreshToken");
+  const refreshToken = storage.get("refreshToken");
   if (!refreshToken) return null;
 
   try {
@@ -293,8 +289,8 @@ export const refreshAccessToken = async (): Promise<string | null> => {
     const newAccessToken = data.access_token || data.accessToken;
     const newRefreshToken = data.refresh_token || data.refreshToken;
 
-    if (newAccessToken) localStorage.setItem("accessToken", newAccessToken);
-    if (newRefreshToken) localStorage.setItem("refreshToken", newRefreshToken);
+    if (newAccessToken) storage.set("accessToken", newAccessToken);
+    if (newRefreshToken) storage.set("refreshToken", newRefreshToken);
 
     return newAccessToken;
   } catch {
@@ -303,9 +299,5 @@ export const refreshAccessToken = async (): Promise<string | null> => {
 };
 
 export const clearAuthData = () => {
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("refreshToken");
-  localStorage.removeItem("user");
-  localStorage.removeItem("profilePicture");
-  localStorage.removeItem("userId");
+  storage.clear();
 };

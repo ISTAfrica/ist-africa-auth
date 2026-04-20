@@ -30,6 +30,7 @@ import {
 import { Button } from '@/components/ui/button';
 import Logo from './Logo';
 import { cn } from '@/lib/utils';
+import { storage } from '@/lib/storage';
 import { Toaster } from './ui/sonner';
 import { LogoutDialog } from '@/components/auth/LogoutDialog';
 import { logout } from '@/services/authService';
@@ -142,7 +143,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
 
   useEffect(() => {
     const checkAuth = () => {
-      const token = localStorage.getItem('accessToken');
+      const token = storage.get('accessToken');
       if (!token) {
         router.replace('/auth/login');
       }
@@ -156,7 +157,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        const token = localStorage.getItem('accessToken');
+        const token = storage.get('accessToken');
         if (!token) return;
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/session`, {
           headers: { Authorization: `Bearer ${token}` },

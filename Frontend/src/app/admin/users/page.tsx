@@ -32,6 +32,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Search, Edit, Lock, Unlock, AppWindow } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { storage } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
 import {
   fetchUsers,
@@ -58,7 +59,7 @@ const AdminUsers = () => {
 
   useEffect(() => {
     // Get logged-in user ID safely on client
-    const userId = localStorage.getItem("userId");
+    const userId = storage.get("userId");
     setLoggedInUserId(userId);
 
     const loadUsers = async () => {
