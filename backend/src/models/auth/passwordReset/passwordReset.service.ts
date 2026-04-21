@@ -5,7 +5,7 @@ import { User } from '../../users/entities/user.entity';
 import { PasswordResetToken } from './entities/password-reset-token.model';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { EmailService } from './resetEmail/resetEmail.service';
+import { EmailService } from '../../../email/email.service';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 

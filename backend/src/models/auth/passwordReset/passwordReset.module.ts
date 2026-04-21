@@ -5,12 +5,12 @@ import { PasswordResetService } from './passwordReset.service';
 import { PasswordResetController } from './passwordReset.controller';
 import { User } from '../../users/entities/user.entity';
 import { PasswordResetToken } from './entities/password-reset-token.model';
-import { EmailResetModule } from './resetEmail/resetEmail.module';
+import { EmailModule } from '../../../email/email.module';
 
 @Module({
   imports: [
     SequelizeModule.forFeature([User, PasswordResetToken]),
-    EmailResetModule,
+    EmailModule,
     ConfigModule,
   ],
   controllers: [PasswordResetController],
