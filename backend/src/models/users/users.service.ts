@@ -10,6 +10,8 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { EmailService } from '../../email/email.service';
 import { ClientUser } from '../auth/entities/client-user.entity';
 import { Client } from '../clients/entities/client.entity';
+import { Company } from '../companies/entities/company.entity';
+import { UserCompany } from '../companies/entities/user-company.entity';
 
 @Injectable()
 export class UsersService {
@@ -20,8 +22,136 @@ export class UsersService {
     private readonly clientUserModel: typeof ClientUser,
     @InjectModel(Client)
     private readonly clientModel: typeof Client,
+    @InjectModel(Company)
+    private readonly companyModel: typeof Company,
+    @InjectModel(UserCompany)
+    private readonly userCompanyModel: typeof UserCompany,
     private readonly emailService: EmailService,
   ) {}
+
+  // -------------------- User → Companies (admin) --------------------
+
+  async listUserCompanies(userId: string) {
+    const user = await this.userModel.findByPk(userId);
+    if (!user) throw new NotFoundException(`User "${userId}" not found`);
+
+    const assignments = await this.userCompanyModel.findAll({
+      where: { userId },
+      order: [['created_at', 'DESC']],
+    });
+
+    if (assignments.length === 0) return [];
+
+    const companyIds = assignments.map((a) => a.companyId);
+    const companies = await this.companyModel.findAll({
+      where: { id: companyIds },
+      attributes: ['id', 'name', 'slug', 'description'],
+    });
+    const byId = new Map(companies.map((c) => [c.id, c]));
+
+    return assignments
+      .map((a) => {
+        const c = byId.get(a.companyId);
+        if (!c) return null;
+        return {
+          companyId: c.id,
+          name: c.name,
+          slug: c.slug,
+          description: c.description,
+          assignedAt: a.getDataValue('created_at') as Date | null,
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+  }
+
+  async assignUserCompanies(
+    userId: string,
+    companyIds: string[],
+    assignedBy: string,
+  ): Promise<{ added: number; skipped: number }> {
+    if (!Array.isArray(companyIds) || companyIds.length === 0) {
+      return { added: 0, skipped: 0 };
+    }
+    const user = await this.userModel.findByPk(userId);
+    if (!user) throw new NotFoundException(`User "${userId}" not found`);
+
+    const validCompanies = await this.companyModel.findAll({
+      where: { id: companyIds },
+      attributes: ['id'],
+    });
+    const validIds = validCompanies.map((c) => c.id);
+    if (validIds.length === 0) {
+      return { added: 0, skipped: companyIds.length };
+    }
+
+    const existingRows = await this.userCompanyModel.findAll({
+      where: { userId, companyId: validIds },
+      attributes: ['companyId'],
+    });
+    const existingIds = new Set(existingRows.map((r) => r.companyId));
+    const toAdd = validIds.filter((id) => !existingIds.has(id));
+
+    if (toAdd.length === 0) {
+      return { added: 0, skipped: companyIds.length };
+    }
+
+    await this.userCompanyModel.bulkCreate(
+      toAdd.map((companyId) => ({ userId, companyId, assignedBy })),
+    );
+
+    return { added: toAdd.length, skipped: companyIds.length - toAdd.length };
+  }
+
+  async removeUserCompanies(
+    userId: string,
+    companyIds: string[],
+  ): Promise<{ removed: number }> {
+    if (!Array.isArray(companyIds) || companyIds.length === 0) {
+      return { removed: 0 };
+    }
+    const user = await this.userModel.findByPk(userId);
+    if (!user) throw new NotFoundException(`User "${userId}" not found`);
+
+    const removed = await this.userCompanyModel.destroy({
+      where: { userId, companyId: companyIds },
+    });
+    return { removed };
+  }
+
+  async listAssignableCompanies(userId: string, q?: string, limit = 50) {
+    const user = await this.userModel.findByPk(userId);
+    if (!user) throw new NotFoundException(`User "${userId}" not found`);
+
+    const assignedRows = await this.userCompanyModel.findAll({
+      where: { userId },
+      attributes: ['companyId'],
+    });
+    const assignedIds = assignedRows.map((r) => r.companyId);
+
+    const where: Record<string | symbol, unknown> = {};
+    if (assignedIds.length) where.id = { [Op.notIn]: assignedIds };
+    if (q && q.trim()) {
+      const term = `%${q.trim()}%`;
+      where[Op.or] = [
+        { name: { [Op.iLike]: term } },
+        { slug: { [Op.iLike]: term } },
+      ];
+    }
+
+    const companies = await this.companyModel.findAll({
+      where,
+      attributes: ['id', 'name', 'slug', 'description'],
+      order: [['name', 'ASC']],
+      limit,
+    });
+
+    return companies.map((c) => ({
+      id: c.id,
+      name: c.name,
+      slug: c.slug,
+      description: c.description,
+    }));
+  }
 
   // -------------------- User → Apps (admin) --------------------
 

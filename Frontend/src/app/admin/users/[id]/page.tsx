@@ -29,6 +29,7 @@ import {
   Plus,
   Search,
   AppWindow,
+  Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 import AdminLayout from "@/components/AdminLayout";
@@ -41,7 +42,16 @@ import {
   removeUserClients,
   listAssignableClients,
 } from "@/services/userClients";
+import {
+  UserCompanyAssignment,
+  AssignableCompany,
+  listUserCompanies,
+  assignUserCompanies,
+  removeUserCompanies,
+  listAssignableCompanies,
+} from "@/services/userCompanies";
 import { BulkAssignClientsModal } from "@/components/admin/BulkAssignClientsModal";
+import { BulkAssignCompaniesModal } from "@/components/admin/BulkAssignCompaniesModal";
 
 export default function UserDetailPage() {
   const params = useParams<{ id: string }>();
@@ -61,6 +71,18 @@ export default function UserDetailPage() {
   const [addSearching, setAddSearching] = useState(false);
 
   const [bulkOpen, setBulkOpen] = useState(false);
+
+  const [companies, setCompanies] = useState<UserCompanyAssignment[]>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(true);
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [addCompanyQuery, setAddCompanyQuery] = useState("");
+  const [addCompanyResults, setAddCompanyResults] = useState<
+    AssignableCompany[]
+  >([]);
+  const [addCompanySearching, setAddCompanySearching] = useState(false);
+  const [bulkCompaniesOpen, setBulkCompaniesOpen] = useState(false);
 
   const fetchUserData = useCallback(async () => {
     setUserLoading(true);
@@ -95,6 +117,99 @@ export default function UserDetailPage() {
   useEffect(() => {
     fetchApps();
   }, [fetchApps]);
+
+  const fetchCompanies = useCallback(async () => {
+    setCompaniesLoading(true);
+    try {
+      const list = await listUserCompanies(userId);
+      setCompanies(list);
+      setSelectedCompanyIds(new Set());
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to load companies");
+    } finally {
+      setCompaniesLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    fetchCompanies();
+  }, [fetchCompanies]);
+
+  useEffect(() => {
+    if (!addCompanyQuery.trim()) {
+      setAddCompanyResults([]);
+      return;
+    }
+    const t = setTimeout(async () => {
+      setAddCompanySearching(true);
+      try {
+        const r = await listAssignableCompanies(userId, addCompanyQuery, 8);
+        setAddCompanyResults(r);
+      } finally {
+        setAddCompanySearching(false);
+      }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [addCompanyQuery, userId]);
+
+  const handleAssignOneCompany = async (c: AssignableCompany) => {
+    try {
+      const r = await assignUserCompanies(userId, [c.id]);
+      if (r.added > 0) {
+        toast.success(`Assigned ${c.name}`);
+      } else {
+        toast.info(`${c.name} was already assigned`);
+      }
+      setAddCompanyQuery("");
+      setAddCompanyResults([]);
+      fetchCompanies();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to assign company");
+    }
+  };
+
+  const handleRemoveOneCompany = async (a: UserCompanyAssignment) => {
+    if (!confirm(`Remove ${user?.name || user?.email} from ${a.name}?`))
+      return;
+    try {
+      await removeUserCompanies(userId, [a.companyId]);
+      toast.success(`Removed from ${a.name}`);
+      fetchCompanies();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to remove company");
+    }
+  };
+
+  const handleRemoveSelectedCompanies = async () => {
+    if (selectedCompanyIds.size === 0) return;
+    if (!confirm(`Remove from ${selectedCompanyIds.size} company(s)?`)) return;
+    try {
+      const r = await removeUserCompanies(
+        userId,
+        Array.from(selectedCompanyIds),
+      );
+      toast.success(`Removed from ${r.removed} company(s)`);
+      fetchCompanies();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to remove");
+    }
+  };
+
+  const toggleSelectedCompany = (id: string) => {
+    setSelectedCompanyIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllCompanies = () => {
+    if (selectedCompanyIds.size === companies.length) {
+      setSelectedCompanyIds(new Set());
+    } else {
+      setSelectedCompanyIds(new Set(companies.map((c) => c.companyId)));
+    }
+  };
 
   useEffect(() => {
     if (!addQuery.trim()) {
@@ -354,12 +469,160 @@ export default function UserDetailPage() {
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5" /> Companies ({companies.length})
+              </CardTitle>
+              <CardDescription>
+                Companies this user is associated with.
+              </CardDescription>
+            </div>
+            <Button onClick={() => setBulkCompaniesOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" /> Bulk Assign
+            </Button>
+          </CardHeader>
+
+          <CardContent className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search to assign a company (by name or slug)…"
+                value={addCompanyQuery}
+                onChange={(e) => setAddCompanyQuery(e.target.value)}
+                className="pl-9"
+              />
+              {addCompanyQuery && (
+                <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-72 overflow-auto">
+                  {addCompanySearching ? (
+                    <div className="p-3 text-sm text-muted-foreground flex items-center gap-2">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Searching…
+                    </div>
+                  ) : addCompanyResults.length === 0 ? (
+                    <div className="p-3 text-sm text-muted-foreground">
+                      No matching companies (or all already assigned).
+                    </div>
+                  ) : (
+                    addCompanyResults.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className="w-full text-left p-3 hover:bg-accent border-b last:border-b-0 flex items-center justify-between gap-3"
+                        onClick={() => handleAssignOneCompany(c)}
+                      >
+                        <div className="min-w-0">
+                          <div className="font-medium truncate">{c.name}</div>
+                          <div className="text-xs text-muted-foreground font-mono truncate">
+                            {c.slug}
+                          </div>
+                        </div>
+                        <Plus className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+
+            {selectedCompanyIds.size > 0 && (
+              <div className="flex items-center justify-end">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleRemoveSelectedCompanies}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" /> Remove ({selectedCompanyIds.size})
+                </Button>
+              </div>
+            )}
+
+            {companiesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : companies.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No companies assigned yet.
+              </div>
+            ) : (
+              <div className="border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-8">
+                        <input
+                          type="checkbox"
+                          checked={
+                            selectedCompanyIds.size === companies.length &&
+                            companies.length > 0
+                          }
+                          onChange={toggleSelectAllCompanies}
+                          aria-label="Select all"
+                        />
+                      </TableHead>
+                      <TableHead>Company</TableHead>
+                      <TableHead>Slug</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Assigned</TableHead>
+                      <TableHead className="text-right">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {companies.map((a) => (
+                      <TableRow key={a.companyId}>
+                        <TableCell>
+                          <input
+                            type="checkbox"
+                            checked={selectedCompanyIds.has(a.companyId)}
+                            onChange={() => toggleSelectedCompany(a.companyId)}
+                            aria-label={`Select ${a.name}`}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">{a.name}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground font-mono">
+                          {a.slug}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {a.description || "—"}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {a.assignedAt
+                            ? format(new Date(a.assignedAt), "yyyy-MM-dd")
+                            : "—"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveOneCompany(a)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <BulkAssignClientsModal
           open={bulkOpen}
           onOpenChange={setBulkOpen}
           userId={userId}
           userLabel={userLabel}
           onAssigned={fetchApps}
+        />
+
+        <BulkAssignCompaniesModal
+          open={bulkCompaniesOpen}
+          onOpenChange={setBulkCompaniesOpen}
+          userId={userId}
+          userLabel={userLabel}
+          onAssigned={fetchCompanies}
         />
       </div>
     </AdminLayout>

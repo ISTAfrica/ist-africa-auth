@@ -50,6 +50,49 @@ export class UsersController {
     return this.usersService.listAssignableClients(id, q, lim);
   }
 
+  // -------------------- User → Companies (admin) --------------------
+
+  @Get(':id/companies')
+  @UseGuards(AdminGuard)
+  listUserCompanies(@Param('id') id: string) {
+    return this.usersService.listUserCompanies(id);
+  }
+
+  @Post(':id/companies')
+  @UseGuards(AdminGuard)
+  assignUserCompanies(
+    @Param('id') id: string,
+    @Body() body: { companyIds: string[] },
+    @Req() req: Request,
+  ) {
+    const adminId = req.user?.id ?? '';
+    return this.usersService.assignUserCompanies(
+      id,
+      body.companyIds ?? [],
+      adminId,
+    );
+  }
+
+  @Delete(':id/companies')
+  @UseGuards(AdminGuard)
+  removeUserCompanies(
+    @Param('id') id: string,
+    @Body() body: { companyIds: string[] },
+  ) {
+    return this.usersService.removeUserCompanies(id, body.companyIds ?? []);
+  }
+
+  @Get(':id/companies/assignable')
+  @UseGuards(AdminGuard)
+  listAssignableCompanies(
+    @Param('id') id: string,
+    @Query('q') q?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const lim = limit ? Math.min(Number(limit) || 50, 200) : 50;
+    return this.usersService.listAssignableCompanies(id, q, lim);
+  }
+
   @Post()
   create(@Body() createUserDto: CreateUserDto) {
     return this.usersService.create(createUserDto);
