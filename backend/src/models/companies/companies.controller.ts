@@ -29,6 +29,14 @@ import {
 export class CompaniesController {
   constructor(private readonly companiesService: CompaniesService) {}
 
+  @Get('public')
+  @ApiOperation({
+    summary: 'Public list of companies (id, name, slug only) for signup form',
+  })
+  findAllPublic() {
+    return this.companiesService.findAllPublic();
+  }
+
   @Post()
   @UseGuards(AdminGuard)
   @HttpCode(201)

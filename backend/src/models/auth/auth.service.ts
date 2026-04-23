@@ -26,6 +26,8 @@ import { JwtTokenIssuerImpl } from '../../utils/implementation/jwt-token.issuer'
 import { ClientAppToken } from './entities/client-app-token.entity';
 import { AuthorizationCode } from './entities/authorization-code.entity';
 import { ClientUser } from './entities/client-user.entity';
+import { Company } from '../companies/entities/company.entity';
+import { UserCompany } from '../companies/entities/user-company.entity';
 import { DeviceInfo } from '../../utils/token';
 
 @Injectable()
@@ -48,6 +50,10 @@ export class AuthService {
     private readonly authCodeModel: typeof AuthorizationCode,
     @InjectModel(ClientUser)
     private readonly clientUserModel: typeof ClientUser,
+    @InjectModel(Company)
+    private readonly companyModel: typeof Company,
+    @InjectModel(UserCompany)
+    private readonly userCompanyModel: typeof UserCompany,
     private readonly configService: ConfigService,
     private emailService: EmailService,
   ) {
@@ -89,11 +95,18 @@ export class AuthService {
 
   // -------------------- Register --------------------
   async register(registerDto: RegisterUserDto) {
-    const { email, password, name } = registerDto;
+    const { email, password, name, companyId } = registerDto;
 
     const existingUser = await this.userModel.findOne({ where: { email } });
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
+    }
+
+    if (companyId) {
+      const company = await this.companyModel.findByPk(companyId);
+      if (!company) {
+        throw new BadRequestException('Selected company does not exist');
+      }
     }
 
     const domainsEnv = this.configService.get<string>('IST_DOMAINS') || '';
@@ -118,6 +131,14 @@ export class AuthService {
       membershipStatus,
       role: 'user',
     });
+
+    if (companyId) {
+      await this.userCompanyModel.create({
+        userId: user.id,
+        companyId,
+        assignedBy: null,
+      });
+    }
 
     const verifyUrlBase =
       process.env.BACKEND_URL ?? process.env.APP_URL ?? 'http://localhost:5000';

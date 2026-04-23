@@ -10,6 +10,8 @@ import { Client } from '../clients/entities/client.entity';
 import { ClientAppToken } from './entities/client-app-token.entity';
 import { AuthorizationCode } from './entities/authorization-code.entity';
 import { ClientUser } from './entities/client-user.entity';
+import { UserCompany } from '../companies/entities/user-company.entity';
+import { Company } from '../companies/entities/company.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -30,6 +32,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       ClientAppToken,
       AuthorizationCode,
       ClientUser,
+      UserCompany,
+      Company,
     ]),
     EmailModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),

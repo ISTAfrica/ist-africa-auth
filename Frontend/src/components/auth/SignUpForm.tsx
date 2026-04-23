@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AlertCircle, Loader2, Linkedin } from "lucide-react";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { registerUser } from "@/services/authService";
+import { getPublicCompanies, CompanyPublic } from "@/services/companiesService";
 
 export default function SignUpForm() {
   const router = useRouter();
@@ -17,10 +18,18 @@ export default function SignUpForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [companyId, setCompanyId] = useState("");
+  const [companies, setCompanies] = useState<CompanyPublic[]>([]);
   const [loading, setLoading] = useState(false);
   const [linkedinLoading, setLinkedinLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  useEffect(() => {
+    getPublicCompanies()
+      .then(setCompanies)
+      .catch(() => setCompanies([]));
+  }, []);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,7 +38,12 @@ export default function SignUpForm() {
     setLoading(true);
 
     try {
-      const result = await registerUser({ name, email, password });
+      const result = await registerUser({
+        name,
+        email,
+        password,
+        ...(companyId && { companyId }),
+      });
       setSuccess("Account created successfully! Redirecting to verify...");
       try {
         localStorage.setItem("pendingEmail", email);
@@ -117,6 +131,28 @@ export default function SignUpForm() {
             required
           />
         </div>
+
+        {companies.length > 0 && (
+          <div className="space-y-2">
+            <Label htmlFor="company">Company (optional)</Label>
+            <select
+              id="company"
+              value={companyId}
+              onChange={(e) => setCompanyId(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+            >
+              <option value="">— No company —</option>
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              You can update this later or have an admin assign one.
+            </p>
+          </div>
+        )}
 
         <Button
           type="submit"

@@ -59,6 +59,16 @@ export class CompaniesService {
     });
   }
 
+  async findAllPublic(): Promise<
+    Array<Pick<Company, 'id' | 'name' | 'slug'>>
+  > {
+    const rows = await this.companyModel.findAll({
+      attributes: ['id', 'name', 'slug'],
+      order: [['name', 'ASC']],
+    });
+    return rows.map((r) => ({ id: r.id, name: r.name, slug: r.slug }));
+  }
+
   async findOne(id: string): Promise<Company> {
     const company = await this.companyModel.findByPk(id);
     if (!company) {

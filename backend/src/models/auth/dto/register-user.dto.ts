@@ -1,15 +1,21 @@
 import {
   IsEmail,
   IsNotEmpty,
+  IsOptional,
   IsString,
+  IsUUID,
   MinLength,
-  Matches, 
+  Matches,
 } from 'class-validator';
 
 export class RegisterUserDto {
   @IsEmail()
   @IsNotEmpty({ message: 'Email should not be empty' })
   email: string;
+
+  @IsUUID(undefined, { message: 'companyId must be a valid UUID' })
+  @IsOptional()
+  companyId?: string;
 
   @IsString()
   @MinLength(8, { message: 'Password must be at least 8 characters long' })

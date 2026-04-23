@@ -12,6 +12,26 @@ export interface Company {
   updated_at: string;
 }
 
+export interface CompanyPublic {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export const getPublicCompanies = async (): Promise<CompanyPublic[]> => {
+  const response = await fetch(`${API_BASE_URL}/api/companies/public`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to fetch companies");
+  }
+
+  return response.json();
+};
+
 export interface CreateCompanyPayload {
   name: string;
   slug?: string;

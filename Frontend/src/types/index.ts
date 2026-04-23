@@ -7,6 +7,7 @@ export interface RegisterUserDto {
   name: string;
   email: string;
   password?: string;
+  companyId?: string;
 }
 
 export interface VerifyOtpDto {
