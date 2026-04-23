@@ -56,6 +56,10 @@ export class JwtTokenIssuerImpl implements JwtTokenIssuer {
       claims.name = payload.name;
     }
 
+    if (Array.isArray(payload.companies)) {
+      claims.companies = payload.companies;
+    }
+
     if (isClientToken && payload.client_id && payload.auth_code) {
       claims.client_id = payload.client_id;
       claims.auth_code = payload.auth_code;

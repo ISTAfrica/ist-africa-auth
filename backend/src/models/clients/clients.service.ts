@@ -3,6 +3,7 @@ import {
   Injectable,
   ConflictException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { ConfigService } from '@nestjs/config';
@@ -14,6 +15,8 @@ import { randomBytes, randomUUID } from 'crypto';
 import { hash } from 'bcryptjs';
 import { ClientUser } from '../auth/entities/client-user.entity';
 import { User } from '../users/entities/user.entity';
+import { Company } from '../companies/entities/company.entity';
+import { ClientCompany } from '../companies/entities/client-company.entity';
 
 @Injectable()
 export class ClientsService {
@@ -24,8 +27,46 @@ export class ClientsService {
     private readonly clientUserModel: typeof ClientUser,
     @InjectModel(User)
     private readonly userModel: typeof User,
+    @InjectModel(Company)
+    private readonly companyModel: typeof Company,
+    @InjectModel(ClientCompany)
+    private readonly clientCompanyModel: typeof ClientCompany,
     private readonly configService: ConfigService,
   ) {}
+
+  // -------------------- Client Companies helpers --------------------
+
+  private async validateCompanyIds(companyIds: string[]): Promise<void> {
+    if (companyIds.length === 0) return;
+    const found = await this.companyModel.findAll({
+      where: { id: companyIds },
+      attributes: ['id'],
+    });
+    if (found.length !== companyIds.length) {
+      throw new BadRequestException(
+        'One or more company_ids reference companies that do not exist',
+      );
+    }
+  }
+
+  private async replaceClientCompanies(
+    clientId: string,
+    companyIds: string[],
+  ): Promise<void> {
+    await this.clientCompanyModel.destroy({ where: { clientId } });
+    if (companyIds.length === 0) return;
+    await this.clientCompanyModel.bulkCreate(
+      companyIds.map((companyId) => ({ clientId, companyId })),
+    );
+  }
+
+  private async getClientCompanyIds(clientId: string): Promise<string[]> {
+    const rows = await this.clientCompanyModel.findAll({
+      where: { clientId },
+      attributes: ['companyId'],
+    });
+    return rows.map((r) => r.companyId);
+  }
 
   // -------------------- Client Members --------------------
 
@@ -187,6 +228,16 @@ export class ClientsService {
       throw new ConflictException('Client with this name already exists');
     }
 
+    const requiresCompany = createClientDto.requires_company ?? false;
+    const companyIds = createClientDto.company_ids ?? [];
+
+    if (requiresCompany && companyIds.length === 0) {
+      throw new BadRequestException(
+        'company_ids must contain at least one company when requires_company is true',
+      );
+    }
+    await this.validateCompanyIds(companyIds);
+
     const clientId = randomBytes(16).toString('hex');
     const rawClientSecret = randomBytes(32).toString('hex');
 
@@ -204,25 +255,50 @@ export class ClientsService {
       description: createClientDto.description,
       redirect_uri: createClientDto.redirect_uri,
       allowed_origins: createClientDto.allowed_origins,
+      requires_company: requiresCompany,
     });
+
+    await this.replaceClientCompanies(newClient.id, companyIds);
+
     const clientResponse = newClient.toJSON();
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     clientResponse.client_secret = rawClientSecret;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    clientResponse.company_ids = companyIds;
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return clientResponse;
   }
 
-  async findAll(): Promise<Omit<Client, 'client_secret'>[]> {
-    return this.clientModel.findAll({
+  async findAll(): Promise<Array<Record<string, unknown>>> {
+    const clients = await this.clientModel.findAll({
       attributes: {
         exclude: ['client_secret'],
       },
       order: [['created_at', 'DESC']],
     });
+
+    if (clients.length === 0) return [];
+
+    const allMemberships = await this.clientCompanyModel.findAll({
+      where: { clientId: clients.map((c) => c.id) },
+      attributes: ['clientId', 'companyId'],
+    });
+    const byClient = new Map<string, string[]>();
+    for (const m of allMemberships) {
+      const arr = byClient.get(m.clientId) ?? [];
+      arr.push(m.companyId);
+      byClient.set(m.clientId, arr);
+    }
+
+    return clients.map((c) => {
+      const json = c.toJSON() as Record<string, unknown>;
+      json.company_ids = byClient.get(c.id) ?? [];
+      return json;
+    });
   }
 
-  async findOne(id: string): Promise<Omit<Client, 'client_secret'>> {
+  async findOne(id: string): Promise<Record<string, unknown>> {
     const client = await this.clientModel.findByPk(id, {
       attributes: {
         exclude: ['client_secret'],
@@ -233,7 +309,10 @@ export class ClientsService {
       throw new NotFoundException(`Client with ID "${id}" not found`);
     }
 
-    return client;
+    const companyIds = await this.getClientCompanyIds(client.id);
+    const json = client.toJSON() as Record<string, unknown>;
+    json.company_ids = companyIds;
+    return json;
   }
 
   async regenerateClientSecret(id: string) {
@@ -266,7 +345,7 @@ export class ClientsService {
   async update(
     id: string,
     updateClientDto: UpdateClientDto,
-  ): Promise<Omit<Client, 'client_secret'>> {
+  ): Promise<Record<string, unknown>> {
     const client = await this.clientModel.findByPk(id);
 
     if (!client) {
@@ -284,20 +363,30 @@ export class ClientsService {
       }
     }
 
-    await client.update(updateClientDto);
-    const updatedClient = await this.clientModel.findByPk(id, {
-      attributes: {
-        exclude: ['client_secret'],
-      },
-    });
+    const { company_ids: incomingCompanyIds, ...scalarUpdates } =
+      updateClientDto;
 
-    if (!updatedClient) {
-      throw new NotFoundException(
-        `Client with ID "${id}" not found after update`,
+    const nextRequiresCompany =
+      scalarUpdates.requires_company ?? client.requires_company;
+    const nextCompanyIds =
+      incomingCompanyIds ?? (await this.getClientCompanyIds(client.id));
+
+    if (nextRequiresCompany && nextCompanyIds.length === 0) {
+      throw new BadRequestException(
+        'company_ids must contain at least one company when requires_company is true',
       );
     }
+    if (incomingCompanyIds !== undefined) {
+      await this.validateCompanyIds(incomingCompanyIds);
+    }
 
-    return updatedClient;
+    await client.update(scalarUpdates);
+
+    if (incomingCompanyIds !== undefined) {
+      await this.replaceClientCompanies(client.id, incomingCompanyIds);
+    }
+
+    return this.findOne(id);
   }
 
   async remove(id: string): Promise<{ message: string }> {

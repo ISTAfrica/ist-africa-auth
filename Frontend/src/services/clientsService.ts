@@ -13,6 +13,8 @@ export interface Client {
   allowed_origins: string[];
   created_at: string;
   status: "active" | "inactive";
+  requires_company: boolean;
+  company_ids: string[];
 }
 
 export interface NewClientResponse extends Client {
@@ -24,11 +26,13 @@ export interface ClientPublicInfo {
   description: string;
 }
 
-interface CreateClientPayload {
+export interface CreateClientPayload {
   name: string;
   description: string;
   redirect_uri: string;
   allowed_origins: string[];
+  requires_company: boolean;
+  company_ids: string[];
 }
 
 export const getClients = async (): Promise<Client[]> => {
@@ -116,7 +120,7 @@ export const getClientPublicInfo = async (
 
 export const updateClient = async (
   id: string,
-  payload: CreateClientPayload
+  payload: Partial<CreateClientPayload>
 ): Promise<Client> => {
   const response = await fetch(`${API_BASE_URL}/api/clients/${id}`, {
     method: 'PUT',

@@ -51,4 +51,9 @@ export class Client extends Model {
   @AllowNull(false)
   @Column(DataType.STRING)
   declare status: 'active' | 'inactive';
+
+  @Default(false)
+  @AllowNull(false)
+  @Column(DataType.BOOLEAN)
+  declare requires_company: boolean;
 }

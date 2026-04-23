@@ -4,10 +4,11 @@ import { CompaniesService } from './companies.service';
 import { CompaniesController } from './companies.controller';
 import { Company } from './entities/company.entity';
 import { UserCompany } from './entities/user-company.entity';
+import { ClientCompany } from './entities/client-company.entity';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [SequelizeModule.forFeature([Company, UserCompany]), AuthModule],
+  imports: [SequelizeModule.forFeature([Company, UserCompany, ClientCompany]), AuthModule],
   controllers: [CompaniesController],
   providers: [CompaniesService],
   exports: [CompaniesService],

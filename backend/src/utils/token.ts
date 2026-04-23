@@ -19,6 +19,7 @@ export interface JwtTokenRequest {
   client_secret?: string | null;
   profilePicture?: string | null;
   deviceInfo?: DeviceInfo | null;
+  companies?: string[] | null;
 }
 
 export interface JwtTokenResponse {

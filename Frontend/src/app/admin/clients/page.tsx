@@ -41,6 +41,7 @@ import {
   X,
   RefreshCcw,
   Users,
+  Building2,
 } from "lucide-react";
 
 import {
@@ -53,6 +54,10 @@ import {
   updateClient,
   deleteClient,
 } from "@/services/clientsService";
+import {
+  CompanyPublic,
+  getPublicCompanies,
+} from "@/services/companiesService";
 
 import { extractAndStoreTokensFromURL } from "@/services/authService";
 import AdminLayout from "@/components/AdminLayout";
@@ -79,6 +84,11 @@ export default function AdminClientsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState("");
 
+  // Companies (loaded once, reused by create + edit forms)
+  const [availableCompanies, setAvailableCompanies] = useState<CompanyPublic[]>(
+    []
+  );
+
   // Create Dialog State
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -88,6 +98,8 @@ export default function AdminClientsPage() {
   const [redirectUri, setRedirectUri] = useState("");
   const [allowedOrigins, setAllowedOrigins] = useState<string[]>([]);
   const [originInput, setOriginInput] = useState("");
+  const [requiresCompany, setRequiresCompany] = useState(false);
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState<string[]>([]);
   const [newClient, setNewClient] = useState<NewClientResponse | null>(null);
 
   // Regenerate Secret Dialog State
@@ -121,6 +133,16 @@ export default function AdminClientsPage() {
   const [editRedirectUri, setEditRedirectUri] = useState("");
   const [editAllowedOrigins, setEditAllowedOrigins] = useState<string[]>([]);
   const [editOriginInput, setEditOriginInput] = useState("");
+  const [editRequiresCompany, setEditRequiresCompany] = useState(false);
+  const [editSelectedCompanyIds, setEditSelectedCompanyIds] = useState<string[]>(
+    []
+  );
+
+  // Open-mode warning modal
+  const [openWarningDialog, setOpenWarningDialog] = useState(false);
+  const [pendingSaveAction, setPendingSaveAction] = useState<
+    (() => Promise<void>) | null
+  >(null);
 
   // Delete Dialog State
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -155,6 +177,24 @@ export default function AdminClientsPage() {
     };
     loadClients();
   }, []);
+
+  useEffect(() => {
+    getPublicCompanies()
+      .then(setAvailableCompanies)
+      .catch(() => setAvailableCompanies([]));
+  }, []);
+
+  const toggleCompanyId = (
+    companyId: string,
+    current: string[],
+    setter: (next: string[]) => void
+  ) => {
+    if (current.includes(companyId)) {
+      setter(current.filter((id) => id !== companyId));
+    } else {
+      setter([...current, companyId]);
+    }
+  };
 
   useEffect(() => {
     if (updateSuccess || deleteSuccess) {
@@ -218,7 +258,7 @@ export default function AdminClientsPage() {
   const handleEdit = async (client: Client) => {
     setEditDialogOpen(true);
     setEditError("");
-
+    setIsLoadingEdit(true);
     setClientToEdit(client);
 
     setEditName(client.name || "");
@@ -228,29 +268,52 @@ export default function AdminClientsPage() {
       Array.isArray(client.allowed_origins) ? client.allowed_origins : []
     );
     setEditOriginInput("");
+    setEditRequiresCompany(Boolean(client.requires_company));
+    setEditSelectedCompanyIds(
+      Array.isArray(client.company_ids) ? client.company_ids : []
+    );
 
-    setIsLoadingEdit(false);
+    // Fetch full client details (including company_ids) in case the row from list is stale
+    try {
+      const full = await getClientById(client.id);
+      setClientToEdit(full);
+      setEditRequiresCompany(Boolean(full.requires_company));
+      setEditSelectedCompanyIds(
+        Array.isArray(full.company_ids) ? full.company_ids : []
+      );
+    } catch {
+      // Non-fatal: fall back to the row data we already have
+    } finally {
+      setIsLoadingEdit(false);
+    }
   };
 
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const performSaveEdit = async () => {
     if (!clientToEdit) return;
-
     setIsSavingEdit(true);
     setEditError("");
 
     try {
+      if (editRequiresCompany && editSelectedCompanyIds.length === 0) {
+        setEditError(
+          "Pick at least one company, or turn off 'Requires company membership'."
+        );
+        return;
+      }
+
       const payload = {
         name: editName,
         description: editDescription,
         redirect_uri: editRedirectUri,
         allowed_origins: editAllowedOrigins.filter(Boolean),
+        requires_company: editRequiresCompany,
+        company_ids: editSelectedCompanyIds,
       };
 
-      await updateClient(clientToEdit.id, payload);
+      const updated = await updateClient(clientToEdit.id, payload);
 
       setClients((prev) =>
-        prev.map((c) => (c.id === clientToEdit.id ? { ...c, ...payload } : c))
+        prev.map((c) => (c.id === clientToEdit.id ? { ...c, ...updated } : c))
       );
 
       setEditDialogOpen(false);
@@ -263,6 +326,22 @@ export default function AdminClientsPage() {
     } finally {
       setIsSavingEdit(false);
     }
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clientToEdit) return;
+
+    // Warning if this change would make the app open to all users
+    const wasClosed = Boolean(clientToEdit.requires_company);
+    const isNowOpen = !editRequiresCompany;
+    if (wasClosed && isNowOpen) {
+      setPendingSaveAction(() => performSaveEdit);
+      setOpenWarningDialog(true);
+      return;
+    }
+
+    await performSaveEdit();
   };
 
   const handleDelete = (client: Client) => {
@@ -300,23 +379,31 @@ export default function AdminClientsPage() {
     }
   };
 
-  const handleCreateClient = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const performCreate = async () => {
     setIsSubmitting(true);
     setFormError("");
-  
+
     try {
+      if (requiresCompany && selectedCompanyIds.length === 0) {
+        setFormError(
+          "Pick at least one company, or turn off 'Requires company membership'."
+        );
+        return;
+      }
+
       // Include the current originInput if it exists and hasn't been added yet
       const finalOrigins: string[] = [...allowedOrigins];
       if (originInput.trim() && !allowedOrigins.includes(originInput.trim())) {
         finalOrigins.push(originInput.trim());
       }
-  
+
       const payload = {
         name,
         description,
         redirect_uri: redirectUri,
         allowed_origins: finalOrigins.filter(Boolean),
+        requires_company: requiresCompany,
+        company_ids: selectedCompanyIds,
       };
 
       const result = await createClient(payload);
@@ -327,6 +414,26 @@ export default function AdminClientsPage() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleCreateClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Warn when creating an "open" app
+    if (!requiresCompany) {
+      setPendingSaveAction(() => performCreate);
+      setOpenWarningDialog(true);
+      return;
+    }
+
+    await performCreate();
+  };
+
+  const confirmOpenMode = async () => {
+    const fn = pendingSaveAction;
+    setOpenWarningDialog(false);
+    setPendingSaveAction(null);
+    if (fn) await fn();
   };
 
   const handleRegenerateClientSecret = async (clientId: string) => {
@@ -366,6 +473,8 @@ export default function AdminClientsPage() {
     setRedirectUri("");
     setAllowedOrigins([]);
     setOriginInput("");
+    setRequiresCompany(false);
+    setSelectedCompanyIds([]);
     setFormError("");
     setNewClient(null);
     setIsDialogOpen(false);
@@ -518,6 +627,65 @@ export default function AdminClientsPage() {
               Press Enter to add each origin
             </p>
           </div>
+
+          <div className="space-y-2 border-t pt-4">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={requiresCompany}
+                onChange={(e) => setRequiresCompany(e.target.checked)}
+                className="mt-1"
+              />
+              <span>
+                <span className="font-medium">Requires company membership</span>
+                <span className="block text-xs text-muted-foreground">
+                  When on, users must belong to at least one selected company
+                  to log in. When off, the app is accessible to all users.
+                </span>
+              </span>
+            </label>
+
+            {requiresCompany && (
+              <div className="mt-2 space-y-2">
+                <Label>Companies this app serves</Label>
+                {availableCompanies.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    No companies yet. Create one first under Admin → Companies.
+                  </p>
+                ) : (
+                  <div className="border rounded-md max-h-48 overflow-auto divide-y">
+                    {availableCompanies.map((c) => (
+                      <label
+                        key={c.id}
+                        className="flex items-center gap-2 p-2 cursor-pointer hover:bg-accent"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedCompanyIds.includes(c.id)}
+                          onChange={() =>
+                            toggleCompanyId(
+                              c.id,
+                              selectedCompanyIds,
+                              setSelectedCompanyIds
+                            )
+                          }
+                        />
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium truncate">
+                            {c.name}
+                          </div>
+                          <div className="text-xs text-muted-foreground font-mono truncate">
+                            {c.slug}
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <Button type="submit" disabled={isSubmitting} className="w-full">
             {isSubmitting && <Loader2 className="animate-spin mr-2" />}
             {isSubmitting ? "Creating..." : "Create Client"}
@@ -786,6 +954,44 @@ export default function AdminClientsPage() {
                 </div>
 
                 <div>
+                  <Label className="text-sm font-semibold flex items-center gap-2">
+                    <Building2 className="h-4 w-4" /> Company access
+                  </Label>
+                  <div className="mt-1 space-y-1">
+                    {selectedClient.requires_company ? (
+                      <>
+                        <p className="text-sm">
+                          Requires membership in one of these companies:
+                        </p>
+                        {selectedClient.company_ids?.length ? (
+                          <ul className="text-sm list-disc ml-5">
+                            {selectedClient.company_ids.map((id) => {
+                              const c = availableCompanies.find(
+                                (x) => x.id === id
+                              );
+                              return (
+                                <li key={id}>
+                                  {c ? `${c.name} (${c.slug})` : id}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            No companies selected (this app cannot be logged
+                            into until at least one is picked).
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Open to all users — no company membership required.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
                   <Label className="text-sm font-semibold">Created At</Label>
                   <p className="text-sm mt-1">
                     {format(new Date(selectedClient.created_at), "PPpp")}
@@ -982,6 +1188,70 @@ export default function AdminClientsPage() {
                   </p>
                 </div>
 
+                <div className="space-y-2 border-t pt-4">
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editRequiresCompany}
+                      onChange={(e) =>
+                        setEditRequiresCompany(e.target.checked)
+                      }
+                      className="mt-1"
+                    />
+                    <span>
+                      <span className="font-medium">
+                        Requires company membership
+                      </span>
+                      <span className="block text-xs text-muted-foreground">
+                        When on, users must belong to at least one selected
+                        company to log in. When off, the app is accessible to
+                        all users.
+                      </span>
+                    </span>
+                  </label>
+
+                  {editRequiresCompany && (
+                    <div className="mt-2 space-y-2">
+                      <Label>Companies this app serves</Label>
+                      {availableCompanies.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          No companies yet. Create one first under Admin →
+                          Companies.
+                        </p>
+                      ) : (
+                        <div className="border rounded-md max-h-48 overflow-auto divide-y">
+                          {availableCompanies.map((c) => (
+                            <label
+                              key={c.id}
+                              className="flex items-center gap-2 p-2 cursor-pointer hover:bg-accent"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={editSelectedCompanyIds.includes(c.id)}
+                                onChange={() =>
+                                  toggleCompanyId(
+                                    c.id,
+                                    editSelectedCompanyIds,
+                                    setEditSelectedCompanyIds
+                                  )
+                                }
+                              />
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium truncate">
+                                  {c.name}
+                                </div>
+                                <div className="text-xs text-muted-foreground font-mono truncate">
+                                  {c.slug}
+                                </div>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex justify-end gap-2 pt-4">
                   <Button
                     type="button"
@@ -1000,6 +1270,44 @@ export default function AdminClientsPage() {
                 </div>
               </form>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* OPEN-MODE WARNING DIALOG */}
+        <Dialog
+          open={openWarningDialog}
+          onOpenChange={(open) => {
+            if (!open) setPendingSaveAction(null);
+            setOpenWarningDialog(open);
+          }}
+        >
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-amber-500" />
+                Make this app open to all users?
+              </DialogTitle>
+              <DialogDescription>
+                With &quot;Requires company membership&quot; turned off, any
+                registered user will be able to log into this app regardless of
+                their company. Is that what you want?
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setOpenWarningDialog(false);
+                  setPendingSaveAction(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={confirmOpenMode}>
+                Yes, make it open
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
 

@@ -4,6 +4,8 @@ import {
   IsArray,
   ArrayUnique,
   IsOptional,
+  IsBoolean,
+  IsUUID,
   MinLength,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
@@ -58,4 +60,16 @@ export class UpdateClientDto {
   )
   @IsOptional()
   allowed_origins?: string[];
+
+  @ApiProperty({ required: false })
+  @IsBoolean()
+  @IsOptional()
+  requires_company?: boolean;
+
+  @ApiProperty({ required: false })
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID(undefined, { each: true })
+  @IsOptional()
+  company_ids?: string[];
 }

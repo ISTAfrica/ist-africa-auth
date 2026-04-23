@@ -6,6 +6,8 @@ import {
   ArrayNotEmpty,
   ArrayUnique,
   IsOptional,
+  IsBoolean,
+  IsUUID,
   MinLength,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
@@ -55,4 +57,26 @@ export class CreateClientDto {
     { each: true },
   )
   allowed_origins: string[];
+
+  @ApiProperty({
+    example: false,
+    description:
+      'If true, users must be associated with at least one of the companies in company_ids to log in.',
+    required: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  requires_company?: boolean;
+
+  @ApiProperty({
+    example: ['uuid-1', 'uuid-2'],
+    description:
+      'Companies this client serves. Required when requires_company is true.',
+    required: false,
+  })
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID(undefined, { each: true })
+  @IsOptional()
+  company_ids?: string[];
 }

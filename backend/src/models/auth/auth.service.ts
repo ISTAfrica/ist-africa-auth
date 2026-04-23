@@ -28,6 +28,7 @@ import { AuthorizationCode } from './entities/authorization-code.entity';
 import { ClientUser } from './entities/client-user.entity';
 import { Company } from '../companies/entities/company.entity';
 import { UserCompany } from '../companies/entities/user-company.entity';
+import { ClientCompany } from '../companies/entities/client-company.entity';
 import { DeviceInfo } from '../../utils/token';
 
 @Injectable()
@@ -54,6 +55,8 @@ export class AuthService {
     private readonly companyModel: typeof Company,
     @InjectModel(UserCompany)
     private readonly userCompanyModel: typeof UserCompany,
+    @InjectModel(ClientCompany)
+    private readonly clientCompanyModel: typeof ClientCompany,
     private readonly configService: ConfigService,
     private emailService: EmailService,
   ) {
@@ -77,6 +80,64 @@ export class AuthService {
         `You do not have access to ${client.name}. Contact an administrator.`,
       );
     }
+  }
+
+  // -------------------- Company Access Check --------------------
+  /**
+   * Enforces the client's `requires_company` rule and returns the companies
+   * that should be included in the JWT `companies` claim.
+   *
+   * - Open app (requires_company=false): returns ALL of the user's companies
+   *   (informational — the app can display/filter by them).
+   * - Closed app (requires_company=true): returns the intersection of the
+   *   user's companies and the client's allowed companies. Throws
+   *   ForbiddenException if that intersection is empty.
+   *
+   * IAA admins bypass the requires_company check, but still receive their
+   * real companies in the claim.
+   */
+  private async assertAndResolveCompaniesForClient(
+    user: User,
+    client: Client,
+  ): Promise<string[]> {
+    const userCompanyIds = await this.getUserCompanyIds(user.id);
+
+    if (!client.requires_company) {
+      return userCompanyIds;
+    }
+
+    const allowedCompanyIds = await this.getClientCompanyIds(client.id);
+    const intersection = userCompanyIds.filter((id) =>
+      allowedCompanyIds.includes(id),
+    );
+
+    if (user.role === 'admin') {
+      return intersection; // admin bypass — still scoped to the client
+    }
+
+    if (intersection.length === 0) {
+      throw new ForbiddenException(
+        `You must be a member of one of the companies ${client.name} serves. Contact an administrator.`,
+      );
+    }
+
+    return intersection;
+  }
+
+  private async getUserCompanyIds(userId: string): Promise<string[]> {
+    const rows = await this.userCompanyModel.findAll({
+      where: { userId },
+      attributes: ['companyId'],
+    });
+    return rows.map((r) => r.companyId);
+  }
+
+  private async getClientCompanyIds(clientId: string): Promise<string[]> {
+    const rows = await this.clientCompanyModel.findAll({
+      where: { clientId },
+      attributes: ['companyId'],
+    });
+    return rows.map((r) => r.companyId);
   }
 
   // -------------------- OTP Utility --------------------
@@ -216,6 +277,7 @@ export class AuthService {
       { where: { id: user.id } },
     );
 
+    const companies = await this.getUserCompanyIds(user.id);
     const tokens = await this.jwtTokenIssuer.issueTokens({
       email: user.email,
       password: user.password,
@@ -224,6 +286,7 @@ export class AuthService {
       name: user.name,
       tokenVersion: user.tokenVersion,
       deviceInfo,
+      companies,
     });
 
     return {
@@ -268,6 +331,9 @@ export class AuthService {
       }
 
       await this.assertUserHasClientAccess(user, client);
+      // Fail fast if the user can't satisfy the client's company requirement.
+      // This prevents issuing an auth code that exchangeAuthCode would later reject.
+      await this.assertAndResolveCompaniesForClient(user, client);
 
       const code = randomBytes(32).toString('hex');
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
@@ -289,6 +355,7 @@ export class AuthService {
     }
 
     // -------------------- Direct Login (Password Grant) --------------------
+    const userCompanies = await this.getUserCompanyIds(user.id);
     return this.jwtTokenIssuer.issueTokens({
       email: user.email,
       password: user.password,
@@ -297,6 +364,7 @@ export class AuthService {
       name: user.name,
       tokenVersion: user.tokenVersion,
       deviceInfo,
+      companies: userCompanies,
     });
   }
 
@@ -343,6 +411,7 @@ export class AuthService {
       { where: { id: user.id } },
     );
 
+    const companies = await this.getUserCompanyIds(user.id);
     return this.jwtTokenIssuer.issueTokens({
       email: user.email,
       password: user.password,
@@ -350,10 +419,11 @@ export class AuthService {
       role: user.role,
       name: user.name,
       tokenVersion: user.tokenVersion,
+      companies,
     });
   }
 
- 
+
   // -------------------- Refresh Tokens --------------------
   async refreshTokens(refreshToken: string) {
     const storedTokens = await this.refreshTokenModel.findAll();
@@ -383,6 +453,7 @@ export class AuthService {
 
     await this.refreshTokenModel.destroy({ where: { id: matched.id } });
 
+    const companies = await this.getUserCompanyIds(user.id);
     const tokens = await this.jwtTokenIssuer.issueTokens({
       email: user.email,
       password: user.password,
@@ -391,6 +462,7 @@ export class AuthService {
       name: user.name,
       tokenVersion: user.tokenVersion,
       deviceInfo: previousDeviceInfo,
+      companies,
     });
 
     return {
@@ -445,6 +517,14 @@ export class AuthService {
       );
     }
 
+    // 5a. Re-verify company access (defense in depth — memberships may have
+    // changed between authorize and exchange) and compute the scoped
+    // companies claim for this client.
+    const scopedCompanies = await this.assertAndResolveCompaniesForClient(
+      user,
+      client,
+    );
+
     // 6. Generate tokens
     const tokenPair = await this.jwtTokenIssuer.issueTokens({
       email: user.email,
@@ -456,6 +536,7 @@ export class AuthService {
       auth_code: code,
       client_id: client.client_id,
       client_secret,
+      companies: scopedCompanies,
     });
 
     // Hash client secret for storage
@@ -593,6 +674,8 @@ export class AuthService {
       }
 
       await this.assertUserHasClientAccess(user, client);
+      // Fail fast on company requirement (exchangeAuthCode re-checks too).
+      await this.assertAndResolveCompaniesForClient(user, client);
 
       const code = randomBytes(32).toString('hex');
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
@@ -617,6 +700,7 @@ export class AuthService {
     }
 
     // -------------------- Direct Login (No OAuth2 Client) --------------------
+    const linkedinCompanies = await this.getUserCompanyIds(user.id);
     const { accessToken, refreshToken } = await this.jwtTokenIssuer.issueTokens(
       {
         userId: user.id,
@@ -624,6 +708,7 @@ export class AuthService {
         role: user.role,
         tokenVersion: user.tokenVersion,
         profilePicture: user.profilePicture,
+        companies: linkedinCompanies,
       },
     );
 
@@ -668,6 +753,15 @@ export class AuthService {
 
     if (!user) throw new NotFoundException('User not found');
 
+    const companyIds = await this.getUserCompanyIds(user.id);
+    const companyRows = companyIds.length
+      ? await this.companyModel.findAll({
+          where: { id: companyIds },
+          attributes: ['id', 'name', 'slug'],
+          order: [['name', 'ASC']],
+        })
+      : [];
+
     return {
       sub: user.id,
       email: user.email,
@@ -675,6 +769,11 @@ export class AuthService {
       picture: user.profilePicture,
       user_type: user.membershipStatus,
       created_at: user.createdAt,
+      companies: companyRows.map((c) => ({
+        id: c.id,
+        name: c.name,
+        slug: c.slug,
+      })),
     };
   }
 
