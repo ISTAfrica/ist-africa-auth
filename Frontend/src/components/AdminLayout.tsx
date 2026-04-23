@@ -13,6 +13,7 @@ import {
   Settings,
   LogOut,
   Menu,
+  Building2,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -43,6 +44,7 @@ interface AdminLayoutProps {
 const menuItems = [
   { title: 'Dashboard', url: '/admin/dashboard', icon: LayoutDashboard },
   { title: 'Clients', url: '/admin/clients', icon: Shield },
+  { title: 'Companies', url: '/admin/companies', icon: Building2 },
   { title: 'Users', url: '/admin/users', icon: Users },
   { title: 'Keys', url: '/admin/keys', icon: Key },
   { title: 'Sessions', url: '/admin/sessions', icon: Activity },

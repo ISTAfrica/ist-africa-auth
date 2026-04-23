@@ -11,6 +11,7 @@ import { databaseConfig } from '../config/database.config';
 import { EmailModule } from '../email/email.module';
 import { UserModule } from '../models/user/user.module';
 import { ClientsModule } from '../models/clients/clients.module';
+import { CompaniesModule } from '../models/companies/companies.module';
 import { DefaultAdminModule } from '../commons/services/default-admin/default-admin.module';
 import { JwksModule } from '../models/jwks/jwks.module'
 
@@ -35,6 +36,7 @@ import { JwksModule } from '../models/jwks/jwks.module'
     EmailModule,
     UserModule,
     ClientsModule,
+    CompaniesModule,
     DefaultAdminModule,
     JwksModule
   ],
